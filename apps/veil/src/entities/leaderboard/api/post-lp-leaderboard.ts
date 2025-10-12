@@ -79,11 +79,10 @@ async function queryLqtLps({
 export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<LpLeaderboardResponse> | LpLeaderboardErrorResponse>> {
-  const grpcEndpoint = process.env['PENUMBRA_GRPC_ENDPOINT'];
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
-  if (!grpcEndpoint || !chainId) {
+  if (!chainId) {
     return NextResponse.json(
-      { error: 'PENUMBRA_GRPC_ENDPOINT or PENUMBRA_CHAIN_ID is not set' },
+      { error: 'PENUMBRA_CHAIN_ID is not set' },
       { status: 500 },
     );
   }

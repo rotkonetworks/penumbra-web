@@ -17,11 +17,10 @@ export const TRACE_LIMIT_DEFAULT = 8;
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 
 export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiResponse>> {
-  const grpcEndpoint = process.env['PENUMBRA_GRPC_ENDPOINT'];
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
-  if (!grpcEndpoint || !chainId) {
+  if (!chainId) {
     return NextResponse.json(
-      { error: 'PENUMBRA_GRPC_ENDPOINT or PENUMBRA_CHAIN_ID is not set' },
+      { error: 'PENUMBRA_CHAIN_ID is not set' },
       { status: 500 },
     );
   }
