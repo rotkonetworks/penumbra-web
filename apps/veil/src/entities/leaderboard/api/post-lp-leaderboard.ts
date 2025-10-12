@@ -10,7 +10,6 @@ import { bech32mPositionId, positionIdFromBech32 } from '@penumbra-zone/bech32m/
 import { LpLeaderboardRequest, LpLeaderboardResponse, LpLeaderboardErrorResponse } from './utils';
 import { hexToUint8Array } from '@penumbra-zone/types/hex';
 import { DexService } from '@penumbra-zone/protobuf';
-import { createClient } from '@/shared/utils/protos/utils.ts';
 
 async function queryLqtLps({
   positionIds = [],
@@ -81,8 +80,12 @@ export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<LpLeaderboardResponse> | LpLeaderboardErrorResponse>> {
   const grpcEndpoint = process.env['PENUMBRA_GRPC_ENDPOINT'];
-  if (!grpcEndpoint) {
-    return NextResponse.json({ error: 'PENUMBRA_GRPC_ENDPOINT is not set' }, { status: 500 });
+  const chainId = process.env['PENUMBRA_CHAIN_ID'];
+  if (!grpcEndpoint || !chainId) {
+    return NextResponse.json(
+      { error: 'PENUMBRA_GRPC_ENDPOINT or PENUMBRA_CHAIN_ID is not set' },
+      { status: 500 },
+    );
   }
 
   const params = (await req.json()) as LpLeaderboardRequest;
@@ -102,12 +105,17 @@ export async function POST(
     pointsShare: lp.point_share,
   }));
 
-  const client = createClient(grpcEndpoint, DexService);
-  const positionsRes = await Array.fromAsync(
-    client.liquidityPositionsById({
+  // Use robust RPC client with automatic failover
+  const { makeRobustRpcCall } = await import('@/shared/utils/protos/robust-client');
+  const positionsResponse = await makeRobustRpcCall(
+    chainId,
+    DexService,
+    'liquidityPositionsById',
+    {
       positionId: lqtLps.map(lp => lp.positionId),
-    }),
+    },
   );
+  const positionsRes = Array.from(positionsResponse);
   const positions = positionsRes.map(r => r.data).filter(Boolean) as Position[];
 
   return NextResponse.json(

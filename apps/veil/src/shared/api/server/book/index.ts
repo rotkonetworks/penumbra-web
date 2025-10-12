@@ -10,8 +10,6 @@ import { RouteBookResponseJson } from '@/shared/api/server/book/types.ts';
 import { processSimulation } from '@/shared/api/server/book/helpers.ts';
 import { serializeResponse } from '@/shared/api/server/book/serialization.ts';
 import { SimulationService } from '@penumbra-zone/protobuf';
-import { Client } from '@connectrpc/connect';
-import { createClient } from '@/shared/utils/protos/utils.ts';
 
 export const VERY_HIGH_AMOUNT = new Amount({ hi: 10000n }); // Used as default to generate sufficient amount of traces
 export const TRACE_LIMIT_DEFAULT = 8;
@@ -82,10 +80,11 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
     output: baseAssetMetadata.penumbraAssetId,
   });
 
-  const client = createClient(grpcEndpoint, SimulationService);
+  // Use robust RPC client with automatic failover
+  const { makeRobustRpcCall } = await import('@/shared/utils/protos/robust-client');
   const [buyRes, sellRes] = await Promise.all([
-    simulateTrade(client, buySideRequest),
-    simulateTrade(client, sellSideRequest),
+    makeRobustRpcCall(chainId, SimulationService, 'simulateTrade', buySideRequest),
+    makeRobustRpcCall(chainId, SimulationService, 'simulateTrade', sellSideRequest),
   ]);
   const buyMulti = processSimulation({ res: buyRes, registry, limit, quote_to_base: false });
   const sellMulti = processSimulation({ res: sellRes, registry, limit, quote_to_base: true });
@@ -100,19 +99,3 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   return NextResponse.json(serializeResponse(response));
 }
 
-const simulateTrade = async (
-  client: Client<typeof SimulationService>,
-  req: SimulateTradeRequest,
-) => {
-  try {
-    return await client.simulateTrade(req);
-  } catch (e) {
-    // If the error contains 'there are no orders to fulfill this swap', there are no orders to fulfill the trade,
-    // so just return an empty array
-    if (e instanceof Error && e.message.includes('there are no orders to fulfill this swap')) {
-      return new SimulateTradeResponse({});
-    }
-
-    throw new Error(`Error retrieving route book: ${String(e)}`);
-  }
-};

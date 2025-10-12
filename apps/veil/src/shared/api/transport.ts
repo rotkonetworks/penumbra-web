@@ -9,12 +9,27 @@ import { useClientEnv } from './env';
 import { ClientEnv } from './env/types';
 
 const registryRpcChoices = async (env: ClientEnv) => {
-  if (env.PENUMBRA_CHAIN_ID === 'penumbra-1') {
-    const chainRegistryClient = new ChainRegistryClient();
-    const { rpcs } = await chainRegistryClient.remote.globals();
-    return rpcs.map(r => r.url);
-  } else if (env.PENUMBRA_GRPC_ENDPOINT) {
+  // Environment variable takes highest priority
+  if (env.PENUMBRA_GRPC_ENDPOINT) {
     return [env.PENUMBRA_GRPC_ENDPOINT];
+  }
+
+  // For mainnet, use GitHub registry with fallbacks
+  if (env.PENUMBRA_CHAIN_ID === 'penumbra-1') {
+    try {
+      const chainRegistryClient = new ChainRegistryClient();
+      const { rpcs } = await chainRegistryClient.remote.globals();
+      return rpcs.map(r => r.url);
+    } catch (error) {
+      console.warn('Failed to fetch RPC endpoints from registry, using fallbacks:', error);
+      // Hardcoded fallback endpoints
+      return [
+        'https://penumbra.crouton.digital',
+        'https://grpc.penumbra.silentvalidator.com',
+        'https://penumbra.grpc.ghostinnet.com',
+        'https://penumbra-1.radiantcommons.com',
+      ];
+    }
   } else {
     throw new Error(`No rpcs for chain id: ${env.PENUMBRA_CHAIN_ID}`);
   }
@@ -57,4 +72,14 @@ export const getGrpcTransport = (env: ClientEnv) => {
 export const useGrpcTransport = () => {
   const env = useClientEnv();
   return useQuery(getGrpcQueryOptions(env));
+};
+
+/**
+ * Refresh gRPC transport to try a different RPC endpoint.
+ * Useful when the current RPC is failing.
+ */
+export const refreshGrpcTransport = (env: ClientEnv) => {
+  return queryClient.invalidateQueries({ queryKey: ['grpcTransport'] }).then(() => {
+    return queryClient.fetchQuery(getGrpcQueryOptions(env));
+  });
 };
