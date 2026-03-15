@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { penumbra } from '@/shared/lib/penumbra';
 import { PenumbraClient } from '@penumbra-zone/client';
 
@@ -20,35 +20,31 @@ export const useIsConnected = (): boolean => {
   return connected;
 };
 
-export const useConnectWallet = () => {
-  const connectWallet = async () => {
-    const availableProviders = Object.keys(PenumbraClient.getProviders());
+export const useAvailableProviders = () => {
+  return useMemo(() => Object.keys(PenumbraClient.getProviders()), []);
+};
 
-    if (availableProviders.length === 0) {
-      // No wallet installed, redirect to install
+export const useConnectWallet = () => {
+  const providers = useAvailableProviders();
+
+  const connectWallet = async (providerOrigin?: string) => {
+    if (providers.length === 0) {
       window.open('https://praxwallet.com/', '_blank', 'noopener,noreferrer');
       return;
     }
 
-    if (availableProviders.length === 1 && availableProviders[0]) {
-      try {
-        await penumbra.connect(availableProviders[0]);
-      } catch (error) {
-        // Optionally handle error
-      }
-    } else if (availableProviders.length > 1) {
-      // Multiple providers - connect to first one for now
-      // TODO: Show provider selection dialog
-      try {
-        const firstProvider = availableProviders[0];
-        if (firstProvider) {
-          await penumbra.connect(firstProvider);
-        }
-      } catch (error) {
-        // Optionally handle error
-      }
+    const origin = providerOrigin ?? (providers.length === 1 ? providers[0] : undefined);
+    if (!origin) {
+      // Multiple providers but none specified — caller should show a picker
+      return;
+    }
+
+    try {
+      await penumbra.connect(origin);
+    } catch {
+      // Connection error handled by error boundary
     }
   };
 
-  return { connectWallet };
+  return { connectWallet, providers };
 };

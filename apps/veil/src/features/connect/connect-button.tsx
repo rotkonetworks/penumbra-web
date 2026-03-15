@@ -50,7 +50,7 @@ const ConnectButtonInner = observer(
                 window.open('https://praxwallet.com/', '_blank', 'noopener,noreferrer')
               }
             >
-              Install Prax
+              Get Wallet
             </Button>
           ) : (
             <Button

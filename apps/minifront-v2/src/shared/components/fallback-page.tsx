@@ -6,9 +6,10 @@ import { AlertTriangle } from 'lucide-react';
 interface FallbackPageProps {
   title: string;
   description: string;
-  buttonText: string;
-  onButtonClick: () => void;
+  buttonText?: string;
+  onButtonClick?: () => void;
   errorDetails?: string;
+  children?: React.ReactNode;
 }
 
 export const FallbackPage = ({
@@ -17,6 +18,7 @@ export const FallbackPage = ({
   buttonText,
   onButtonClick,
   errorDetails,
+  children,
 }: FallbackPageProps) => {
   return (
     <div className="flex min-h-screen scale-125 flex-col items-center justify-center bg-[url('/assets/background/shield-background.svg')] bg-cover bg-center bg-no-repeat p-8 lg:scale-100">
@@ -52,15 +54,17 @@ export const FallbackPage = ({
             {errorDetails && (
               <div className='text-text-error font-mono text-sm'>{errorDetails}</div>
             )}
-            <div className='mt-4 flex w-full'>
-              <Button
-                actionType='accent'
-                priority='primary'
-                density='sparse'
-                onClick={onButtonClick}
-              >
-                {buttonText}
-              </Button>
+            <div className='mt-4 flex w-full flex-col gap-2'>
+              {children ?? (
+                <Button
+                  actionType='accent'
+                  priority='primary'
+                  density='sparse'
+                  onClick={onButtonClick}
+                >
+                  {buttonText}
+                </Button>
+              )}
             </div>
           </div>
         </Card>

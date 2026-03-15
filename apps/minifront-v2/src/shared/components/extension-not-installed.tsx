@@ -1,22 +1,28 @@
+import { Button } from '@penumbra-zone/ui/Button';
 import { FallbackPage } from './fallback-page';
 
-const CHROME_EXTENSION_ID = 'lkpmkhpnhknhmibgnmmhdhgdilepfghe';
+const WALLETS = [
+  { name: 'Prax', url: 'https://praxwallet.com/' },
+  { name: 'Zafu', url: 'https://zafu.rotko.net/' },
+];
 
 export const ExtensionNotInstalled = () => {
-  const openInstallPage = () => {
-    window.open(
-      `https://chrome.google.com/webstore/detail/penumbra-wallet/${CHROME_EXTENSION_ID}`,
-      '_blank',
-      'noreferrer',
-    );
-  };
-
   return (
     <FallbackPage
-      title='Welcome to Penumbra'
-      description='To get started, install Prax, the default Penumbra wallet in your browser.'
-      buttonText='Install Prax'
-      onButtonClick={openInstallPage}
-    />
+      title='Get a Wallet'
+      description='A Penumbra wallet extension is required to continue.'
+    >
+      {WALLETS.map(wallet => (
+        <Button
+          key={wallet.name}
+          actionType='accent'
+          priority='secondary'
+          density='sparse'
+          onClick={() => window.open(wallet.url, '_blank', 'noopener,noreferrer')}
+        >
+          Get {wallet.name}
+        </Button>
+      ))}
+    </FallbackPage>
   );
 };
