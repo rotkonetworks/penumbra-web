@@ -127,25 +127,24 @@ export const Chart = observer(() => {
 
   const buildMenuItems = (price: number): PriceMenuItem[] => {
     const priceStr = formatPrice(price);
-    const apply = (direction: 'buy' | 'sell') => () => {
+    const applyLimit = (direction: 'buy' | 'sell') => () => {
       tradeFormStore.setWhichForm('Limit');
       tradeFormStore.limitForm.setDirection(direction);
       tradeFormStore.limitForm.setPriceInput(priceStr);
     };
+    const applyLPBound = (which: 'lower' | 'upper') => () => {
+      tradeFormStore.setWhichForm('SimpleLP');
+      const setter =
+        which === 'lower'
+          ? tradeFormStore.simpleLPForm.setLowerPriceInput
+          : tradeFormStore.simpleLPForm.setUpperPriceInput;
+      setter(price);
+    };
     return [
-      { label: 'Buy at this price', tone: 'buy', onSelect: apply('buy') },
-      { label: 'Sell at this price', tone: 'sell', onSelect: apply('sell') },
-      {
-        label: 'Provide liquidity here',
-        tone: 'neutral',
-        onSelect: () => {
-          tradeFormStore.setWhichForm('SimpleLP');
-          // SimpleLPFormStore exposes target-price-style inputs, but no single
-          // setter. Setting Limit form first preserves the price for the
-          // user to copy/reference; full LP wiring lands in a later iteration.
-          tradeFormStore.limitForm.setPriceInput(priceStr);
-        },
-      },
+      { label: 'Buy at this price', tone: 'buy', onSelect: applyLimit('buy') },
+      { label: 'Sell at this price', tone: 'sell', onSelect: applyLimit('sell') },
+      { label: 'Set as LP lower bound', tone: 'neutral', onSelect: applyLPBound('lower') },
+      { label: 'Set as LP upper bound', tone: 'neutral', onSelect: applyLPBound('upper') },
     ];
   };
 

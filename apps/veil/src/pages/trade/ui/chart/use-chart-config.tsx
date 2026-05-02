@@ -107,6 +107,9 @@ export const useChartConfig = (
           background: {
             color: 'transparent',
           },
+          // Hide the lightweight-charts TradingView attribution badge —
+          // it links offsite and adds visual noise on a trade page.
+          attributionLogo: false,
         },
         grid: {
           vertLines: {
