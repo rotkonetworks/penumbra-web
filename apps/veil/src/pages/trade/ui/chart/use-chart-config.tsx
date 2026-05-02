@@ -182,6 +182,15 @@ export const useChartConfig = (
     return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
   }, []);
 
+  // Inverse: a price → its current Y coordinate on the candle series.
+  // Returns undefined if the chart isn't ready or the price is off-scale.
+  const yAtPrice = useCallback((price: number): number | undefined => {
+    const series = seriesRef.current;
+    if (!series) return undefined;
+    const coord = series.priceToCoordinate(price);
+    return typeof coord === 'number' && Number.isFinite(coord) ? coord : undefined;
+  }, []);
+
   return {
     chartRef: setChartRef,
     setVolumeData,
@@ -189,5 +198,6 @@ export const useChartConfig = (
     setVolumeRatio,
     chartElRef,
     priceAtY,
+    yAtPrice,
   };
 };

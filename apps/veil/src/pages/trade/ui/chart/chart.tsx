@@ -16,6 +16,7 @@ import { ChartLoadingState } from './loading-chart';
 import { useChartConfig } from './use-chart-config';
 import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
+import { DepthOverlay } from './depth-overlay';
 
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
 
@@ -43,10 +44,8 @@ export const Chart = observer(() => {
     isFetching.current = false;
   };
 
-  const { chartRef, setVolumeData, setCandlesData, setVolumeRatio, priceAtY } = useChartConfig(
-    fetchNext,
-    isFetching,
-  );
+  const { chartRef, setVolumeData, setCandlesData, setVolumeRatio, priceAtY, yAtPrice } =
+    useChartConfig(fetchNext, isFetching);
 
   const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
 
@@ -176,6 +175,7 @@ export const Chart = observer(() => {
         {!error && !isLoading && historyCandles && (
           <>
             <div className='h-full w-full' ref={chartRef} />
+            <DepthOverlay yAtPrice={yAtPrice} />
             <div
               role='separator'
               aria-orientation='horizontal'
