@@ -1,6 +1,7 @@
-// Redirects "/" and "/trade" paths to paths defined in the routing middleware.
+// "/" → /explore, "/trade" → last-viewed pair (cookie) or default,
+// "/trade/:base/:quote" → records last-viewed pair in a cookie.
 export const config = {
-  matcher: ['/', '/trade'],
+  matcher: ['/', '/trade', '/trade/:base/:quote'],
 };
 
 export { routingMiddleware as middleware } from '@/shared/index.server';
