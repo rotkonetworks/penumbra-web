@@ -169,11 +169,22 @@ export const useChartConfig = (
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dependent data is called from the function using current data
   }, []);
 
+  // Convert a vertical pixel offset (relative to chart container) to a price
+  // on the candle series. Returns undefined if the chart isn't ready or the
+  // y is outside the price scale range.
+  const priceAtY = useCallback((y: number): number | undefined => {
+    const series = seriesRef.current;
+    if (!series) return undefined;
+    const price = series.coordinateToPrice(y);
+    return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
+  }, []);
+
   return {
     chartRef: setChartRef,
     setVolumeData,
     setCandlesData,
     setVolumeRatio,
     chartElRef,
+    priceAtY,
   };
 };

@@ -361,6 +361,11 @@ function getAccountAddress(subAccounts: AddressView[] | undefined) {
 
 const orderFormStore = new OrderFormStore();
 
+// Exposed so other panels (chart, route book, market trades) can prefill
+// the form by reaching into the singleton — keeps interactions consistent
+// across desktop/lg/xl layouts where the form is in a separate column.
+export const tradeFormStore = orderFormStore;
+
 export const useOrderFormStore = () => {
   const { subaccount } = connectionStore;
   const { data: registryUM } = useStakingTokenMetadata();

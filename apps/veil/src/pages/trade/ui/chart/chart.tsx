@@ -1,6 +1,12 @@
 import cn from 'clsx';
 import { observer } from 'mobx-react-lite';
-import { PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
+import {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { DurationWindow, durationWindows } from '@/shared/utils/duration.ts';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
@@ -8,6 +14,8 @@ import { useInfiniteCandles } from '../../api/infinite-candles';
 import { useLatestCandles } from '../../api/latest-candles';
 import { ChartLoadingState } from './loading-chart';
 import { useChartConfig } from './use-chart-config';
+import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
+import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
 
@@ -35,10 +43,12 @@ export const Chart = observer(() => {
     isFetching.current = false;
   };
 
-  const { chartRef, setVolumeData, setCandlesData, setVolumeRatio } = useChartConfig(
+  const { chartRef, setVolumeData, setCandlesData, setVolumeRatio, priceAtY } = useChartConfig(
     fetchNext,
     isFetching,
   );
+
+  const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
 
   useEffect(() => {
     const initial = readStoredVolumeRatio();
@@ -97,6 +107,48 @@ export const Chart = observer(() => {
     volumeRatioRefValue.current = volumeRatio;
   }, [volumeRatio]);
 
+  const onContextMenu = (e: ReactMouseEvent) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const price = priceAtY(y);
+    if (price === undefined) return;
+    e.preventDefault();
+    setMenu({ x: e.clientX - rect.left, y, price });
+  };
+
+  const formatPrice = (p: number): string => {
+    if (p >= 1) return p.toFixed(4);
+    if (p >= 0.01) return p.toFixed(5);
+    if (p >= 0.0001) return p.toFixed(6);
+    return p.toPrecision(4);
+  };
+
+  const buildMenuItems = (price: number): PriceMenuItem[] => {
+    const priceStr = formatPrice(price);
+    const apply = (direction: 'buy' | 'sell') => () => {
+      tradeFormStore.setWhichForm('Limit');
+      tradeFormStore.limitForm.setDirection(direction);
+      tradeFormStore.limitForm.setPriceInput(priceStr);
+    };
+    return [
+      { label: 'Buy at this price', tone: 'buy', onSelect: apply('buy') },
+      { label: 'Sell at this price', tone: 'sell', onSelect: apply('sell') },
+      {
+        label: 'Provide liquidity here',
+        tone: 'neutral',
+        onSelect: () => {
+          tradeFormStore.setWhichForm('SimpleLP');
+          // SimpleLPFormStore exposes target-price-style inputs, but no single
+          // setter. Setting Limit form first preserves the price for the
+          // user to copy/reference; full LP wiring lands in a later iteration.
+          tradeFormStore.limitForm.setPriceInput(priceStr);
+        },
+      },
+    ];
+  };
+
   return (
     <div className='flex h-full min-h-0 flex-col'>
       <div className='flex border-b border-b-other-solid-stroke px-3'>
@@ -115,7 +167,11 @@ export const Chart = observer(() => {
         ))}
       </div>
 
-      <div className='relative flex min-h-0 grow items-center justify-center' ref={containerRef}>
+      <div
+        className='relative flex min-h-0 grow items-center justify-center'
+        ref={containerRef}
+        onContextMenu={onContextMenu}
+      >
         {error && <BlockchainError direction='column' />}
         {!error && isLoading && <ChartLoadingState />}
         {!error && !isLoading && historyCandles && (
@@ -128,6 +184,15 @@ export const Chart = observer(() => {
               className='absolute left-0 right-0 z-10 h-2 -translate-y-1/2 cursor-row-resize bg-transparent hover:bg-other-solid-stroke/40'
               style={{ top: `${(1 - volumeRatio) * 100}%` }}
             />
+            {menu && (
+              <PriceContextMenu
+                x={menu.x}
+                y={menu.y}
+                price={formatPrice(menu.price)}
+                items={buildMenuItems(menu.price)}
+                onClose={() => setMenu(null)}
+              />
+            )}
           </>
         )}
       </div>
