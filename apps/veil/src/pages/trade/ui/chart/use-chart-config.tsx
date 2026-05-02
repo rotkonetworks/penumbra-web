@@ -6,6 +6,24 @@ import { CandleWithVolume } from '@/shared/api/server/candles/utils';
 // if `high` / `open` ratio is greater than this value, the chart will limit `high` to `open * RATIO`
 const SUPER_CANDLE_RATIO = 3;
 
+// Compute price-axis precision so at least 2 significant digits are visible.
+// Examples:
+//   price = 1234   → precision 2  ("1234.00")
+//   price = 12.3   → precision 2  ("12.30")
+//   price = 1.23   → precision 3  ("1.234")
+//   price = 0.123  → precision 4  ("0.1234")
+//   price = 0.005  → precision 5  ("0.00500")
+//   price = 0.0001 → precision 6  ("0.000100")
+const priceFormatFor = (price: number): { precision: number; minMove: number } => {
+  if (!Number.isFinite(price) || price <= 0) {
+    return { precision: 2, minMove: 0.01 };
+  }
+  const order = Math.floor(Math.log10(price));
+  const precision = Math.min(8, Math.max(2, 2 - order));
+  const minMove = Math.pow(10, -precision);
+  return { precision, minMove };
+};
+
 export const useChartConfig = (
   loadMore: () => Promise<void>,
   loadingDisabled: RefObject<boolean>,
@@ -14,6 +32,18 @@ export const useChartConfig = (
   const chartRef = useRef<IChartApi>(undefined);
   const seriesRef = useRef<ReturnType<IChartApi['addCandlestickSeries']>>(undefined);
   const volumeSeriesRef = useRef<ReturnType<IChartApi['addHistogramSeries']>>(undefined);
+  const volumeRatioRef = useRef<number>(0.2);
+
+  const setVolumeRatio = useCallback((ratio: number) => {
+    const clamped = Math.min(0.6, Math.max(0.05, ratio));
+    volumeRatioRef.current = clamped;
+    seriesRef.current?.priceScale().applyOptions({
+      scaleMargins: { top: 0.05, bottom: clamped },
+    });
+    volumeSeriesRef.current?.priceScale().applyOptions({
+      scaleMargins: { top: 1 - clamped, bottom: 0 },
+    });
+  }, []);
 
   const setCandlesData = (candles: CandleWithVolume[] = []) => {
     seriesRef.current?.setData(
@@ -26,6 +56,22 @@ export const useChartConfig = (
             : candle.ohlc.high,
       })),
     );
+
+    // Derive a representative price (median close) so axis labels and the
+    // crosshair show 2+ significant digits even for sub-cent prices.
+    if (candles.length > 0 && seriesRef.current) {
+      const closes = candles
+        .map(c => c.ohlc.close)
+        .filter(c => Number.isFinite(c) && c > 0)
+        .sort((a, b) => a - b);
+      const median = closes.length > 0 ? closes[Math.floor(closes.length / 2)] : undefined;
+      if (median !== undefined) {
+        const { precision, minMove } = priceFormatFor(median);
+        seriesRef.current.applyOptions({
+          priceFormat: { type: 'price', precision, minMove },
+        });
+      }
+    }
   };
 
   const setVolumeData = (candles: CandleWithVolume[] = []) => {
@@ -86,9 +132,11 @@ export const useChartConfig = (
         wickDownColor: theme.color.destructive.light,
       });
 
-      // Set the price scale margins for the candlestick series
+      // Set the price scale margins for the candlestick series.
+      // bottom margin reserves space for the volume pane below.
       seriesRef.current.priceScale().applyOptions({
         autoScale: true,
+        scaleMargins: { top: 0.05, bottom: volumeRatioRef.current },
       });
 
       // Initialize the volume series
@@ -102,10 +150,10 @@ export const useChartConfig = (
         priceLineVisible: false,
       });
 
-      // Set the price scale margins for the candlestick series
+      // Volume occupies the bottom `volumeRatio` of the pane.
       volumeSeriesRef.current.priceScale().applyOptions({
         scaleMargins: {
-          top: 0.8, // highest point of the series will be 70% away from the top
+          top: 1 - volumeRatioRef.current,
           bottom: 0,
         },
       });
@@ -125,5 +173,7 @@ export const useChartConfig = (
     chartRef: setChartRef,
     setVolumeData,
     setCandlesData,
+    setVolumeRatio,
+    chartElRef,
   };
 };
