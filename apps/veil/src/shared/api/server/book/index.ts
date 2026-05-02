@@ -18,6 +18,16 @@ export const TRACE_LIMIT_DEFAULT = 8;
 
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 
+// Server-side cache for route book responses. pd's simulateTrade is
+// CPU-expensive (walks all liquidity positions) so we cache identical
+// queries for ~6s (one block). Keyed by base+quote+limit. Concurrent
+// requests for the same key share a single in-flight promise so we
+// never hammer pd with duplicate work.
+type CacheEntry = { data: RouteBookResponseJson; expiresAt: number };
+const cache = new Map<string, CacheEntry>();
+const inflight = new Map<string, Promise<RouteBookResponseJson>>();
+const CACHE_TTL_MS = 6_000;
+
 export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiResponse>> {
   // Prefer a server-only internal endpoint (localhost / private network) to
   // skip TLS, NAT, and reverse-proxy overhead. Falls back to public endpoint.
@@ -43,10 +53,61 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
     );
   }
 
+  const cacheKey = `${baseAssetSymbol.toLowerCase()}|${quoteAssetSymbol.toLowerCase()}|${limit}`;
+  const now = Date.now();
+
+  // Fast path: serve from in-memory cache if fresh.
+  const cached = cache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return NextResponse.json(cached.data, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+        'X-Cache': 'HIT',
+      },
+    });
+  }
+
+  // Single-flight: if another request for the same key is already
+  // computing, await it instead of starting a duplicate pd query.
+  const existing = inflight.get(cacheKey);
+  if (existing) {
+    const data = await existing;
+    return NextResponse.json(data, {
+      headers: { 'X-Cache': 'INFLIGHT' },
+    });
+  }
+
+  const compute = (async (): Promise<RouteBookResponseJson> => {
+    return await computeRouteBook(grpcEndpoint, chainId, baseAssetSymbol, quoteAssetSymbol, limit);
+  })();
+  inflight.set(cacheKey, compute);
+
+  let data: RouteBookResponseJson;
+  try {
+    data = await compute;
+    cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  } finally {
+    inflight.delete(cacheKey);
+  }
+
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+      'X-Cache': 'MISS',
+    },
+  });
+}
+
+async function computeRouteBook(
+  grpcEndpoint: string,
+  chainId: string,
+  baseAssetSymbol: string,
+  quoteAssetSymbol: string,
+  limit: number,
+): Promise<RouteBookResponseJson> {
   const registryClient = new ChainRegistryClient();
   const registry = await registryClient.remote.get(chainId);
 
-  // TODO: Add getMetadataBySymbol() helper to registry npm package
   const allAssets = registry.getAllAssets();
   const baseAssetMetadata = allAssets.find(
     a => a.symbol.toLowerCase() === baseAssetSymbol.toLowerCase(),
@@ -55,21 +116,11 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
     a => a.symbol.toLowerCase() === quoteAssetSymbol.toLowerCase(),
   );
   if (!baseAssetMetadata || !quoteAssetMetadata) {
-    return NextResponse.json(
-      { error: `Base asset or quoteAsset metadata not found in registry` },
-      { status: 400 },
-    );
+    throw new Error('Base asset or quoteAsset metadata not found in registry');
   }
 
-  // We use the simulate trade queries with an absurd amount of input
-  // to exhaust the liquidity at every price point. The RPC will return
-  // a stack of traces that will let us represent the amount of inventory
-  // available at every price relevant price point.
-  //
-  // To do this, we simulate two large trades in opposite directions.
   const buySideRequest = new SimulateTradeRequest({
     input: new Value({
-      // We sell the base asset, to discover traces of the buy side (quote asset).
       assetId: baseAssetMetadata.penumbraAssetId,
       amount: VERY_HIGH_AMOUNT,
     }),
@@ -78,7 +129,6 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
 
   const sellSideRequest = new SimulateTradeRequest({
     input: new Value({
-      // We simulate a buy of the base asset, to discover traces of the sell side.
       assetId: quoteAssetMetadata.penumbraAssetId,
       amount: VERY_HIGH_AMOUNT,
     }),
@@ -93,20 +143,12 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   const buyMulti = processSimulation({ res: buyRes, registry, limit, quote_to_base: false });
   const sellMulti = processSimulation({ res: sellRes, registry, limit, quote_to_base: true });
 
-  const response = {
+  return serializeResponse({
     singleHops: {
       buy: buyMulti.filter(t => t.hops.length === 2),
       sell: sellMulti.filter(t => t.hops.length === 2),
     },
     multiHops: { buy: buyMulti, sell: sellMulti },
-  };
-  // Cache the route book for 3 seconds (block time is ~6s on penumbra-1).
-  // s-maxage controls Cloudflare/CDN caches; stale-while-revalidate keeps
-  // serving stale data while a fresh response is computed in background.
-  return NextResponse.json(serializeResponse(response), {
-    headers: {
-      'Cache-Control': 'public, s-maxage=3, stale-while-revalidate=10',
-    },
   });
 }
 
