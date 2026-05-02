@@ -2,6 +2,7 @@ import { observer } from 'mobx-react-lite';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
+import { DepositButton } from '@/features/deposit/deposit-button';
 import { SubaccountSelector } from '@/widgets/header/ui/subaccount-selector';
 
 export interface ConnectionProps {
@@ -23,11 +24,19 @@ export const Connection = observer(({ mobile }: ConnectionProps) => {
 
   if (mobile) {
     return (
-      <div className='max-w-32'>
-        <SubaccountSelector mobile />
+      <div className='flex items-center gap-2'>
+        <DepositButton variant='mobile' />
+        <div className='max-w-32'>
+          <SubaccountSelector mobile />
+        </div>
       </div>
     );
   }
 
-  return <SubaccountSelector />;
+  return (
+    <div className='flex items-center gap-2'>
+      <DepositButton variant='minimal' />
+      <SubaccountSelector />
+    </div>
+  );
 });
