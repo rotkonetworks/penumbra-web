@@ -23,10 +23,15 @@ export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 // queries for ~6s (one block). Keyed by base+quote+limit. Concurrent
 // requests for the same key share a single in-flight promise so we
 // never hammer pd with duplicate work.
-type CacheEntry = { data: RouteBookResponseJson; expiresAt: number };
+type CacheEntry = { data: RouteBookResponseJson; expiresAt: number; refreshing: boolean };
 const cache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<RouteBookResponseJson>>();
 const CACHE_TTL_MS = 6_000;
+// When a request comes in and cache is older than this, return the stale
+// data immediately and refresh in background. This means most users never
+// wait for pd's slow simulateTrade — they get instant stale data while a
+// background fetch updates the cache.
+const STALE_THRESHOLD_MS = 4_000;
 
 export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiResponse>> {
   // Prefer a server-only internal endpoint (localhost / private network) to
@@ -55,41 +60,71 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
 
   const cacheKey = `${baseAssetSymbol.toLowerCase()}|${quoteAssetSymbol.toLowerCase()}|${limit}`;
   const now = Date.now();
-
-  // Fast path: serve from in-memory cache if fresh.
   const cached = cache.get(cacheKey);
-  if (cached && cached.expiresAt > now) {
+
+  const startBackgroundRefresh = () => {
+    if (inflight.has(cacheKey)) return;
+    if (cached) cached.refreshing = true;
+    const refresh = computeRouteBook(
+      grpcEndpoint,
+      chainId,
+      baseAssetSymbol,
+      quoteAssetSymbol,
+      limit,
+    )
+      .then(data => {
+        cache.set(cacheKey, {
+          data,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+          refreshing: false,
+        });
+        return data;
+      })
+      .finally(() => {
+        inflight.delete(cacheKey);
+      });
+    inflight.set(cacheKey, refresh);
+  };
+
+  // Stale-while-revalidate: if we have ANY cached entry, serve it
+  // immediately and refresh in background. User never waits for pd.
+  if (cached) {
+    const age = now - (cached.expiresAt - CACHE_TTL_MS);
+    if (age > STALE_THRESHOLD_MS && !cached.refreshing) {
+      startBackgroundRefresh();
+    }
     return NextResponse.json(cached.data, {
       headers: {
         'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
-        'X-Cache': 'HIT',
+        'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
+        'X-Cache-Age-Ms': String(age),
       },
     });
   }
 
-  // Single-flight: if another request for the same key is already
-  // computing, await it instead of starting a duplicate pd query.
+  // No cached entry — must compute synchronously. Single-flight to avoid
+  // duplicate pd queries for concurrent first-time requests.
   const existing = inflight.get(cacheKey);
   if (existing) {
     const data = await existing;
-    return NextResponse.json(data, {
-      headers: { 'X-Cache': 'INFLIGHT' },
-    });
+    return NextResponse.json(data, { headers: { 'X-Cache': 'INFLIGHT' } });
   }
 
-  const compute = (async (): Promise<RouteBookResponseJson> => {
-    return await computeRouteBook(grpcEndpoint, chainId, baseAssetSymbol, quoteAssetSymbol, limit);
-  })();
+  const compute = computeRouteBook(
+    grpcEndpoint,
+    chainId,
+    baseAssetSymbol,
+    quoteAssetSymbol,
+    limit,
+  );
   inflight.set(cacheKey, compute);
-
   let data: RouteBookResponseJson;
   try {
     data = await compute;
-    cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+    cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS, refreshing: false });
   } finally {
     inflight.delete(cacheKey);
   }
-
   return NextResponse.json(data, {
     headers: {
       'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
