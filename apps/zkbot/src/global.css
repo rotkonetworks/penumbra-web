@@ -1,0 +1,64 @@
+:root {
+  --bg: #0a0a0a;
+  --panel: #0f0f0f;
+  --input: #141414;
+  --border: #1a1a1a;
+  --text: #c0c0c0;
+  --dim: #606060;
+  --bright: #fff;
+  --accent: #00ff88;
+  --accent-dim: #00aa55;
+  --warn: #ffaa00;
+  --err: #ff4444;
+  --info: #4488ff;
+  --purple: #aa88ff;
+  --cyan: #00dddd;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+pre {
+  font-family: inherit;
+  margin: 0;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor::after {
+  content: '_';
+  animation: blink 1s infinite;
+  color: var(--accent);
+}

@@ -1,0 +1,40 @@
+{
+  "name": "zkbot",
+  "version": "0.1.0",
+  "private": true,
+  "license": "(MIT OR Apache-2.0)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5175",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "solid-js": "^1.8.0",
+    "@solidjs/router": "^0.14.0",
+    "@penumbra-zone/client": "workspace:*",
+    "@penumbra-zone/protobuf": "workspace:*",
+    "@penumbra-zone/transport-dom": "workspace:*",
+    "@penumbra-zone/bech32m": "workspace:*",
+    "@penumbra-zone/getters": "workspace:*",
+    "@penumbra-zone/types": "workspace:*",
+    "@penumbra-labs/registry": "^12.8.0",
+    "@bufbuild/protobuf": "^1.10.0",
+    "@connectrpc/connect": "^1.6.1",
+    "@connectrpc/connect-web": "^1.6.1",
+    "bignumber.js": "^9.1.2",
+    "near-api-js": "^4.0.0",
+    "@near-wallet-selector/core": "^8.9.0",
+    "@near-wallet-selector/my-near-wallet": "^8.9.0",
+    "@near-wallet-selector/meteor-wallet": "^8.9.0",
+    "@near-wallet-selector/here-wallet": "^8.9.0",
+    "@near-wallet-selector/modal-ui": "^8.9.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.3",
+    "vite": "^5.2.11",
+    "vite-plugin-solid": "^2.10.0",
+    "vite-plugin-node-stdlib-browser": "^0.2.1",
+    "unocss": "^0.62.0"
+  }
+}

@@ -46,7 +46,8 @@ const getCandles = async ({
 };
 
 export async function GET(req: NextRequest): Promise<NextResponse<CandleApiResponse>> {
-  const grpcEndpoint = process.env['PENUMBRA_GRPC_ENDPOINT'];
+  const grpcEndpoint =
+    process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
   if (!grpcEndpoint || !chainId) {
     return NextResponse.json(

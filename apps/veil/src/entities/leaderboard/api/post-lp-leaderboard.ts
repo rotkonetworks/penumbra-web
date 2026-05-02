@@ -80,7 +80,8 @@ async function queryLqtLps({
 export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<LpLeaderboardResponse> | LpLeaderboardErrorResponse>> {
-  const grpcEndpoint = process.env['PENUMBRA_GRPC_ENDPOINT'];
+  const grpcEndpoint =
+    process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
   if (!grpcEndpoint) {
     return NextResponse.json({ error: 'PENUMBRA_GRPC_ENDPOINT is not set' }, { status: 500 });
   }

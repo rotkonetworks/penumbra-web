@@ -19,7 +19,10 @@ export const TRACE_LIMIT_DEFAULT = 8;
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 
 export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiResponse>> {
-  const grpcEndpoint = process.env['PENUMBRA_GRPC_ENDPOINT'];
+  // Prefer a server-only internal endpoint (localhost / private network) to
+  // skip TLS, NAT, and reverse-proxy overhead. Falls back to public endpoint.
+  const grpcEndpoint =
+    process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
   if (!grpcEndpoint || !chainId) {
     return NextResponse.json(
@@ -97,7 +100,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
     },
     multiHops: { buy: buyMulti, sell: sellMulti },
   };
-  return NextResponse.json(serializeResponse(response));
+  // Cache the route book for 3 seconds (block time is ~6s on penumbra-1).
+  // s-maxage controls Cloudflare/CDN caches; stale-while-revalidate keeps
+  // serving stale data while a fresh response is computed in background.
+  return NextResponse.json(serializeResponse(response), {
+    headers: {
+      'Cache-Control': 'public, s-maxage=3, stale-while-revalidate=10',
+    },
+  });
 }
 
 const simulateTrade = async (
