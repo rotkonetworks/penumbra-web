@@ -13,16 +13,33 @@ export const TradeRow = ({
   trace,
   isSell,
   relativeSize,
+  onClick,
 }: {
   trace: Trace;
   isSell: boolean;
   relativeSize: number;
+  onClick?: (price: string) => void;
 }) => {
   const bgColor = isSell ? SELL_BG_COLOR : 'rgba(28, 121, 63, 0.24)';
   const tokens = trace.hops.map(valueView => getSymbolFromValueView(valueView));
+  const interactive = !!onClick;
 
   return (
     <div
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={onClick ? () => onClick(trace.price) : undefined}
+      onKeyDown={
+        onClick
+          ? e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick(trace.price);
+              }
+            }
+          : undefined
+      }
+      title={interactive ? `Click to ${isSell ? 'buy' : 'sell'} at this price` : undefined}
       style={{
         backgroundImage: `linear-gradient(to right, ${bgColor} ${relativeSize}%, transparent ${relativeSize}%)`,
       }}
@@ -31,6 +48,7 @@ export const TradeRow = ({
         'after:absolute after:right-0 after:left-0 after:hidden after:h-full after:bg-other-tonal-fill5 after:content-[""]',
         'group hover:after:block [&:hover>span:not(:last-child)]:invisible',
         'text-xs tabular-nums', // makes all numbers monospaced
+        interactive && 'cursor-pointer',
       )}
     >
       <Text detailTechnical color={isSell ? 'destructive.light' : 'success.light'}>

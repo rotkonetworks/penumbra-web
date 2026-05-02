@@ -8,6 +8,16 @@ import { RouteBookLoadingRow } from './loading-row';
 import { TradeRow } from './trade-row';
 import { SpreadRow } from './spread-row';
 import { RouteBookHeader } from './header-row';
+import { tradeFormStore } from '../order-form/store/OrderFormStore';
+
+// Click on a sell row → user wants to buy at the asking price.
+// Click on a buy row  → user wants to sell into that bid.
+// Mirrors TradingView / Binance behavior.
+const prefillFromBookRow = (price: string, isSell: boolean) => {
+  tradeFormStore.setWhichForm('Limit');
+  tradeFormStore.limitForm.setDirection(isSell ? 'buy' : 'sell');
+  tradeFormStore.limitForm.setPriceInput(price);
+};
 
 export const RouteBook = observer(() => {
   const { data, isLoading, error: bookErr } = useBook();
@@ -52,6 +62,7 @@ export const RouteBook = observer(() => {
           trace={trace}
           isSell={true}
           relativeSize={sellRelativeSizes.get(trace.total) ?? 0}
+          onClick={price => prefillFromBookRow(price, true)}
         />
       ))}
 
@@ -63,6 +74,7 @@ export const RouteBook = observer(() => {
           trace={trace}
           isSell={false}
           relativeSize={buyRelativeSizes.get(trace.total) ?? 0}
+          onClick={price => prefillFromBookRow(price, false)}
         />
       ))}
     </div>

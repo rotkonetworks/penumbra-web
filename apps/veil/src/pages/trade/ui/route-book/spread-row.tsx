@@ -3,6 +3,7 @@ import type { Trace } from '@/shared/api/server/book/types';
 import { calculateSpread } from '../../model/trace';
 import { usePathSymbols } from '../../model/use-path';
 import { pnum } from '@penumbra-zone/types/pnum';
+import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
 export const SpreadRow = ({
   sellOrders,
@@ -18,8 +19,25 @@ export const SpreadRow = ({
     return null;
   }
 
+  const setMidPrice = () => {
+    tradeFormStore.setWhichForm('Limit');
+    tradeFormStore.limitForm.setPriceInput(spreadInfo.midPrice);
+  };
+
   return (
-    <div className='col-span-4 flex h-full items-center justify-center gap-2 border-b border-b-other-tonal-stroke px-3 py-3 text-xs'>
+    <div
+      role='button'
+      tabIndex={0}
+      onClick={setMidPrice}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setMidPrice();
+        }
+      }}
+      title='Click to set limit price to mid'
+      className='col-span-4 flex h-full cursor-pointer items-center justify-center gap-2 border-b border-b-other-tonal-stroke px-3 py-3 text-xs hover:bg-action-hover-overlay'
+    >
       <Text detailTechnical color='success.light'>
         {pnum(spreadInfo.midPrice).toFormattedString({
           commas: false,
