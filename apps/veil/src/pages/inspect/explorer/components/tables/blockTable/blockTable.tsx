@@ -48,14 +48,14 @@ const BlockTable: FC<Props> = props => {
                                     ? 'animate-new-data-bg'
                                     : undefined
                             }
-                            href={`/block/${block.height}`}
+                            href={`/inspect/block/${block.height}`}
                         >
                             <TableCell>
                                 <BoxIcon
                                     className="text-text-secondary inline"
                                     size={16}
                                 />
-                                <Link href={`/block/${block.height}`}>
+                                <Link href={`/inspect/block/${block.height}`}>
                                     {formatNumber(block.height)}
                                 </Link>
                             </TableCell>

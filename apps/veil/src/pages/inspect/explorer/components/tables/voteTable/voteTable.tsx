@@ -46,7 +46,7 @@ const VoteTable: FC<Props> = ({ votes, ...props }) => (
                                         fallbackLetter
                                     />
                                     <span className="inline-flex flex-col">
-                                        <Link href={`/validator/${vote.id}`}>
+                                        <Link href={`/inspect/validator/${vote.id}`}>
                                             {vote.name}
                                         </Link>
                                         <span className="text-text-secondary text-xs">
@@ -94,7 +94,7 @@ const VoteTable: FC<Props> = ({ votes, ...props }) => (
                             <TimeAgo timestamp={vote.timestamp} />
                         </TableCell>
                         <TableCell className="h-15">
-                            <Link href={`/tx/${vote.transactionHash}`}>
+                            <Link href={`/inspect/tx/${vote.transactionHash}`}>
                                 {shortenHash(vote.transactionHash, 16)}
                             </Link>
                             <CopyToClipboard text={vote.transactionHash} />

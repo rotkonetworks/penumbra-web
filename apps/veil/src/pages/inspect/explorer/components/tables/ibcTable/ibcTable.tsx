@@ -52,7 +52,7 @@ const IbcTable: FC<Props> = props => {
             <tbody>
                 {clients.length ? (
                     clients.map(client => (
-                        <TableRow key={client.id} href={`/ibc/${client.slug}`}>
+                        <TableRow key={client.id} href={`/inspect/ibc/${client.slug}`}>
                             <TableCell className="h-20">
                                 <Avatar
                                     alt={client.name}
@@ -64,7 +64,7 @@ const IbcTable: FC<Props> = props => {
                                         className={classNames(
                                             'font-default text-lg font-normal'
                                         )}
-                                        href={`/ibc/${client.slug}`}
+                                        href={`/inspect/ibc/${client.slug}`}
                                     >
                                         {client.name}
                                     </Link>

@@ -1,35 +1,16 @@
-'use client'
+'use client';
 
-import { load, trackPageview } from 'fathom-client'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { FC, useEffect } from 'react'
+import { FC } from 'react';
 
 interface Props {
-    fathomId?: string
+  fathomId?: string;
 }
 
-const PageViewTracker: FC<Props> = props => {
-    const pathname = usePathname()
-    const searchParams = useSearchParams()
+/**
+ * No-op stub: the original explorer used `fathom-client` for page-view
+ * analytics, which is not a dependency of veil. The barrel export has been
+ * commented out; this file is preserved only so the directory is non-empty.
+ */
+const PageViewTracker: FC<Props> = () => null;
 
-    useEffect(() => {
-        if (props.fathomId) {
-            load(props.fathomId, { auto: false })
-        }
-    }, [props.fathomId])
-
-    useEffect(() => {
-        if (props.fathomId) {
-            const queryString = searchParams.toString()
-
-            trackPageview({
-                referrer: document.referrer,
-                url: queryString ? `${pathname}?${queryString}` : pathname,
-            })
-        }
-    }, [pathname, props.fathomId, searchParams])
-
-    return null
-}
-
-export default PageViewTracker
+export default PageViewTracker;

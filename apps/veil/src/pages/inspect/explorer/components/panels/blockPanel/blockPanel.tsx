@@ -1,9 +1,8 @@
-import Image from 'next/image'
 import { FC } from 'react'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import NumberPanel from '../numberPanel'
 import BlockPanelChart from './blockPanelChart'
-import blockPanelIcon from './blockPanelIcon.svg'
+import BlockPanelIcon from './blockPanelIcon.svg'
 
 interface Props {
     blockHeight?: number
@@ -24,7 +23,7 @@ const BlockPanel: FC<Props> = props => (
         number={props.blockHeight ?? 0}
         title={
             <>
-                <Image alt="Block panel" src={blockPanelIcon} />
+                <BlockPanelIcon aria-label="Block panel" />
                 <span>Current block</span>
             </>
         }

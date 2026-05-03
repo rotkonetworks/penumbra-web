@@ -39,19 +39,19 @@ const MobileMenu: FC<Props> = props => {
                 <HomeIcon className="stroke-primary-light" size={16} />
                 Home
             </MenuItem>
-            <MenuItem href="/blocks" paths={['/block']}>
+            <MenuItem href="/inspect/blocks" paths={['/inspect/block']}>
                 <BoxIcon className="stroke-primary-light" size={16} />
                 Blocks
             </MenuItem>
-            <MenuItem href="/txs" paths={['/tx']}>
+            <MenuItem href="/inspect/txs" paths={['/inspect/tx']}>
                 <CheckCheckIcon className="stroke-primary-light" size={16} />
                 Transactions
             </MenuItem>
-            <MenuItem href="/ibc" paths={['/ibc']}>
+            <MenuItem href="/inspect/ibc" paths={['/inspect/ibc']}>
                 <SatelliteDishIcon className="stroke-primary-light" size={16} />
                 IBC
             </MenuItem>
-            <MenuItem href="/validators" paths={['/validator']}>
+            <MenuItem href="/inspect/validators" paths={['/inspect/validator']}>
                 <BlocksIcon className="stroke-primary-light" size={16} />
                 Validators
             </MenuItem>
@@ -62,7 +62,7 @@ const MobileMenu: FC<Props> = props => {
                 />
                 DEX
             </MenuItem>
-            <MenuItem href="/gov" paths={['/proposal']}>
+            <MenuItem href="/inspect/gov" paths={['/inspect/proposal']}>
                 <HandshakeIcon className="stroke-primary-light" size={16} />
                 Governance
             </MenuItem>

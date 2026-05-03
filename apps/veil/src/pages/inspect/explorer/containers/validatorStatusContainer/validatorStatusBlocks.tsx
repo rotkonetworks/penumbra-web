@@ -29,7 +29,7 @@ const ValidatorStatusBlocks: FC<Props> = props => {
                     <Link
                         key={block.height}
                         className={styles.link}
-                        href={`/block/${block.height}`}
+                        href={`/inspect/block/${block.height}`}
                         id={`block-${block.height}`}
                     >
                         <AnimatedValidatorBlock

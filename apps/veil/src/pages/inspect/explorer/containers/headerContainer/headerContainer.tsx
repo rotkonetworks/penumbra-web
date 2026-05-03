@@ -25,20 +25,20 @@ const HeaderContainer: FC<Props> = props => (
         </div>
         <Tabs className="z-40 hidden justify-self-center min-[1440px]:flex">
             <Tab href="/">Home</Tab>
-            <Tab href="/blocks" paths={['/block']}>
+            <Tab href="/inspect/blocks" paths={['/inspect/block']}>
                 Blocks
             </Tab>
-            <Tab href="/txs" paths={['/tx']}>
+            <Tab href="/inspect/txs" paths={['/inspect/tx']}>
                 Transactions
             </Tab>
-            <Tab href="/ibc" paths={['/ibc']}>
+            <Tab href="/inspect/ibc" paths={['/inspect/ibc']}>
                 IBC
             </Tab>
-            <Tab href="/validators" paths={['/validator']}>
+            <Tab href="/inspect/validators" paths={['/inspect/validator']}>
                 Validators
             </Tab>
             <Tab href="/dex">DEX</Tab>
-            <Tab href="/gov" paths={['/proposal']}>
+            <Tab href="/inspect/gov" paths={['/inspect/proposal']}>
                 Governance
             </Tab>
         </Tabs>

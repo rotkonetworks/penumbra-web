@@ -1,8 +1,7 @@
-import Image from 'next/image'
 import { FC } from 'react'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import NumberPanel from '../numberPanel'
-import transactionPanelIcon from './transactionPanelIcon.svg'
+import TransactionPanelIcon from './transactionPanelIcon.svg'
 
 interface Props {
     className?: string
@@ -21,7 +20,7 @@ const TransactionPanel: FC<Props> = props => (
         number={props.number}
         title={
             <>
-                <Image alt="Transaction panel" src={transactionPanelIcon} />
+                <TransactionPanelIcon aria-label="Transaction panel" />
                 <span>Total transactions</span>
             </>
         }

@@ -24,7 +24,7 @@ const SearchResult: FC<Props> = props => {
             link = (
                 <Link
                     className={linkClassName}
-                    href={`/block/${props.searchResult.height}`}
+                    href={`/inspect/block/${props.searchResult.height}`}
                 >
                     <BoxIcon className={iconClassName} />
                     {formatNumber(props.searchResult.height)}
@@ -35,7 +35,7 @@ const SearchResult: FC<Props> = props => {
             link = (
                 <Link
                     className={linkClassName}
-                    href={`/tx/${props.searchResult.hash}`}
+                    href={`/inspect/tx/${props.searchResult.hash}`}
                 >
                     <CheckCheckIcon className={iconClassName} />
                     {props.searchResult.hash}
@@ -54,7 +54,7 @@ const SearchResult: FC<Props> = props => {
             }
 
             link = (
-                <Link className={linkClassName} href={`/ibc/${client.slug}`}>
+                <Link className={linkClassName} href={`/inspect/ibc/${client.slug}`}>
                     <Avatar
                         alt={client.name}
                         className="-mt-0.5 h-6 w-6 p-1"
@@ -69,7 +69,7 @@ const SearchResult: FC<Props> = props => {
             link = (
                 <Link
                     className={linkClassName}
-                    href={`/validator/${props.searchResult.id}`}
+                    href={`/inspect/validator/${props.searchResult.id}`}
                 >
                     <Avatar
                         alt={props.searchResult.name ?? props.searchResult.id}

@@ -1,3 +1,28 @@
-import { InspectTx } from '@/pages/inspect/tx/index.tsx';
+import { notFound } from 'next/navigation';
+import { FC } from 'react';
+import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
+import { TransactionViewContainer } from '@/pages/inspect/explorer/containers';
 
-export default InspectTx;
+interface Props {
+  params: Promise<{ hash: string }>;
+}
+
+const TransactionViewPage: FC<Props> = async props => {
+  const params = await props.params;
+
+  if (!params.hash) {
+    notFound();
+  }
+
+  return (
+    <Container narrow>
+      <Breadcrumbs>
+        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
+        <Breadcrumb href='/inspect/txs'>Transactions</Breadcrumb>
+      </Breadcrumbs>
+      <TransactionViewContainer transactionHash={params.hash} />
+    </Container>
+  );
+};
+
+export default TransactionViewPage;

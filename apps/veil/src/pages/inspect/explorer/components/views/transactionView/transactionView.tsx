@@ -39,7 +39,7 @@ const TransactionView: FC<Props> = props => (
                         'inline-flex items-center gap-2 text-inherit',
                         'hover:text-primary-light'
                     )}
-                    href={`/block/${props.transaction.blockHeight}`}
+                    href={`/inspect/block/${props.transaction.blockHeight}`}
                 >
                     {formatNumber(props.transaction.blockHeight)}
                     <Link2Icon className="text-text-primary" size={12} />

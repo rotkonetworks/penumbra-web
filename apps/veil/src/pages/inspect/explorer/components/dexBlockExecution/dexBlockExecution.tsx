@@ -1,4 +1,4 @@
-import DexSwapExecution from 'components/dexSwapExecution'
+import DexSwapExecution from '@/pages/inspect/explorer/components/dexSwapExecution'
 import { Link2Icon } from 'lucide-react'
 import Link from 'next/link'
 import { FC } from 'react'
@@ -20,7 +20,7 @@ const DexBlockExecution: FC<Props> = props => (
         >
             <Link
                 className="inline-flex items-center gap-2"
-                href={`/block/${props.height}`}
+                href={`/inspect/block/${props.height}`}
             >
                 <Link2Icon size={12} />
                 Block {formatNumber(props.height)}
