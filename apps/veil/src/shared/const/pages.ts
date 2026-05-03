@@ -6,7 +6,9 @@ export enum PagePath {
   Trade = '/trade',
   Inspect = '/inspect',
   Portfolio = '/portfolio',
+  PortfolioStaking = '/portfolio/staking',
   Tournament = '/tournament',
+  Tokenomics = '/tokenomics',
   TournamentRound = '/tournament/:epoch',
   TournamentDelegator = '/tournament/delegator/:address',
   TradePair = '/trade/:primary/:numeraire',
@@ -16,6 +18,7 @@ export enum PagePath {
 
 const basePath: Partial<Record<PagePath, PagePath>> = {
   [PagePath.TradePair]: PagePath.Trade,
+  [PagePath.PortfolioStaking]: PagePath.Portfolio,
   '/inspect/lp/:id': PagePath.Inspect,
   '/tournament/:epoch': PagePath.Tournament,
 };

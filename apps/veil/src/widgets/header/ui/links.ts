@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MoonStar, ArrowUpFromDot, Coins, Star } from 'lucide-react';
+import { MoonStar, ArrowUpFromDot, Coins, Star, Flame } from 'lucide-react';
 import { PagePath } from '@/shared/const/pages';
 
 export const HEADER_LINKS = [
@@ -37,5 +37,12 @@ export const HEADER_LINKS = [
     label: 'Tournament',
     value: PagePath.Tournament,
     icon: Star,
+  },
+  {
+    as: Link,
+    tabProps: { href: PagePath.Tokenomics },
+    label: 'Tokenomics',
+    value: PagePath.Tokenomics,
+    icon: Flame,
   },
 ];
