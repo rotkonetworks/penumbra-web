@@ -60,6 +60,7 @@
     "cosmos-kit": "^2.21.1",
     "d3-scale": "^4.0.2",
     "date-fns": "^4.1.0",
+    "dayjs": "^1.11.10",
     "graphql": "^16",
     "graphql-tag": "^2",
     "graphql-ws": "^6",
