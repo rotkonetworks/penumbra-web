@@ -2,6 +2,7 @@
 
 import cn from 'clsx';
 import { useViewport } from '@/shared/utils/use-viewport';
+import { ResizableSplit } from '@/shared/ui/resizable-split';
 import { PairInfo } from './pair-info';
 import { Chart } from './chart/chart';
 import { RouteTabs } from './route-tabs';
@@ -14,29 +15,61 @@ const sharedStyle = 'w-full border-t border-t-other-solid-stroke overflow-x-hidd
 // extra large grid (>1600px)
 const XlLayout = () => {
   return (
-    <div className={cn(sharedStyle, 'hidden xl:grid xl:grid-cols-[1fr_320px]')}>
-      <div className='flex flex-col'>
-        <div className='grid grid-cols-[1fr_1fr_320px]'>
-          <div className='col-span-2 grid grid-rows-[auto_1fr]'>
-            <div className='border-r border-b border-r-other-solid-stroke border-b-other-solid-stroke'>
-              <PairInfo />
+    <div className={cn(sharedStyle, 'hidden h-[calc(100vh-3.5rem)] xl:block')}>
+      <ResizableSplit
+        anchor='right'
+        defaultSize={320}
+        min={260}
+        max={520}
+        storageKey='veil-trade-xl-form-width'
+        className='h-full'
+      >
+        <ResizableSplit
+          anchor='bottom'
+          defaultSize={220}
+          min={120}
+          max={500}
+          storageKey='veil-trade-xl-history-height'
+          className='h-full'
+        >
+          <ResizableSplit
+            anchor='right'
+            defaultSize={320}
+            min={240}
+            max={520}
+            storageKey='veil-trade-xl-routebook-width'
+            className='h-full'
+          >
+            <div className='flex h-full flex-col'>
+              <div className='border-b border-b-other-solid-stroke'>
+                <PairInfo />
+              </div>
+              <div className='min-h-0 flex-1 border-r border-r-other-solid-stroke'>
+                <Chart />
+              </div>
             </div>
-            <div className='border-r border-r-other-solid-stroke'>
-              <Chart />
-            </div>
+            <RouteTabs />
+          </ResizableSplit>
+          <div className='h-full overflow-auto border-t border-t-other-solid-stroke'>
+            <HistoryTabs />
           </div>
-          <RouteTabs />
-        </div>
-        <div className='border-t border-t-other-solid-stroke'>
-          <HistoryTabs />
-        </div>
-      </div>
-      <div className='flex flex-col gap-4 border-l border-l-other-solid-stroke'>
-        <FormTabs />
-        <div className='border-t border-t-other-solid-stroke'>
-          <TradesTabs />
-        </div>
-      </div>
+        </ResizableSplit>
+        <ResizableSplit
+          anchor='bottom'
+          defaultSize={360}
+          min={140}
+          max={700}
+          storageKey='veil-trade-xl-trades-height'
+          className='h-full border-l border-l-other-solid-stroke'
+        >
+          <div className='h-full overflow-auto'>
+            <FormTabs />
+          </div>
+          <div className='h-full overflow-auto border-t border-t-other-solid-stroke'>
+            <TradesTabs />
+          </div>
+        </ResizableSplit>
+      </ResizableSplit>
     </div>
   );
 };
@@ -44,27 +77,59 @@ const XlLayout = () => {
 // large grid (>1200px)
 const LLayout = () => {
   return (
-    <div className={cn(sharedStyle, 'hidden lg:grid lg:grid-cols-[1fr_320px] xl:hidden')}>
-      <div className='col-span-2 border-r border-b border-r-other-solid-stroke border-b-other-solid-stroke'>
+    <div className={cn(sharedStyle, 'hidden h-[calc(100vh-3.5rem)] lg:flex lg:flex-col xl:hidden')}>
+      <div className='border-b border-b-other-solid-stroke'>
         <PairInfo />
       </div>
-      <div className='flex flex-col gap-2'>
-        <div className='grid grid-cols-[1fr_1fr_320px]'>
-          <div className='col-span-2 border-r border-r-other-solid-stroke'>
-            <Chart />
+      <ResizableSplit
+        anchor='right'
+        defaultSize={320}
+        min={260}
+        max={520}
+        storageKey='veil-trade-lg-form-width'
+        className='min-h-0 flex-1'
+      >
+        <ResizableSplit
+          anchor='bottom'
+          defaultSize={200}
+          min={120}
+          max={500}
+          storageKey='veil-trade-lg-history-height'
+          className='h-full'
+        >
+          <ResizableSplit
+            anchor='right'
+            defaultSize={320}
+            min={240}
+            max={520}
+            storageKey='veil-trade-lg-routebook-width'
+            className='h-full'
+          >
+            <div className='h-full border-r border-r-other-solid-stroke'>
+              <Chart />
+            </div>
+            <RouteTabs />
+          </ResizableSplit>
+          <div className='h-full overflow-auto border-t border-t-other-solid-stroke'>
+            <HistoryTabs />
           </div>
-          <RouteTabs />
-        </div>
-        <div className='border-t border-t-other-solid-stroke'>
-          <HistoryTabs />
-        </div>
-      </div>
-      <div className='flex flex-col gap-4 border-l border-l-other-solid-stroke'>
-        <FormTabs />
-        <div className='border-t border-t-other-solid-stroke'>
-          <TradesTabs />
-        </div>
-      </div>
+        </ResizableSplit>
+        <ResizableSplit
+          anchor='bottom'
+          defaultSize={340}
+          min={140}
+          max={700}
+          storageKey='veil-trade-lg-trades-height'
+          className='h-full border-l border-l-other-solid-stroke'
+        >
+          <div className='h-full overflow-auto'>
+            <FormTabs />
+          </div>
+          <div className='h-full overflow-auto border-t border-t-other-solid-stroke'>
+            <TradesTabs />
+          </div>
+        </ResizableSplit>
+      </ResizableSplit>
     </div>
   );
 };

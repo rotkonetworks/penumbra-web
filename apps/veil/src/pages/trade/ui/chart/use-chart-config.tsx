@@ -1,7 +1,20 @@
 import { RefObject, useCallback, useRef } from 'react';
-import { createChart, IChartApi } from 'lightweight-charts';
+import {
+  createChart,
+  IChartApi,
+  IPriceLine,
+  LineStyle,
+  type CreatePriceLineOptions,
+} from 'lightweight-charts';
 import { theme } from '@penumbra-zone/ui/theme';
 import { CandleWithVolume } from '@/shared/api/server/candles/utils';
+
+export interface OwnPositionLine {
+  id: string;
+  price: number;
+  direction: 'buy' | 'sell' | '';
+  label?: string;
+}
 
 // if `high` / `open` ratio is greater than this value, the chart will limit `high` to `open * RATIO`
 const SUPER_CANDLE_RATIO = 3;
@@ -33,6 +46,50 @@ export const useChartConfig = (
   const seriesRef = useRef<ReturnType<IChartApi['addCandlestickSeries']>>(undefined);
   const volumeSeriesRef = useRef<ReturnType<IChartApi['addHistogramSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
+  const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+
+  const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
+    const series = seriesRef.current;
+    if (!series) return;
+
+    const seen = new Set<string>();
+    for (const line of lines) {
+      if (!Number.isFinite(line.price) || line.price <= 0) continue;
+      seen.add(line.id);
+      const color =
+        line.direction === 'buy'
+          ? theme.color.success.light
+          : line.direction === 'sell'
+            ? theme.color.destructive.light
+            : theme.color.text.secondary;
+      const opts: CreatePriceLineOptions = {
+        price: line.price,
+        color,
+        lineStyle: LineStyle.Dashed,
+        lineWidth: 1,
+        axisLabelVisible: true,
+        title: line.label ?? line.id.slice(0, 6),
+      };
+      const existing = ownLinesRef.current.get(line.id);
+      if (existing) {
+        existing.applyOptions(opts);
+      } else {
+        ownLinesRef.current.set(line.id, series.createPriceLine(opts));
+      }
+    }
+
+    // Remove lines that no longer exist
+    for (const [id, lineRef] of ownLinesRef.current.entries()) {
+      if (!seen.has(id)) {
+        try {
+          series.removePriceLine(lineRef);
+        } catch {
+          // chart may already be torn down
+        }
+        ownLinesRef.current.delete(id);
+      }
+    }
+  }, []);
 
   const setVolumeRatio = useCallback((ratio: number) => {
     const clamped = Math.min(0.6, Math.max(0.05, ratio));
@@ -191,13 +248,153 @@ export const useChartConfig = (
     return typeof coord === 'number' && Number.isFinite(coord) ? coord : undefined;
   }, []);
 
+  // Time → x pixel; used by drawings anchored to a (time, price) pair.
+  const xAtTime = useCallback((time: number): number | undefined => {
+    const chart = chartRef.current;
+    if (!chart) return undefined;
+    const coord = chart.timeScale().timeToCoordinate(time as never);
+    return typeof coord === 'number' && Number.isFinite(coord) ? coord : undefined;
+  }, []);
+
+  // Reverse: x pixel → time. Useful for placing time-anchored drawings.
+  const timeAtX = useCallback((x: number): number | undefined => {
+    const chart = chartRef.current;
+    if (!chart) return undefined;
+    const t = chart.timeScale().coordinateToTime(x);
+    return typeof t === 'number' && Number.isFinite(t) ? t : undefined;
+  }, []);
+
+  /**
+   * Subscribe to native chart clicks. lightweight-charts captures pointer
+   * events on its canvas and exposes them via subscribeClick — using DOM
+   * onClick on the container does not fire reliably. Caller receives
+   * pixel point, price at the click, and the chart time at the click.
+   */
+  const subscribeChartClick = useCallback(
+    (
+      cb: (point: { x: number; y: number }, price: number, time: number | undefined) => void,
+    ): (() => void) => {
+      const chart = chartRef.current;
+      const series = seriesRef.current;
+      if (!chart || !series) return () => undefined;
+
+      const handler = (param: { point?: { x: number; y: number }; time?: unknown }) => {
+        if (!param.point) return;
+        const price = series.coordinateToPrice(param.point.y);
+        if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return;
+        const time = typeof param.time === 'number' ? param.time : undefined;
+        cb(param.point, price, time);
+      };
+      chart.subscribeClick(handler);
+      return () => chart.unsubscribeClick(handler);
+    },
+    [],
+  );
+
+  /**
+   * Subscribe to crosshair-hover changes. Caller receives the candle
+   * (OHLC) and volume at the hovered time, plus pixel position. `null`
+   * when crosshair leaves the chart.
+   */
+  const subscribeHover = useCallback(
+    (
+      cb: (
+        info: {
+          time: number;
+          candle: { open: number; high: number; low: number; close: number };
+          volume: number | undefined;
+          point: { x: number; y: number };
+        } | null,
+      ) => void,
+    ): (() => void) => {
+      const chart = chartRef.current;
+      const series = seriesRef.current;
+      const volumeSeries = volumeSeriesRef.current;
+      if (!chart || !series) return () => undefined;
+
+      const handler = (param: {
+        time?: unknown;
+        seriesData: Map<unknown, unknown>;
+        point?: { x: number; y: number };
+      }) => {
+        if (!param.time || !param.point) {
+          cb(null);
+          return;
+        }
+        const candleData = param.seriesData.get(series) as
+          | { open: number; high: number; low: number; close: number }
+          | undefined;
+        if (!candleData) {
+          cb(null);
+          return;
+        }
+        const volData = volumeSeries
+          ? (param.seriesData.get(volumeSeries) as { value: number } | undefined)
+          : undefined;
+        cb({
+          time: Number(param.time),
+          candle: candleData,
+          volume: volData?.value,
+          point: param.point,
+        });
+      };
+
+      chart.subscribeCrosshairMove(handler);
+      return () => chart.unsubscribeCrosshairMove(handler);
+    },
+    [],
+  );
+
+  /**
+   * Subscribe to "the price→y mapping might have changed" events. Used by
+   * overlay components (depth bars, position lines) so they redraw only
+   * when something visible changes, not every animation frame. Coalesces
+   * multiple events per frame via requestAnimationFrame.
+   *
+   * Returns an unsubscribe function.
+   */
+  const subscribeRedraw = useCallback((cb: () => void): (() => void) => {
+    const chart = chartRef.current;
+    const node = chartElRef.current;
+    if (!chart || !node) return () => undefined;
+
+    let raf = 0;
+    const handler = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        cb();
+      });
+    };
+
+    chart.subscribeCrosshairMove(handler);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handler);
+    const ro = new ResizeObserver(handler);
+    ro.observe(node);
+
+    // Fire once so the overlay paints on mount.
+    handler();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      chart.unsubscribeCrosshairMove(handler);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler);
+      ro.disconnect();
+    };
+  }, []);
+
   return {
     chartRef: setChartRef,
     setVolumeData,
     setCandlesData,
     setVolumeRatio,
-    chartElRef,
     priceAtY,
     yAtPrice,
+    xAtTime,
+    timeAtX,
+    setOwnPositionLines,
+    subscribeRedraw,
+    subscribeHover,
+    subscribeChartClick,
   };
 };

@@ -9,15 +9,19 @@ import { useClientEnv } from './env';
 import { ClientEnv } from './env/types';
 
 const registryRpcChoices = async (env: ClientEnv) => {
+  // If the operator pinned a specific endpoint via env, always prefer it.
+  // Otherwise the mainnet path picks a random community RPC from the
+  // chain-registry, many of which don't allow CORS for our origin
+  // (problematic during local dev and on our own deploy).
+  if (env.PENUMBRA_GRPC_ENDPOINT) {
+    return [env.PENUMBRA_GRPC_ENDPOINT];
+  }
   if (env.PENUMBRA_CHAIN_ID === 'penumbra-1') {
     const chainRegistryClient = new ChainRegistryClient();
     const { rpcs } = await chainRegistryClient.remote.globals();
     return rpcs.map(r => r.url);
-  } else if (env.PENUMBRA_GRPC_ENDPOINT) {
-    return [env.PENUMBRA_GRPC_ENDPOINT];
-  } else {
-    throw new Error(`No rpcs for chain id: ${env.PENUMBRA_CHAIN_ID}`);
   }
+  throw new Error(`No rpcs for chain id: ${env.PENUMBRA_CHAIN_ID}`);
 };
 
 enum TransportType {

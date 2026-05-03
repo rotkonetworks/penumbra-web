@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
+import { useRouter } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -28,16 +29,15 @@ interface DepositDialogProps {
  *   - links to Coinbase's USDC withdrawal docs
  */
 export const DepositDialog = observer(({ isOpen, onClose }: DepositDialogProps) => {
+  const router = useRouter();
   const { connected } = connectionStore;
   const { data: penumbraAddress, isLoading } = useDepositAddress();
 
   const onShieldClick = useCallback(() => {
     onClose();
-    // Navigate to portfolio where the existing Shield button lives.
-    if (typeof window !== 'undefined') {
-      window.location.href = '/portfolio';
-    }
-  }, [onClose]);
+    // Client-side nav so we don't trigger a full reload.
+    router.push('/portfolio');
+  }, [onClose, router]);
 
   return (
     <ShieldDialog isOpen={isOpen} onClose={onClose}>

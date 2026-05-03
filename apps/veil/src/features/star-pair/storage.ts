@@ -8,8 +8,9 @@ export interface Pair {
 const STAR_STORE_LS_KEY = 'star-pairs-store';
 
 export const getStarredPairs = (): Pair[] => {
+  if (typeof window === 'undefined') return [];
   try {
-    const data = JSON.parse(localStorage.getItem(STAR_STORE_LS_KEY) ?? '[]') as {
+    const data = JSON.parse(window.localStorage.getItem(STAR_STORE_LS_KEY) ?? '[]') as {
       base: string;
       quote: string;
     }[];
@@ -23,7 +24,8 @@ export const getStarredPairs = (): Pair[] => {
 };
 
 export const setStarredPairs = (pairs: Pair[]): void => {
-  localStorage.setItem(
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(
     STAR_STORE_LS_KEY,
     JSON.stringify(
       pairs.map(pair => ({

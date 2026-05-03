@@ -17,6 +17,14 @@ import { useChartConfig } from './use-chart-config';
 import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
+import { useOwnPositionLines } from './use-own-position-lines';
+import { usePathSymbols } from '../../model/use-path';
+import { useDrawings } from './drawings/use-drawings';
+import { DrawingToolbar } from './drawings/toolbar';
+import { DrawingsOverlay } from './drawings/drawings-overlay';
+import type { ToolMode } from './drawings/types';
+import { theme } from '@penumbra-zone/ui/theme';
+import { HoverTooltip } from './hover-tooltip';
 
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
 
@@ -44,8 +52,30 @@ export const Chart = observer(() => {
     isFetching.current = false;
   };
 
-  const { chartRef, setVolumeData, setCandlesData, setVolumeRatio, priceAtY, yAtPrice } =
-    useChartConfig(fetchNext, isFetching);
+  const {
+    chartRef,
+    setVolumeData,
+    setCandlesData,
+    setVolumeRatio,
+    priceAtY,
+    yAtPrice,
+    xAtTime,
+    setOwnPositionLines,
+    subscribeRedraw,
+    subscribeHover,
+    subscribeChartClick,
+  } = useChartConfig(fetchNext, isFetching);
+
+  useOwnPositionLines(setOwnPositionLines);
+
+  const { baseSymbol, quoteSymbol } = usePathSymbols();
+  const {
+    drawings,
+    add: addDrawing,
+    remove: removeDrawing,
+    clearAll: clearDrawings,
+  } = useDrawings(`${baseSymbol}/${quoteSymbol}`);
+  const [tool, setTool] = useState<ToolMode>('none');
 
   const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
 
@@ -89,22 +119,20 @@ export const Chart = observer(() => {
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      try {
-        window.localStorage.setItem(VOLUME_RATIO_KEY, String(volumeRatioRefValue.current));
-      } catch {
-        // ignore storage errors
-      }
+      // Persist the final value by reading via the state setter (avoids a
+      // dual-source-of-truth ref/state pair).
+      setVolumeRatioState(current => {
+        try {
+          window.localStorage.setItem(VOLUME_RATIO_KEY, String(current));
+        } catch {
+          // ignore storage errors
+        }
+        return current;
+      });
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   };
-
-  // Track current ratio in a ref so the pointerup handler can persist the
-  // latest value without re-binding the listener on every state change.
-  const volumeRatioRefValue = useRef(volumeRatio);
-  useEffect(() => {
-    volumeRatioRefValue.current = volumeRatio;
-  }, [volumeRatio]);
 
   const onContextMenu = (e: ReactMouseEvent) => {
     const container = containerRef.current;
@@ -115,6 +143,108 @@ export const Chart = observer(() => {
     if (price === undefined) return;
     e.preventDefault();
     setMenu({ x: e.clientX - rect.left, y, price });
+  };
+
+  // Drawings click handling. lightweight-charts intercepts pointer events on
+  // its canvas, so DOM onClick on the container doesn't fire reliably; route
+  // through the chart's native subscribeClick. Refs prevent re-subscribing
+  // on every tool/state change.
+  const toolRef = useRef<ToolMode>(tool);
+  useEffect(() => {
+    toolRef.current = tool;
+  }, [tool]);
+
+  // Pending first anchor for two-click drawing tools (trend-line, rectangle).
+  const pendingAnchorRef = useRef<{ time: number; price: number } | null>(null);
+
+  // Inline text-input state for the text annotation tool.
+  const [pendingText, setPendingText] = useState<{
+    x: number;
+    y: number;
+    time: number;
+    price: number;
+  } | null>(null);
+  const [pendingTextValue, setPendingTextValue] = useState('');
+
+  useEffect(() => {
+    return subscribeChartClick((point, price, time) => {
+      const t = toolRef.current;
+      if (t === 'text') {
+        if (time === undefined) return;
+        setPendingText({ x: point.x, y: point.y, time, price });
+        setPendingTextValue('');
+        return;
+      }
+      if (t === 'horizontal-line') {
+        addDrawing({
+          id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          kind: 'horizontal-line',
+          price,
+          color: theme.color.primary.main,
+          createdAt: Date.now(),
+        });
+        setTool('none');
+        return;
+      }
+      if (t === 'trend-line' || t === 'rectangle') {
+        if (time === undefined) return;
+        if (pendingAnchorRef.current === null) {
+          pendingAnchorRef.current = { time, price };
+          return;
+        }
+        const a = pendingAnchorRef.current;
+        addDrawing({
+          id: `${t === 'trend-line' ? 'tl' : 'rc'}-${Date.now()}-${Math.floor(
+            Math.random() * 1000,
+          )}`,
+          kind: t,
+          time1: a.time,
+          price1: a.price,
+          time2: time,
+          price2: price,
+          color: theme.color.primary.main,
+          createdAt: Date.now(),
+        });
+        pendingAnchorRef.current = null;
+        setTool('none');
+      }
+    });
+  }, [subscribeChartClick, addDrawing]);
+
+  // Reset the pending anchor whenever the tool leaves a two-click mode
+  // (e.g. user picks cursor mid-placement) so a stale half-shape doesn't
+  // hang around.
+  useEffect(() => {
+    if (tool !== 'trend-line' && tool !== 'rectangle') pendingAnchorRef.current = null;
+    if (tool !== 'text') {
+      setPendingText(null);
+      setPendingTextValue('');
+    }
+  }, [tool]);
+
+  const commitPendingText = () => {
+    if (!pendingText) return;
+    const value = pendingTextValue.trim();
+    if (value) {
+      addDrawing({
+        id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        kind: 'text',
+        time: pendingText.time,
+        price: pendingText.price,
+        text: value,
+        color: theme.color.primary.main,
+        createdAt: Date.now(),
+      });
+    }
+    setPendingText(null);
+    setPendingTextValue('');
+    setTool('none');
+  };
+
+  const cancelPendingText = () => {
+    setPendingText(null);
+    setPendingTextValue('');
+    setTool('none');
   };
 
   const formatPrice = (p: number): string => {
@@ -169,13 +299,52 @@ export const Chart = observer(() => {
         className='relative flex min-h-0 grow items-center justify-center'
         ref={containerRef}
         onContextMenu={onContextMenu}
+        style={tool !== 'none' ? { cursor: 'crosshair' } : undefined}
       >
         {error && <BlockchainError direction='column' />}
         {!error && isLoading && <ChartLoadingState />}
         {!error && !isLoading && historyCandles && (
           <>
             <div className='h-full w-full' ref={chartRef} />
-            <DepthOverlay yAtPrice={yAtPrice} />
+            <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+            <DrawingsOverlay
+              drawings={drawings}
+              yAtPrice={yAtPrice}
+              xAtTime={xAtTime}
+              subscribeRedraw={subscribeRedraw}
+              onDelete={removeDrawing}
+            />
+            <DrawingToolbar
+              tool={tool}
+              onToolChange={setTool}
+              onClearAll={clearDrawings}
+              hasDrawings={drawings.length > 0}
+            />
+            <HoverTooltip subscribeHover={subscribeHover} quoteSymbol={quoteSymbol} />
+            {pendingText && (
+              <input
+                autoFocus
+                value={pendingTextValue}
+                onChange={e => setPendingTextValue(e.target.value)}
+                onBlur={commitPendingText}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitPendingText();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelPendingText();
+                  }
+                }}
+                placeholder='Type and press Enter…'
+                className='absolute z-30 rounded-sm border border-other-tonal-stroke bg-base-black px-2 py-1 text-xs text-text-primary shadow-md outline-none focus:border-text-primary'
+                style={{
+                  left: pendingText.x,
+                  top: Math.max(0, pendingText.y - 12),
+                  minWidth: 160,
+                }}
+              />
+            )}
             <div
               role='separator'
               aria-orientation='horizontal'

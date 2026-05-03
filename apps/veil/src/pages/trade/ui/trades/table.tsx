@@ -40,7 +40,7 @@ export const TradesTable = ({ error, data, isLoading }: TradesTableProps) => {
 
   return (
     <Density slim>
-      <div ref={parent} className='grid h-auto grid-cols-4 overflow-auto px-4 pt-4 pb-0'>
+      <div ref={parent} className='grid h-auto grid-cols-[1fr_1fr_1fr_2fr] overflow-auto px-4 pt-4 pb-0'>
         <div className='col-span-4 grid grid-cols-subgrid'>
           <TableCell heading>Price</TableCell>
           <TableCell heading>Amount</TableCell>

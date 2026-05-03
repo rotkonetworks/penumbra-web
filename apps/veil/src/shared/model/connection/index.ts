@@ -35,11 +35,14 @@ class ConnectionStateStore {
 
   setSubaccount = (subaccount: string) => {
     this.subaccount = parseInt(subaccount, 10) || 0;
-    localStorage.setItem(SUBACCOUNT_LS_KEY, subaccount);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(SUBACCOUNT_LS_KEY, subaccount);
+    }
   };
 
   setPreferredSubaccount = () => {
-    const subaccount = localStorage.getItem(SUBACCOUNT_LS_KEY);
+    if (typeof window === 'undefined') return;
+    const subaccount = window.localStorage.getItem(SUBACCOUNT_LS_KEY);
     if (subaccount) {
       this.setSubaccount(subaccount);
     }

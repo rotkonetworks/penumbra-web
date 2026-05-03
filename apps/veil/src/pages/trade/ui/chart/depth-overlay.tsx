@@ -1,25 +1,36 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { theme } from '@penumbra-zone/ui/theme';
 import { useBook } from '../../api/book';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
-interface DepthOverlayProps {
-  yAtPrice: (price: number) => number | undefined;
-  // Width of the overlay column in pixels. Leaves room for the price axis.
-  width?: number;
-}
-
 interface Level {
   price: number;
   total: number;
 }
 
+interface BarPos {
+  id: string;
+  side: 'bid' | 'ask';
+  price: number;
+  y: number;
+  width: number;
+  color: string;
+}
+
+interface DepthOverlayProps {
+  yAtPrice: (price: number) => number | undefined;
+  /** Subscribe to chart events. Returns an unsubscribe. */
+  subscribeRedraw: (cb: () => void) => () => void;
+  /** Width of the overlay column in pixels. Leaves room for the price axis. */
+  width?: number;
+}
+
 const buildLevels = (
   buys: { price: string; total: string }[],
   sells: { price: string; total: string }[],
-): { bids: Level[]; asks: Level[]; max: number } => {
+): { bids: Level[]; asks: Level[]; max: number } | undefined => {
   const toLevel = (t: { price: string; total: string }): Level => ({
     price: pnum(t.price).toNumber(),
     total: pnum(t.total).toNumber(),
@@ -29,6 +40,7 @@ const buildLevels = (
 
   const bids = buys.map(toLevel).filter(filt);
   const asks = sells.map(toLevel).filter(filt);
+  if (!bids.length && !asks.length) return undefined;
   let max = 0;
   for (const l of bids) if (l.total > max) max = l.total;
   for (const l of asks) if (l.total > max) max = l.total;
@@ -43,84 +55,73 @@ const prefill = (price: number, side: 'bid' | 'ask') => {
   tradeFormStore.limitForm.setPriceInput(formatted);
 };
 
-export const DepthOverlay = observer(({ yAtPrice, width = 64 }: DepthOverlayProps) => {
-  const { data } = useBook();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number>(0);
+export const DepthOverlay = observer(
+  ({ yAtPrice, subscribeRedraw, width = 64 }: DepthOverlayProps) => {
+    const { data } = useBook();
 
-  const levels = useMemo(() => {
-    if (!data?.multiHops) return undefined;
-    return buildLevels(data.multiHops.buy, data.multiHops.sell);
-  }, [data]);
+    const levels = useMemo(() => {
+      if (!data?.multiHops) return undefined;
+      return buildLevels(data.multiHops.buy, data.multiHops.sell);
+    }, [data]);
 
-  // Recompute coordinates each animation frame; cheap and avoids needing
-  // to wire into lightweight-charts internal events for every pan/zoom.
-  useEffect(() => {
-    if (!levels) return;
-    const container = containerRef.current;
-    if (!container) return;
+    const [bars, setBars] = useState<BarPos[]>([]);
 
-    let mounted = true;
-    const draw = () => {
-      if (!mounted) return;
-      const h = container.clientHeight;
-      const renderLevels = (
-        side: 'bid' | 'ask',
-        rows: Level[],
-        color: string,
-      ): string => {
+    useEffect(() => {
+      if (!levels) {
+        setBars([]);
+        return;
+      }
+      const recompute = () => {
         const max = levels.max || 1;
-        // Use sqrt scaling so deep books still show smaller levels visibly.
+        // sqrt scaling so deep books still show smaller levels visibly
         const scale = (v: number) => (Math.sqrt(v / max) * width * 0.95) | 0;
-        const out: string[] = [];
-        for (const lvl of rows) {
-          const y = yAtPrice(lvl.price);
-          if (y === undefined || y < 0 || y > h) continue;
-          const w = Math.max(1, scale(lvl.total));
-          out.push(
-            `<div data-side="${side}" data-price="${lvl.price}" ` +
-              `style="position:absolute;right:0;top:${y - 1}px;height:2px;width:${w}px;` +
-              `background:${color};opacity:0.7;pointer-events:auto;cursor:pointer;"` +
-              `></div>`,
-          );
-        }
-        return out.join('');
+        const next: BarPos[] = [];
+        const push = (side: 'bid' | 'ask', rows: Level[], color: string) => {
+          for (const lvl of rows) {
+            const y = yAtPrice(lvl.price);
+            if (y === undefined) continue;
+            next.push({
+              id: `${side}-${lvl.price}`,
+              side,
+              price: lvl.price,
+              y,
+              width: Math.max(1, scale(lvl.total)),
+              color,
+            });
+          }
+        };
+        push('bid', levels.bids, theme.color.success.light);
+        push('ask', levels.asks, theme.color.destructive.light);
+        setBars(next);
       };
+      // subscribeRedraw fires once immediately and on relevant chart events.
+      return subscribeRedraw(recompute);
+    }, [levels, yAtPrice, subscribeRedraw, width]);
 
-      container.innerHTML =
-        renderLevels('bid', levels.bids, theme.color.success.light) +
-        renderLevels('ask', levels.asks, theme.color.destructive.light);
+    if (!levels) return null;
 
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    rafRef.current = requestAnimationFrame(draw);
-
-    const onClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      const priceAttr = target?.dataset['price'];
-      if (!priceAttr) return;
-      const price = Number(priceAttr);
-      const side = target?.dataset['side'] === 'bid' ? 'bid' : 'ask';
-      if (Number.isFinite(price)) prefill(price, side);
-    };
-    container.addEventListener('click', onClick);
-
-    return () => {
-      mounted = false;
-      cancelAnimationFrame(rafRef.current);
-      container.removeEventListener('click', onClick);
-    };
-  }, [levels, yAtPrice, width]);
-
-  if (!levels) return null;
-
-  return (
-    <div
-      ref={containerRef}
-      aria-label='Order book depth overlay'
-      className='pointer-events-none absolute top-0 bottom-0 z-[5] [&>div]:pointer-events-auto'
-      style={{ right: 56, width }}
-      title='Click a depth bar to set the limit price'
-    />
-  );
-});
+    return (
+      <div
+        aria-label='Order book depth overlay'
+        className='pointer-events-none absolute top-0 bottom-0 z-[5]'
+        style={{ right: 56, width }}
+        title='Click a depth bar to set the limit price'
+      >
+        {bars.map(b => (
+          <div
+            key={b.id}
+            className='pointer-events-auto absolute right-0 cursor-pointer'
+            style={{
+              top: b.y - 1,
+              height: 2,
+              width: b.width,
+              background: b.color,
+              opacity: 0.7,
+            }}
+            onClick={() => prefill(b.price, b.side)}
+          />
+        ))}
+      </div>
+    );
+  },
+);

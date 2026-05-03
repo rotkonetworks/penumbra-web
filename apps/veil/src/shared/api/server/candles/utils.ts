@@ -2,6 +2,7 @@ import { OhlcData, UTCTimestamp } from 'lightweight-charts';
 import { DbCandle } from '@/shared/api/server/candles/types.ts';
 import { addDurationWindow, DurationWindow } from '@/shared/utils/duration.ts';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
+import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { calculateDisplayPrice } from '@/shared/utils/price-conversion.ts';
 
 export interface CandleWithVolume {
@@ -10,6 +11,13 @@ export interface CandleWithVolume {
 }
 
 export const dbCandleToOhlc = (c: DbCandle, base: Metadata, quote: Metadata): CandleWithVolume => {
+  // dex_ex_price_charts stores swap+direct volume in atomic units of the
+  // quote asset (asset_end). Convert to display units by dividing by
+  // 10^quoteExponent (e.g. 10^6 for USDC).
+  const quoteExponent = getDisplayDenomExponent(quote);
+  const rawVolume = c.direct_volume + c.swap_volume;
+  const displayVolume = rawVolume / Math.pow(10, quoteExponent);
+
   return {
     ohlc: {
       close: calculateDisplayPrice(c.close, base, quote),
@@ -18,7 +26,7 @@ export const dbCandleToOhlc = (c: DbCandle, base: Metadata, quote: Metadata): Ca
       open: calculateDisplayPrice(c.open, base, quote),
       time: (c.start_time.getTime() / 1000) as UTCTimestamp,
     },
-    volume: calculateDisplayPrice(c.direct_volume + c.swap_volume, base, quote),
+    volume: displayVolume,
   };
 };
 

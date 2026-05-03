@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ChainRegistryClient } from '@penumbra-labs/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
-import { dbCandleToOhlc, insertEmptyCandles } from '@/shared/api/server/candles/utils.ts';
+import { dbCandleToOhlc } from '@/shared/api/server/candles/utils.ts';
 import { CandleApiResponse } from '@/shared/api/server/candles/types.ts';
 import { pindexerDb } from '@/shared/database/client';
 
@@ -104,10 +104,12 @@ export async function GET(req: NextRequest): Promise<NextResponse<CandleApiRespo
     page,
   });
 
-  const displayAdjusted = candles.map(c =>
-    dbCandleToOhlc(c, baseAssetMetadata, quoteAssetMetadata),
-  );
-  const response = insertEmptyCandles(durationWindow, displayAdjusted);
+  const response = candles.map(c => dbCandleToOhlc(c, baseAssetMetadata, quoteAssetMetadata));
 
+  // Note: previously we ran insertEmptyCandles here to pad sparse books with
+  // flat synthetic candles. With timeScale.uniformDistribution=true on the
+  // chart side, that just diluted real signal with thousands of flat fillers
+  // on short timeframes (15m/1h/4h). Skip the padding and let the chart
+  // space candles by index.
   return NextResponse.json(response);
 }
