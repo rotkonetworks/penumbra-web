@@ -69,6 +69,7 @@
     "lucide-react": "^0.468.0",
     "mobx": "^6.13.5",
     "mobx-react-lite": "^4.0.7",
+    "motion": "^12",
     "next": "15.5.15",
     "osmo-query": "^16.14.0",
     "pg": "^8.13.1",
@@ -79,9 +80,11 @@
     "react-loader-spinner": "^6.1.6",
     "react-tooltip": "^6.0.0",
     "react-use-size": "^3.0.3",
+    "recharts": "^3",
     "urql": "^5",
     "wonka": "^6.3.4",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zustand": "^5"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

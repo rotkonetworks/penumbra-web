@@ -68,9 +68,17 @@ const nextConfig = {
     config.resolve.alias['@amplitude/analytics-browser'] =
       '@repo/stubs/amplitude-analytics-browser';
 
+    // Make Next.js's default file/asset rule for SVGs ignore them so that
+    // the @svgr/webpack rule below is the only handler.
+    const fileLoaderRule = config.module.rules.find(
+      rule => rule.test instanceof RegExp && rule.test.test('.svg'),
+    );
+    if (fileLoaderRule) {
+      fileLoaderRule.exclude = /\.svg$/i;
+    }
+
     config.module.rules.push({
       test: /\.svg$/i,
-      issuer: /\.[jt]sx?$/,
       use: [
         {
           loader: '@svgr/webpack',
@@ -91,6 +99,14 @@ const nextConfig = {
           },
         },
       ],
+    });
+
+    // .graphql files are loaded as parsed AST nodes via graphql-tag/loader,
+    // so explorer queries/subscriptions can be `import`-ed directly.
+    config.module.rules.push({
+      test: /\.graphql$/i,
+      exclude: /node_modules/,
+      loader: 'graphql-tag/loader',
     });
 
     config.experiments.asyncWebAssembly = true;
