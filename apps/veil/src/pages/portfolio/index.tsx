@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { observer } from 'mobx-react-lite';
-import { XCircle } from 'lucide-react';
+import { XCircle, Coins } from 'lucide-react';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -17,6 +18,7 @@ import { PenumbraWaves } from '@/pages/explore/ui/waves.tsx';
 import { ShieldingTicker } from '@/widgets/shielding-ticker';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { PortfolioCard } from './ui/portfolio-card';
+import { PagePath } from '@/shared/const/pages';
 
 interface PortfolioPageProps {
   isMobile: boolean;
@@ -85,6 +87,16 @@ const DesktopPortfolioPage = observer(() => {
       {!isConnectionLoading && (
         <div ref={parent} className='container mx-auto flex max-w-[1136px] flex-col gap-4 py-8'>
           <WalletConnect />
+
+          {isPenumbraConnected && (
+            <div className='flex justify-end'>
+              <Link href={PagePath.PortfolioStaking}>
+                <Button actionType='accent' priority='secondary' icon={Coins} density='compact'>
+                  Stake UM
+                </Button>
+              </Link>
+            </div>
+          )}
 
           {/* Asset Allocation Bars */}
           {(isPenumbraConnected || isCosmosConnected) && (
