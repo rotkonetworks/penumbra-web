@@ -1,0 +1,5 @@
+fragment PartialBlock on Block {
+    height
+    createdAt
+    transactionsCount
+}

@@ -1,0 +1,37 @@
+@theme {
+    --animate-bg: bg-animation 30s linear infinite alternate;
+
+    @keyframes bg-animation {
+        from {
+            transform: rotate(0);
+        }
+
+        to {
+            transform: rotate(30deg);
+        }
+    }
+
+    --animate-new-data-bg: new-data-bg-animation 3s ease-out;
+
+    @keyframes new-data-bg-animation {
+        from {
+            background-color: var(--color-action-hover-overlay);
+        }
+
+        to {
+            background-color: transparent;
+        }
+    }
+
+    --animate-shimmer: shimmer-animation 2s infinite;
+
+    @keyframes shimmer-animation {
+        from {
+            left: -50%;
+        }
+
+        to {
+            left: 150%;
+        }
+    }
+}

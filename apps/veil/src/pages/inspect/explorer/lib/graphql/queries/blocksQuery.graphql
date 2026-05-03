@@ -1,0 +1,10 @@
+#import "../fragments/partialBlockFragment.graphql"
+
+query Blocks($limit: CollectionLimit!, $filter: BlockFilter) {
+    blocks(limit: $limit, filter: $filter) {
+        items {
+            ...PartialBlock
+        }
+        total
+    }
+}

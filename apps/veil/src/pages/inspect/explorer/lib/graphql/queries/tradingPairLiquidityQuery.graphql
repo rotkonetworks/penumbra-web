@@ -1,0 +1,10 @@
+query TradingPairLiquidity($limit: Int) {
+    tradingPairLiquidity(limit: $limit) {
+        tradingPairAsset1
+        tradingPairAsset2
+        activePositions
+        totalReserves1
+        totalReserves2
+        avgFeePercentage
+    }
+}

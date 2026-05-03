@@ -1,0 +1,31 @@
+// istanbul ignore file
+import { FC, Suspense } from 'react'
+import { BlockViewProps, Skeleton, View } from '@/pages/inspect/explorer/components'
+import { classNames } from '@/pages/inspect/explorer/lib/utils'
+import BlockViewLoader from './blockViewLoader'
+
+export interface Props
+    extends Omit<BlockViewProps, 'block' | 'swapExecutions'> {
+    blockHeight: number
+}
+
+const BlockViewContainer: FC<Props> = props => (
+    <Suspense
+        key={props.blockHeight}
+        fallback={
+            <View
+                className={classNames(
+                    'from-[rgba(83,174,168,0.25)] to-[rgba(83,174,168,0.03)]',
+                    props.className
+                )}
+                title="Block view"
+            >
+                <Skeleton className="h-74.25 rounded-sm" />
+            </View>
+        }
+    >
+        <BlockViewLoader {...props} />
+    </Suspense>
+)
+
+export default BlockViewContainer

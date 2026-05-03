@@ -1,0 +1,10 @@
+query ValidatorStakingStats($validatorId: String!) {
+    validatorStakingStats(validatorId: $validatorId) {
+        validatorIdentityKey
+        totalDelegations
+        totalUndelegations
+        pendingUndelegations
+        pendingUndelegateCount
+        nextReleaseHeight
+    }
+}

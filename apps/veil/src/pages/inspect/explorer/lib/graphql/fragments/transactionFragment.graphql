@@ -1,0 +1,17 @@
+fragment Transaction on Transaction {
+    hash
+    block {
+        height
+        createdAt
+    }
+    body {
+        parameters {
+            chainId
+            fee {
+                amount
+            }
+        }
+    }
+    raw
+    rawJson
+}

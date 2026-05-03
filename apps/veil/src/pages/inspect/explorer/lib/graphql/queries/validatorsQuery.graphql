@@ -1,0 +1,15 @@
+query Validators($filter: ValidatorFilter) {
+    validatorsHomepage(filter: $filter) {
+        validators {
+            id
+            name
+            state
+            bondingState
+            votingPower
+            votingPowerActivePercentage
+            uptime
+            firstSeenTime
+            commission
+        }
+    }
+}

@@ -1,0 +1,9 @@
+query IbcFlowHistory($clientId: String, $days: Int) {
+    ibcFlowHistory(clientId: $clientId, days: $days) {
+        date
+        inflowVolume
+        outflowVolume
+        inflowCount
+        outflowCount
+    }
+}

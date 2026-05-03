@@ -1,0 +1,20 @@
+query ValidatorDelegates(
+    $validatorId: String!,
+    $limit: Int,
+    $offset: Int
+) {
+    validatorDelegates(
+        validatorId: $validatorId,
+        limit: $limit,
+        offset: $offset
+    ) {
+        id
+        txHash
+        validatorIdentityKey
+        delegationAmount
+        unbondedAmount
+        epochIndex
+        blockHeight
+        timestamp
+    }
+}

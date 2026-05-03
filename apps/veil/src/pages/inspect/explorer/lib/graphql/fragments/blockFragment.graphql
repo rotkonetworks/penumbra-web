@@ -1,0 +1,10 @@
+#import "./partialTransactionFragment.graphql"
+
+fragment Block on Block {
+    height
+    createdAt
+    transactions {
+        ...PartialTransaction
+    }
+    rawJson
+}
