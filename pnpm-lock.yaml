@@ -780,6 +780,9 @@ importers:
       recharts:
         specifier: ^3
         version: 3.8.1(@types/react@19.0.12)(react-dom@19.1.0(react@19.1.0))(react-is@19.1.0)(react@19.1.0)(redux@5.0.1)
+      tailwind-merge:
+        specifier: ^2
+        version: 2.6.0
       urql:
         specifier: ^5
         version: 5.0.2(@urql/core@6.0.1(graphql@16.11.0))(react@19.1.0)

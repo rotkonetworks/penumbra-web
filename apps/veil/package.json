@@ -81,6 +81,7 @@
     "react-tooltip": "^6.0.0",
     "react-use-size": "^3.0.3",
     "recharts": "^3",
+    "tailwind-merge": "^2",
     "urql": "^5",
     "wonka": "^6.3.4",
     "zod": "^3.23.8",
