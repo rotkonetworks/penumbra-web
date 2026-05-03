@@ -61,7 +61,9 @@ const ClientPage: FC<Props> = async props => {
           chainId={client?.chainId}
           channelsClassName='lg:col-2 lg:row-1'
           id={id}
-          image={client?.image}
+          // SVGR turns the .svg import into a component; ClientContainer typed
+          // it as `string` upstream — cast through unknown to satisfy strict mode.
+          image={client?.image as unknown as string | undefined}
           name={name}
           statsClassName='lg:col-1 lg:row-span-2'
         />
