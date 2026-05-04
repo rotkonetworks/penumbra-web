@@ -3,9 +3,14 @@ import { useQueries } from '@tanstack/react-query';
 import { ChainWalletBase, WalletStatus } from '@cosmos-kit/core';
 
 import { Asset } from '@chain-registry/types';
-import cosmosAssetList from 'chain-registry/assets';
+import { SUPPORTED_ASSETS } from './supported-chains';
 import { Coin, StargateClient } from '@cosmjs/stargate';
 import { RPC_ENDPOINTS } from './cosmos-endpoints';
+
+// `chain-registry/assets` (the barrel) ships ~250 chains' asset lists
+// totaling several MB. We only need the chains Penumbra has IBC
+// connections to, so use the curated SUPPORTED_ASSETS here too.
+const cosmosAssetList = SUPPORTED_ASSETS;
 
 /** @var failedEndpoints is a map of endpoint -> timestamp of last failure */
 const failedEndpoints = new Map<string, number>();
