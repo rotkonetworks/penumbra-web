@@ -1,5 +1,13 @@
 import { Text } from '@penumbra-zone/ui/Text';
-import { ExternalLink, Flame, HelpCircle, BookOpen, MessageSquare } from 'lucide-react';
+import {
+  ExternalLink,
+  Flame,
+  HelpCircle,
+  BookOpen,
+  MessageSquare,
+  MessagesSquare,
+  ArrowLeftRight,
+} from 'lucide-react';
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { LearnNav } from './learn-nav';
@@ -88,11 +96,25 @@ export const LearnHub = () => (
           body='The reference for ZSwap, batch auctions, the shielded pool, and arbitrage execution.'
         />
         <Card
+          href='https://discord.gg/penumbrazone'
+          external
+          icon={MessagesSquare}
+          title='Discord community'
+          body='Live chat with builders, validators, and traders. Help with wallets, IBC, hermes relayers, LQT, and more.'
+        />
+        <Card
           href='https://forum.penumbra.zone/'
           external
           icon={MessageSquare}
           title='Community forum'
-          body='Open discussion on protocol upgrades, validator operations, governance proposals, and ecosystem ideas.'
+          body='Long-form discussion on protocol upgrades, validator operations, governance proposals, and ecosystem ideas.'
+        />
+        <Card
+          href='https://widget-nextjs.vercel.app/'
+          external
+          icon={ArrowLeftRight}
+          title='IBC bridge tool'
+          body='Move assets across IBC chains — Cosmos Hub, Noble, Osmosis, Penumbra, and more — with a single signed transaction.'
         />
         <Card
           href='https://penumbra.zone/'

@@ -10,7 +10,7 @@ import { Arbitrage } from './arbitrage';
 import { BurnPanel } from './burn-panel';
 import { SupplyComposition } from './supply-composition';
 import { WhatsBurned } from './whats-burned';
-import { Resources } from './resources';
+import { Earn } from './earn';
 
 const fmtUMShort = (n: number) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M UM`;
@@ -74,7 +74,7 @@ export const TokenomicsPage = async () => {
         <SupplyComposition metrics={metrics} supply={timeseries.supply} />
       )}
       <WhatsBurned />
-      <Resources />
+      <Earn />
     </section>
   );
 };
