@@ -18,7 +18,7 @@ const ValidatorTableContainer: FC<Props> = ({
     ...props
 }) => (
     <Suspense
-        key={`${String(inactive)}-${sort}-${sortDir}`}
+        key={`${String(inactive)}-${sort}-${sortDir}-${String(props.limit)}`}
         fallback={
             <Table {...props}>
                 <thead>

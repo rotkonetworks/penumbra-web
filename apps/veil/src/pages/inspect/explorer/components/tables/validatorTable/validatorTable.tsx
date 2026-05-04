@@ -19,6 +19,14 @@ export interface Props extends Omit<TableProps, 'children'> {
     sort?: SortKey
     sortDir?: SortDir
     validators: ValidatorsQuery['validatorsHomepage']['validators']
+    /**
+     * SSR-rendering limit. By default we render only the top `limit`
+     * validators after sorting; the page footer offers a `?all=1`
+     * link that lifts the limit. Without this cap the active validator
+     * set ships ~1.1MB of HTML on every request, most of it React
+     * Flight serialization of rows below the fold.
+     */
+    limit?: number
 }
 
 function sortValidators(
@@ -51,9 +59,11 @@ const ValidatorTable: FC<Props> = ({
     sort,
     sortDir,
     validators: rawValidators,
+    limit,
     ...props
 }) => {
-    const validators = sortValidators(rawValidators, sort, sortDir)
+    const sorted = sortValidators(rawValidators, sort, sortDir)
+    const validators = limit ? sorted.slice(0, limit) : sorted
     return (
         <Table {...props}>
             <thead>

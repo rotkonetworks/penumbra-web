@@ -17,11 +17,16 @@ import {
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 
 interface Props {
-  searchParams: Promise<{ dir?: string; filter?: string; sort?: string }>;
+  searchParams: Promise<{ all?: string; dir?: string; filter?: string; sort?: string }>;
 }
 
 const ValidatorsPage: FC<Props> = async props => {
   const searchParams = await props.searchParams;
+  // Cap SSR rendering at 50 rows by default — well past top-of-fold,
+  // and the active validator set is ~250 rows. Unbounded rendering
+  // inflates the response by ~4x for content nobody reads before
+  // scrolling. `?all=1` opts back into the full list.
+  const validatorLimit = searchParams.all === '1' ? undefined : 50;
 
   return (
     <Container>
@@ -83,6 +88,7 @@ const ValidatorsPage: FC<Props> = async props => {
             </div>
           }
           inactive={searchParams.filter === 'inactive'}
+          limit={validatorLimit}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sort={searchParams.sort as any}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
