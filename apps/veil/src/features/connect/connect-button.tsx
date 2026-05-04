@@ -35,7 +35,20 @@ const ConnectButtonInner = observer(
     };
 
     const connect = (provider: string) => {
-      void connectionStore.connect(provider);
+      // Wrap so a broken provider entry — typically an orphaned content
+      // script in window[PenumbraSymbol] — can't bubble an unhandled
+      // promise rejection. Common failure modes:
+      //   - chrome-extension://invalid/  (Chrome's orphan sentinel after
+      //     a Web Store extension reload; affects unpatched Zafu, etc.)
+      //   - PenumbraProviderNotAvailableError on a Prax record whose
+      //     manifest fetch race-fails on click.
+      // Either way, the user gets a console warning and stays on the
+      // picker instead of seeing a stack trace and a hung page.
+      void connectionStore.connect(provider).catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.warn(`[connect] ${provider} unavailable, try another wallet:`, err);
+        setIsOpen(true);
+      });
     };
 
     return (
