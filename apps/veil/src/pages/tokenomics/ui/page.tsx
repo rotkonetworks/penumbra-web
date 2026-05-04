@@ -1,4 +1,5 @@
 import { PenumbraWaves } from '@/pages/explore/ui/waves';
+import { LearnNav } from '@/pages/learn/ui/learn-nav';
 import { fetchTokenomicsMetrics } from '../server/metrics';
 import { fetchTokenomicsTimeseries } from '../server/timeseries';
 import { TokenomicsHero } from './hero';
@@ -57,9 +58,11 @@ export const TokenomicsPage = async () => {
     : undefined;
 
   return (
-    <section className='mx-auto flex max-w-[1062px] flex-col gap-10 p-4 desktop:gap-14 desktop:py-10'>
-      <PenumbraWaves />
-      <TokenomicsHero stats={heroStats} />
+    <>
+      <LearnNav />
+      <section className='mx-auto flex max-w-[1062px] flex-col gap-10 p-4 desktop:gap-14 desktop:py-10'>
+        <PenumbraWaves />
+        <TokenomicsHero stats={heroStats} />
       {metrics && <HeadlineStats metrics={metrics} />}
       <WhatUmIs />
       <NoMev />
@@ -73,8 +76,9 @@ export const TokenomicsPage = async () => {
       {metrics && timeseries && (
         <SupplyComposition metrics={metrics} supply={timeseries.supply} />
       )}
-      <WhatsBurned />
-      <Earn />
-    </section>
+        <WhatsBurned />
+        <Earn />
+      </section>
+    </>
   );
 };

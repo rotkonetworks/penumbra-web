@@ -98,16 +98,19 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
       // supply_total_staked has per-validator latest UM; stake_validator_set
       // tells us which of those are in the active set. Group by validator,
       // pick the latest height per validator, then sum where the validator
-      // is currently 'Active'. The numeric_state filter excludes Disabled,
-      // Jailed, Tombstoned — those validators may still hold UM but their
-      // stake doesn't secure the network.
+      // is currently active. validator_state is JSONB
+      // ({"state":"VALIDATOR_STATE_ENUM_ACTIVE"}), so we extract via ->>.
+      // Excludes Disabled, Jailed, Tombstoned, Defined — those validators
+      // may still hold UM but their stake doesn't secure the network.
       pindexerDb
         .selectFrom('supply_total_staked as sts')
         .innerJoin('stake_validator_set as svs', 'svs.id', 'sts.validator_id')
         .select(sql<bigint>`SUM(sts.um)`.as('um'))
-        .where('svs.validator_state', '=', 'Active')
-        .where(eb =>
-          eb('sts.height', '=', sql`(SELECT MAX(height) FROM supply_total_staked sts2 WHERE sts2.validator_id = sts.validator_id)`),
+        .where(sql`svs.validator_state::jsonb->>'state'`, '=', 'VALIDATOR_STATE_ENUM_ACTIVE')
+        .where(
+          'sts.height',
+          '=',
+          sql`(SELECT MAX(height) FROM supply_total_staked sts2 WHERE sts2.validator_id = sts.validator_id)`,
         )
         .executeTakeFirst(),
     ]);
