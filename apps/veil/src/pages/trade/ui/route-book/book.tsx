@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { pnum } from '@penumbra-zone/types/pnum';
@@ -87,8 +87,19 @@ export const RouteBook = observer(() => {
   );
 
   // Width of the gradient bar follows whichever totals we're rendering.
-  const sellRelativeSizes = calculateRelativeSizes(sellRows);
-  const buyRelativeSizes = calculateRelativeSizes(buyRows);
+  // Memoize on the row arrays — useBook polls every block (~5s), so on
+  // pairs with deep books this iterates 30+ rows twice per refetch. The
+  // map identity also matters: stable references mean child <TradeRow>
+  // memoization doesn't bust on every block.
+  const sellRelativeSizes = useMemo(() => calculateRelativeSizes(sellRows), [sellRows]);
+  const buyRelativeSizes = useMemo(() => calculateRelativeSizes(buyRows), [buyRows]);
+
+  // Stable click handlers — without useCallback these would be fresh
+  // function references on every render, busting any future memo() on
+  // <TradeRow>. The handlers don't depend on any state inside the
+  // component, so empty deps are safe.
+  const onSellClick = useCallback((price: string) => prefillFromBookRow(price, true), []);
+  const onBuyClick = useCallback((price: string) => prefillFromBookRow(price, false), []);
 
   if (bookErr) {
     return (
@@ -129,12 +140,17 @@ export const RouteBook = observer(() => {
       />
 
       {sellRows.map((trace, idx) => (
+        // Use idx as the key, not price+idx. The Nth sell row stays
+        // the Nth sell row across book updates even when its price
+        // moves — keying on price would unmount/remount the entire
+        // row DOM subtree on every level shift, killing CSS
+        // transitions and triggering paint thrash on each block.
         <TradeRow
-          key={`${trace.price}-${idx}`}
+          key={`sell-${idx}`}
           trace={trace}
           isSell={true}
           relativeSize={sellRelativeSizes.get(trace.total) ?? 0}
-          onClick={price => prefillFromBookRow(price, true)}
+          onClick={onSellClick}
         />
       ))}
 
@@ -142,11 +158,11 @@ export const RouteBook = observer(() => {
 
       {buyRows.map((trace, idx) => (
         <TradeRow
-          key={`${trace.price}-${idx}`}
+          key={`buy-${idx}`}
           trace={trace}
           isSell={false}
           relativeSize={buyRelativeSizes.get(trace.total) ?? 0}
-          onClick={price => prefillFromBookRow(price, false)}
+          onClick={onBuyClick}
         />
       ))}
     </div>

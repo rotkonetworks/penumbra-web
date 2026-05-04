@@ -10,9 +10,9 @@
 import { NextResponse } from 'next/server';
 import { fetchJsonRegistryWithGlobals } from '@/shared/api/fetch-registry';
 
-const ONE_HOUR = 60 * 60;
-
-export const revalidate = ONE_HOUR;
+// Next.js's static-analysis pass requires a literal here, not an
+// identifier. Same value as the cache-control max-age below.
+export const revalidate = 3600;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
         // Cache aggressively at the edge — clients also cache in
         // localStorage. If you push a registry update upstream, hit
         // /api/registry?chainId=...&t=now once to force-revalidate.
-        'cache-control': `public, s-maxage=${ONE_HOUR}, stale-while-revalidate=86400`,
+        'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
       },
     });
   } catch (e) {

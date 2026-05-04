@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, memo } from 'react';
 import cn from 'clsx';
 import { ChevronRight } from 'lucide-react';
 import { getSymbolFromValueView } from '@penumbra-zone/getters/value-view';
@@ -9,7 +9,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 
 const SELL_BG_COLOR = 'rgba(175, 38, 38, 0.24)';
 
-export const TradeRow = ({
+const TradeRowImpl = ({
   trace,
   isSell,
   relativeSize,
@@ -96,3 +96,33 @@ export const TradeRow = ({
     </div>
   );
 };
+
+/**
+ * useBook re-fetches every block (~5s), and accumulate() in book.tsx
+ * allocates a fresh `trace` object per row in cumulative mode. Without
+ * memo, every row would re-render on every poll even when its visible
+ * fields (price/amount/total/hops) didn't change. Custom equality
+ * compares the primitive fields directly so allocation churn doesn't
+ * bust the memo.
+ */
+export const TradeRow = memo(TradeRowImpl, (prev, next) => {
+  if (
+    prev.isSell !== next.isSell ||
+    prev.relativeSize !== next.relativeSize ||
+    prev.onClick !== next.onClick
+  ) {
+    return false;
+  }
+  const a = prev.trace;
+  const b = next.trace;
+  if (a.price !== b.price || a.amount !== b.amount || a.total !== b.total) {
+    return false;
+  }
+  if (a.hops.length !== b.hops.length) return false;
+  // Reference equality on hops is fine — the upstream serializer
+  // re-uses ValueView instances when the hop structure is stable.
+  for (let i = 0; i < a.hops.length; i++) {
+    if (a.hops[i] !== b.hops[i]) return false;
+  }
+  return true;
+});
