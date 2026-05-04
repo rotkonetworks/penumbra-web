@@ -1,7 +1,7 @@
 'use client';
 
 import { Text } from '@penumbra-zone/ui/Text';
-import { ArrowLeft, Building2, Wallet, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Building2, Wallet, ChevronRight, ExternalLink } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface DepositRoute {
@@ -13,27 +13,39 @@ export interface DepositRoute {
   hint?: string;
 }
 
-/** Per-source presets. Skip's default route only takes srcChain + srcAsset; the
- *  user can still tweak everything inside the widget. We pre-fill with the
- *  asset that source typically holds (USDC for CEXes, native gas for chains). */
+/** Per-source presets. Skip's defaultRoute only takes srcChain + srcAsset; the
+ *  user can still tweak everything inside the widget.
+ *
+ *  Off-chain routing reality:
+ *    - Coinbase is the only major CEX that supports USDC→Noble withdrawals.
+ *    - Binance / Kraken / Bybit / OKX / KuCoin / MEXC don't list Noble as a
+ *      withdrawal network for USDC, but they all support buying and
+ *      withdrawing native Cosmos tokens (ATOM, OSMO, TIA). Buy one of those,
+ *      withdraw to its native chain, and bridge over IBC from there. */
 const OFFCHAIN: DepositRoute[] = [
   {
-    label: 'Coinbase',
-    hint: 'Withdraw USDC over Noble',
+    label: 'Coinbase — USDC',
+    hint: 'Only CEX that withdraws USDC directly to Noble',
     srcChainId: 'noble-1',
     srcAssetDenom: 'uusdc',
   },
   {
-    label: 'Binance',
-    hint: 'Withdraw USDC over Noble',
-    srcChainId: 'noble-1',
-    srcAssetDenom: 'uusdc',
+    label: 'Binance / Kraken / Coinbase — ATOM',
+    hint: 'Buy ATOM, withdraw to Cosmos Hub, bridge over IBC',
+    srcChainId: 'cosmoshub-4',
+    srcAssetDenom: 'uatom',
   },
   {
-    label: 'Kraken / Bybit / OKX',
-    hint: 'Most CEXes route USDC via Noble',
-    srcChainId: 'noble-1',
-    srcAssetDenom: 'uusdc',
+    label: 'Binance / OKX / KuCoin — OSMO',
+    hint: 'Buy OSMO, withdraw to Osmosis, bridge over IBC',
+    srcChainId: 'osmosis-1',
+    srcAssetDenom: 'uosmo',
+  },
+  {
+    label: 'Binance / OKX / Bybit — TIA',
+    hint: 'Buy TIA, withdraw to Celestia, bridge over IBC',
+    srcChainId: 'celestia',
+    srcAssetDenom: 'utia',
   },
 ];
 
@@ -101,6 +113,21 @@ export const DepositMethodPicker = ({ onPick }: PickerProps) => (
 
     <Group label='Off-chain (centralised exchange)' icon={Building2} routes={OFFCHAIN} onPick={onPick} />
     <Group label='On-chain (another wallet or chain)' icon={Wallet} routes={ONCHAIN} onPick={onPick} />
+
+    <div className='flex items-center justify-between border-t border-t-other-tonal-stroke pt-4'>
+      <Text detail color='text.secondary'>
+        Want a different bridge UI?
+      </Text>
+      <a
+        href='https://widget-nextjs.vercel.app/'
+        target='_blank'
+        rel='noopener noreferrer'
+        className='inline-flex items-center gap-1 text-text-primary underline-offset-2 hover:underline'
+      >
+        <Text small>Open multi-chain tool</Text>
+        <ExternalLink className='h-3 w-3' />
+      </a>
+    </div>
   </div>
 );
 
