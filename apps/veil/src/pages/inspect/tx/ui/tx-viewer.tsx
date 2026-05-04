@@ -1,13 +1,14 @@
+import Link from 'next/link';
 import { observer } from 'mobx-react-lite';
 import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Button } from '@penumbra-zone/ui/Button';
-import { ExternalLink } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export const TxViewer = observer(({ txInfo }: { txInfo?: TransactionInfo }) => {
   const txId = txInfo?.id && uint8ArrayToHex(txInfo.id.inner);
-  const explorerUrl = txId ? `https://explorer.penumbra.zone/tx/${txId}` : null;
+  const explorerUrl = txId ? `/explore/tx/${txId}` : null;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -18,17 +19,17 @@ export const TxViewer = observer(({ txInfo }: { txInfo?: TransactionInfo }) => {
 
       <div className='flex flex-col gap-4 rounded-sm bg-other-tonal-fill5 p-6 text-text-secondary'>
         <Text>
-          View this transaction on the Penumbra Explorer for detailed information including actions,
-          memos, and parameters.
+          See actions, memos, IBC details, and consensus parameters for this transaction on the
+          chain explorer.
         </Text>
 
         {explorerUrl && (
           <div>
-            <a href={explorerUrl} target='_blank' rel='noopener noreferrer'>
-              <Button priority='primary' icon={ExternalLink}>
+            <Link href={explorerUrl}>
+              <Button priority='primary' icon={ArrowRight}>
                 View on Explorer
               </Button>
-            </a>
+            </Link>
           </div>
         )}
       </div>

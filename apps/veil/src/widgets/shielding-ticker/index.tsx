@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -65,16 +65,15 @@ const DepositItem = ({ deposit }: DepositItemProps) => {
   const sourceChain = getSourceChainFromDeposit(deposit, registry);
   const chainIconUrl = sourceChain?.images[0]?.png ?? sourceChain?.images[0]?.svg;
 
-  // Construct the Noctis URL - use transaction hash if available, otherwise fallback to block
-  const noctisUrl = deposit.txHash
-    ? `https://explorer.penumbra.zone/tx/${deposit.txHash}`
-    : `https://explorer.penumbra.zone/block/${deposit.height}`;
+  // Tx hash if we have one, otherwise drop into the block view of our own
+  // chain explorer. Internal nav so we don't lose the user to another tab.
+  const explorerUrl = deposit.txHash
+    ? `/explore/tx/${deposit.txHash}`
+    : `/explore/block/${deposit.height}`;
 
   return (
     <a
-      href={noctisUrl}
-      target='_blank'
-      rel='noopener noreferrer'
+      href={explorerUrl}
       className='mx-3 grid h-[48px] cursor-pointer grid-cols-[2.5rem_1fr_auto] grid-rows-2 gap-x-3 gap-y-1 rounded-sm bg-other-tonal-fill10 p-2 whitespace-nowrap backdrop-blur-lg transition-colors hover:bg-other-tonal-fill5'
     >
       {/* Asset icon spanning two rows - centered vertically with chain overlay */}
@@ -125,9 +124,9 @@ const DepositItem = ({ deposit }: DepositItemProps) => {
           : deposit.foreignAddr}
       </Text>
 
-      {/* Second row: External link icon */}
+      {/* Drill-into-explorer chevron (internal nav) */}
       <div className='flex items-center justify-center opacity-60'>
-        <ExternalLink className='h-3 w-3' />
+        <ChevronRight className='h-3 w-3' />
       </div>
     </a>
   );
