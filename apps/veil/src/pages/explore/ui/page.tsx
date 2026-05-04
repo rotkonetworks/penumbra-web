@@ -1,6 +1,8 @@
 import { ExploreStats } from './stats';
 import { ExplorePairs } from './pairs';
 import { PenumbraWaves } from './waves';
+import { ExploreHero } from './hero';
+import { GetStarted } from './get-started';
 import { fetchRegistry } from '@/shared/api/fetch-registry';
 import { getClientSideEnv } from '@/shared/api/env/getClientSideEnv';
 import { fetchStats, Stats } from '../server/stats';
@@ -16,10 +18,12 @@ export const ExplorePage = async () => {
   const registryP = fetchRegistry(getClientSideEnv().PENUMBRA_CHAIN_ID);
   const [stats, summaries, registry] = await Promise.all([statsP, summariesP, registryP]);
   return (
-    <section className='mx-auto flex max-w-[1062px] flex-col gap-6 p-4'>
+    <section className='mx-auto flex max-w-[1062px] flex-col gap-8 p-4 desktop:gap-10'>
       <PenumbraWaves />
+      <ExploreHero />
       <ExploreStats stats={stats} registry={registry} />
       <ExplorePairs summaries={summaries} />
+      <GetStarted />
     </section>
   );
 };
