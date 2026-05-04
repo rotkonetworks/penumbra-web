@@ -22,8 +22,8 @@ export const ExplorePage = async () => {
       <PenumbraWaves />
       <ExploreHero />
       <ExploreStats stats={stats} registry={registry} />
-      <ExplorePairs summaries={summaries} />
       <GetStarted />
+      <ExplorePairs summaries={summaries} />
     </section>
   );
 };

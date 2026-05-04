@@ -21,13 +21,14 @@ export const ExploreHero = () => {
         <div className='flex flex-col gap-3'>
           <Text variant='h1' color='text.primary'>
             <span className='bg-gradient-to-r from-orange-400 to-teal-400 bg-clip-text text-transparent'>
-              Trade Penumbra
+              Shielded trading
             </span>
           </Text>
           <Text variant='large' color='text.secondary'>
-            A shielded DEX that batch-clears every block. Your trades are private by default,
-            and the protocol — not searchers — captures the spread on your behalf, then burns
-            it. No MEV bots, no privileged routing, no gas auctions.
+            Penumbra is a DEX where balances, swaps, and LP positions are encrypted on-chain,
+            and every block batch-clears at one uniform price. The protocol — not searchers —
+            captures the spread on your behalf, and burns it. No MEV bots, no privileged
+            routing, no gas auctions.
           </Text>
         </div>
 

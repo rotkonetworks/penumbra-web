@@ -3,7 +3,14 @@
 import { Registry } from '@penumbra-labs/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { useQuery } from '@tanstack/react-query';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { JsonRegistryWithGlobals } from './fetch-registry';
 
 export interface RegistryWithGlobals {
@@ -81,32 +88,46 @@ interface RegistryProviderProps {
  * don't have to know about Suspense.
  */
 export const RegistryProvider = ({ chainId, children }: RegistryProviderProps) => {
-  const cached = readCache(chainId);
+  // The server has no localStorage and no fetch result, so `data` is
+  // always undefined during SSR — the server emits the skeleton. We
+  // need the *first* client paint to also emit the skeleton, otherwise
+  // hydration mismatches when the client immediately reads from
+  // localStorage. Gating the query on a post-mount flag guarantees
+  // SSR and first-paint render identical HTML; after mount, the cache
+  // is read and (if present) the query resolves synchronously from
+  // initialData on the very next render — single-frame transition,
+  // no network call on warm visits.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  const { data, isLoading, error } = useQuery({
+  const initialData = mounted ? readCache(chainId) : undefined;
+
+  const { data, error } = useQuery({
     queryKey: ['penumbra-registry', chainId],
     queryFn: () => fetchRegistryFromApi(chainId),
-    initialData: cached,
+    initialData,
+    enabled: mounted,
     staleTime: REGISTRY_TTL_MS,
     gcTime: REGISTRY_TTL_MS * 2,
     refetchOnWindowFocus: false,
     retry: 2,
   });
 
-  const parsed = useMemo<RegistryWithGlobals | undefined>(() => {
-    if (!data) return undefined;
-    // Persist freshly-fetched data to localStorage. It's safe to call
-    // every render: writeCache only triggers when data identity changes
-    // due to useMemo; even if it didn't, JSON.stringify of the same
-    // object yields the same bytes so localStorage isn't churned.
-    if (!cached || cached !== data) {
+  // Persist freshly-fetched data to localStorage when the data identity
+  // changes (i.e. it came from the network rather than from the cache).
+  useEffect(() => {
+    if (data && data !== initialData) {
       writeCache(chainId, data);
     }
+  }, [data, initialData, chainId]);
+
+  const parsed = useMemo<RegistryWithGlobals | undefined>(() => {
+    if (!data) return undefined;
     return {
       stakingAssetId: AssetId.fromJson({ inner: data.stakingAssetIdBase64 }),
       registry: new Registry(data.registry),
     };
-  }, [data, cached, chainId]);
+  }, [data]);
 
   if (error) {
     return (
@@ -119,9 +140,15 @@ export const RegistryProvider = ({ chainId, children }: RegistryProviderProps) =
     );
   }
 
-  if (!parsed || isLoading) {
+  if (!parsed) {
+    // Identical markup on SSR and first client paint — no hydration drift.
+    // suppressHydrationWarning is here as belt-and-braces against any
+    // theme-class differences swapped in by the body className.
     return (
-      <div className='flex min-h-screen items-center justify-center'>
+      <div
+        className='flex min-h-screen items-center justify-center'
+        suppressHydrationWarning
+      >
         <div className='h-2 w-32 animate-pulse rounded bg-other-tonal-fill5' />
       </div>
     );
