@@ -48,7 +48,9 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
   // is staked), and today's realized rate is a multiple of staked_pct.
   // We back the base rate out of the realized rate when both are known —
   // when realized is null, fall back to a known-good ~2% genesis base.
-  const stakedFrac = metrics.stakedPct / 100;
+  // Inflation scales with the *active* stake fraction — only bonded
+  // delegations to active validators receive issuance.
+  const stakedFrac = metrics.activeStakedPct / 100;
   const inferredBasePct =
     metrics.annualizedInflationPct !== null && stakedFrac > 0
       ? metrics.annualizedInflationPct / stakedFrac
@@ -85,7 +87,7 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
           {' ≈ '}
           <span className='font-mono text-teal-300'>{basePct.toFixed(2)}%</span>
           {' × '}
-          <span className='font-mono'>{metrics.stakedPct.toFixed(1)}%</span>
+          <span className='font-mono'>{metrics.activeStakedPct.toFixed(1)}%</span>
         </Text>
       </div>
 

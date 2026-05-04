@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MoonStar, ArrowUpFromDot, Coins, Flame } from 'lucide-react';
+import { MoonStar, ArrowUpFromDot, Coins, BookOpen } from 'lucide-react';
 import { PagePath } from '@/shared/const/pages';
 
 // Note: Tournament link is intentionally hidden from the header until the
@@ -39,10 +39,14 @@ export const HEADER_LINKS = [
     icon: MoonStar,
   },
   {
+    // /learn — hub for tokenomics, FAQ, and other educational content.
+    // SEO-friendly: each sub-page is statically rendered with relevant
+    // Schema.org structured data so search engines can build rich
+    // snippets that point at our DEX as the canonical destination.
     as: Link,
-    tabProps: { href: PagePath.Tokenomics },
-    label: 'Tokenomics',
-    value: PagePath.Tokenomics,
-    icon: Flame,
+    tabProps: { href: PagePath.Learn },
+    label: 'Learn',
+    value: PagePath.Learn,
+    icon: BookOpen,
   },
 ];

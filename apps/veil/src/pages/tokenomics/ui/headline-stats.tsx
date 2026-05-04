@@ -72,9 +72,9 @@ export const HeadlineStats = ({ metrics }: { metrics: TokenomicsMetrics }) => {
           secondary={`Genesis: ${fmtUM(metrics.genesisAllocation)} UM`}
         />
         <StatTile
-          label='Staked'
-          primary={fmtPct(metrics.stakedPct, 1)}
-          secondary={`${fmtUM(metrics.stakedSupply)} UM bonded`}
+          label='Active stake'
+          primary={fmtPct(metrics.activeStakedPct, 1)}
+          secondary={`${fmtUM(metrics.activeStakedSupply)} UM securing the chain`}
           accent='teal'
         />
         <StatTile

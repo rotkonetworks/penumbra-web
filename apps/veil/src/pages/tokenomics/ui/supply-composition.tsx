@@ -52,7 +52,9 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
 
   const free = Math.max(
     0,
-    metrics.totalSupply - metrics.stakedSupply - metrics.dexLocked - metrics.auctionLocked,
+    // `bondedSupply` (not active) here — for supply composition we want
+    // every UM that's currently delegated, regardless of validator state.
+    metrics.totalSupply - metrics.bondedSupply - metrics.dexLocked - metrics.auctionLocked,
   );
   const freePct =
     metrics.totalSupply > 0 ? (free / metrics.totalSupply) * 100 : 0;
@@ -80,10 +82,10 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
             Staked
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono text-teal-300'>{metrics.stakedPct.toFixed(1)}%</span>
+            <span className='font-mono text-teal-300'>{metrics.bondedPct.toFixed(1)}%</span>
           </Text>
           <Text small color='text.secondary'>
-            {fmtUM(metrics.stakedSupply)} UM
+            {fmtUM(metrics.bondedSupply)} UM total bonded
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>

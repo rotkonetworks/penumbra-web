@@ -1,5 +1,6 @@
 'use server';
 
+import { sql } from 'kysely';
 import { pindexerDb } from '@/shared/database/client';
 
 // Penumbra mainnet block cadence — approx. 5s blocks => ~17280 blocks/day.
@@ -19,8 +20,15 @@ export interface TokenomicsMetrics {
   // Latest snapshot
   latestHeight: number;
   totalSupply: number;
-  stakedSupply: number;
-  stakedPct: number;
+  // `bondedSupply` is every UM that's currently delegated — including
+  // delegations to inactive validators, queued, and unbonding.
+  // `activeStakedSupply` is the subset securing the chain right now —
+  // delegations to active validators only. The headline cards show the
+  // active number; the bonded number is available for tooltips.
+  bondedSupply: number;
+  bondedPct: number;
+  activeStakedSupply: number;
+  activeStakedPct: number;
   priceUsd: number | null;
   marketCapUsd: number | null;
 
@@ -66,34 +74,55 @@ const findRowAtOrBefore = async (targetTimestamp: Date) => {
 
 export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
   // Run the independent queries in parallel.
-  const [latestSupply, latestUnstaked, summary24h, supply30dAgo] = await Promise.all([
-    pindexerDb
-      .selectFrom('insights_supply')
-      .select(['height', 'total', 'staked', 'market_cap', 'price'])
-      .orderBy('height', 'desc')
-      .limit(1)
-      .executeTakeFirst(),
-    pindexerDb
-      .selectFrom('supply_total_unstaked')
-      .select(['height', 'um', 'auction', 'dex', 'arb', 'fees'])
-      .orderBy('height', 'desc')
-      .limit(1)
-      .executeTakeFirst(),
-    pindexerDb
-      .selectFrom('dex_ex_aggregate_summary')
-      .select(['direct_volume', 'trades'])
-      .where('the_window', '=', '1d')
-      .executeTakeFirst(),
-    findRowAtOrBefore(new Date(Date.now() - 30 * SECONDS_PER_DAY * 1000)),
-  ]);
+  const [latestSupply, latestUnstaked, summary24h, supply30dAgo, activeStakedRow] =
+    await Promise.all([
+      pindexerDb
+        .selectFrom('insights_supply')
+        .select(['height', 'total', 'staked', 'market_cap', 'price'])
+        .orderBy('height', 'desc')
+        .limit(1)
+        .executeTakeFirst(),
+      pindexerDb
+        .selectFrom('supply_total_unstaked')
+        .select(['height', 'um', 'auction', 'dex', 'arb', 'fees'])
+        .orderBy('height', 'desc')
+        .limit(1)
+        .executeTakeFirst(),
+      pindexerDb
+        .selectFrom('dex_ex_aggregate_summary')
+        .select(['direct_volume', 'trades'])
+        .where('the_window', '=', '1d')
+        .executeTakeFirst(),
+      findRowAtOrBefore(new Date(Date.now() - 30 * SECONDS_PER_DAY * 1000)),
+      // Active stake = delegations counted toward voting power right now.
+      // supply_total_staked has per-validator latest UM; stake_validator_set
+      // tells us which of those are in the active set. Group by validator,
+      // pick the latest height per validator, then sum where the validator
+      // is currently 'Active'. The numeric_state filter excludes Disabled,
+      // Jailed, Tombstoned — those validators may still hold UM but their
+      // stake doesn't secure the network.
+      pindexerDb
+        .selectFrom('supply_total_staked as sts')
+        .innerJoin('stake_validator_set as svs', 'svs.id', 'sts.validator_id')
+        .select(sql<bigint>`SUM(sts.um)`.as('um'))
+        .where('svs.validator_state', '=', 'Active')
+        .where(eb =>
+          eb('sts.height', '=', sql`(SELECT MAX(height) FROM supply_total_staked sts2 WHERE sts2.validator_id = sts.validator_id)`),
+        )
+        .executeTakeFirst(),
+    ]);
 
   if (!latestSupply) {
     throw new Error('insights_supply is empty — pindexer not caught up?');
   }
 
   const totalSupply = toUM(latestSupply.total);
-  const stakedSupply = toUM(latestSupply.staked);
-  const stakedPct = totalSupply > 0 ? (stakedSupply / totalSupply) * 100 : 0;
+  // `insights_supply.staked` aggregates all bonded UM regardless of
+  // validator state. The active-set sum is computed separately below.
+  const bondedSupply = toUM(latestSupply.staked);
+  const bondedPct = totalSupply > 0 ? (bondedSupply / totalSupply) * 100 : 0;
+  const activeStakedSupply = toUM(activeStakedRow?.um ?? 0);
+  const activeStakedPct = totalSupply > 0 ? (activeStakedSupply / totalSupply) * 100 : 0;
   // insights_supply.market_cap is stored in upenumbra atomic units of price ×
   // supply, so divide once like supply.
   const marketCapUsd = latestSupply.market_cap ? toUM(latestSupply.market_cap) : null;
@@ -126,8 +155,10 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
   return {
     latestHeight: Number(latestSupply.height),
     totalSupply,
-    stakedSupply,
-    stakedPct,
+    bondedSupply,
+    bondedPct,
+    activeStakedSupply,
+    activeStakedPct,
     priceUsd,
     marketCapUsd,
     arbBurned,

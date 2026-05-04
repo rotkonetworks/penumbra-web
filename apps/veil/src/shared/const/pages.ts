@@ -10,12 +10,14 @@ export enum PagePath {
   Portfolio = '/portfolio',
   PortfolioStaking = '/portfolio/staking',
   Tournament = '/tournament',
-  Tokenomics = '/tokenomics',
+  Tokenomics = '/learn/tokenomics',
   TournamentRound = '/tournament/:epoch',
   TournamentDelegator = '/tournament/delegator/:address',
   TradePair = '/trade/:primary/:numeraire',
   ExploreLp = '/explore/lp/:id',
   LpLeaderboard = '/explore/lp-leaderboard',
+  Learn = '/learn',
+  LearnFaq = '/learn/faq',
 }
 
 const basePath: Partial<Record<PagePath, PagePath>> = {
