@@ -43,11 +43,15 @@ interface Props {
 }
 
 export const SupplyComposition = ({ metrics, supply }: Props) => {
-  // Stack: total = staked + unstaked
+  // Stack: total = bonded + liquid. Note `p.staked` from pindexer is
+  // bonded supply (every delegated UM, including jailed/disabled
+  // validators), not the active-set subset. The card row above shows
+  // both the bonded number here and the active number in the headline
+  // stats — they intentionally disagree.
   const data = supply.map(p => ({
     date: p.date,
-    staked: p.staked,
-    unstaked: Math.max(0, p.total - p.staked),
+    bonded: p.staked,
+    liquid: Math.max(0, p.total - p.staked),
   }));
 
   const free = Math.max(
@@ -70,22 +74,23 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
           Supply composition
         </Text>
         <Text body color='text.secondary'>
-          Where the UM lives. Staked balances secure the chain and earn rewards. DEX-
-          and auction-locked balances are working liquidity — recoverable, not burned.
-          The free float is everything else: wallets, exchanges, and pending stakes.
+          Where the UM lives. Bonded includes every delegation — to active validators
+          earning rewards and to jailed or disabled ones still holding stake. DEX- and
+          auction-locked balances are working liquidity, recoverable. The free float is
+          wallets, exchanges, and pending stakes.
         </Text>
       </div>
 
       <div className='grid grid-cols-2 gap-3 desktop:grid-cols-4'>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            Staked
+            Bonded
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-teal-300'>{metrics.bondedPct.toFixed(1)}%</span>
           </Text>
           <Text small color='text.secondary'>
-            {fmtUM(metrics.bondedSupply)} UM total bonded
+            {fmtUM(metrics.bondedSupply)} UM delegated
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
@@ -150,8 +155,8 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
               verticalAlign='top'
             />
             <Area
-              dataKey='staked'
-              name='Staked'
+              dataKey='bonded'
+              name='Bonded'
               stackId='s'
               stroke='#5eead4'
               fill='#5eead4'
@@ -159,8 +164,8 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
               type='monotone'
             />
             <Area
-              dataKey='unstaked'
-              name='Unstaked'
+              dataKey='liquid'
+              name='Liquid'
               stackId='s'
               stroke='#fb923c'
               fill='#fb923c'
