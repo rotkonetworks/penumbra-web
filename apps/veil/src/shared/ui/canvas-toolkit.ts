@@ -1,6 +1,12 @@
 import { theme } from '@penumbra-zone/ui/theme';
-import { registerFont } from 'canvas';
 import path from 'path';
+
+// `canvas` carries a native binding (../build/Release/canvas.node) that is
+// only available when the package's postinstall actually built. Some build
+// environments skip postinstall scripts to avoid the gyp toolchain — in
+// that case the eager `import { registerFont } from 'canvas'` crashed
+// the Next.js page-data collection step. Resolve it lazily inside
+// registerFonts(), which only runs server-side at request time.
 
 export const scale = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 2;
 
@@ -143,38 +149,38 @@ export function getTextWidth(
   return width;
 }
 
-export function registerFonts() {
-  if (typeof window === 'undefined') {
-    try {
-      function findVeilRoot(startPath: string) {
-        const parts = path.resolve(startPath).split(path.sep);
+export async function registerFonts() {
+  if (typeof window !== 'undefined') return;
+  try {
+    const { registerFont } = await import('canvas');
 
-        const index = parts.lastIndexOf('veil');
-        if (index === -1) {
-          throw new Error(`Directory "veil" not found in path: ${startPath}`);
-        }
+    function findVeilRoot(startPath: string) {
+      const parts = path.resolve(startPath).split(path.sep);
 
-        return parts.slice(0, index + 1).join(path.sep);
+      const index = parts.lastIndexOf('veil');
+      if (index === -1) {
+        throw new Error(`Directory "veil" not found in path: ${startPath}`);
       }
 
-      const fontsDir = `${findVeilRoot(process.cwd())}/public/assets/fonts`;
-      const resolveFont = (font: string) => `${fontsDir}/${font}`;
-
-      registerFont(resolveFont('SGr-IosevkaTerm-Medium.ttc'), {
-        family: 'Iosevka Term',
-        weight: 'medium',
-      });
-      registerFont(resolveFont('SGr-IosevkaTerm-Regular.ttc'), {
-        family: 'Iosevka Term',
-        weight: 'normal',
-      });
-      registerFont(resolveFont('Poppins-Medium.ttf'), { family: 'Poppins' });
-      registerFont(resolveFont('WorkSans-Medium.ttf'), {
-        family: 'Work Sans',
-      });
-    } catch (e) {
-      console.error('__dirname', __dirname);
-      console.error('Error registering fonts', e);
+      return parts.slice(0, index + 1).join(path.sep);
     }
+
+    const fontsDir = `${findVeilRoot(process.cwd())}/public/assets/fonts`;
+    const resolveFont = (font: string) => `${fontsDir}/${font}`;
+
+    registerFont(resolveFont('SGr-IosevkaTerm-Medium.ttc'), {
+      family: 'Iosevka Term',
+      weight: 'medium',
+    });
+    registerFont(resolveFont('SGr-IosevkaTerm-Regular.ttc'), {
+      family: 'Iosevka Term',
+      weight: 'normal',
+    });
+    registerFont(resolveFont('Poppins-Medium.ttf'), { family: 'Poppins' });
+    registerFont(resolveFont('WorkSans-Medium.ttf'), {
+      family: 'Work Sans',
+    });
+  } catch (e) {
+    console.error('Error registering fonts', e);
   }
 }

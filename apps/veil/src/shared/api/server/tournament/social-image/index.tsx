@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     {},
   ) as TournamentParams;
 
-  registerFonts();
+  await registerFonts();
   const canvas = createCanvas(600, 315);
 
   const exponent = getDisplayDenomExponent(stakingMetadata);
