@@ -13,7 +13,7 @@ import { VoteDialogueSelector } from './vote-dialog';
 import { useVotingInfo } from '../api/use-voting-info';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 
-const STAKING_LINK = 'https://app.penumbra.zone/#/staking';
+const STAKING_LINK = PagePath.PortfolioStaking;
 
 export interface VotingInfoProps {
   epoch?: number;

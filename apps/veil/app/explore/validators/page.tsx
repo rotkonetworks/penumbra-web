@@ -69,7 +69,7 @@ const ValidatorsPage: FC<Props> = async props => {
               >
                 <h1 className='text-2xl font-medium'>Validator performance</h1>
                 <div className='flex flex-wrap gap-2'>
-                  <Button density='compact' href='https://app.penumbra.zone/#/staking'>
+                  <Button density='compact' href='/portfolio/staking'>
                     Delegate to a validator
                   </Button>
                   <Button
