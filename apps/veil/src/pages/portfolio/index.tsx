@@ -1,41 +1,57 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { observer } from 'mobx-react-lite';
-import { XCircle, Coins } from 'lucide-react';
+import { XCircle } from 'lucide-react';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Density } from '@penumbra-zone/ui/Density';
-import { AssetsTable, AssetsTableLayout } from './ui/assets-table';
-import { WalletConnect } from './ui/wallet-connect';
-import { useRegistry } from '@/shared/api/registry.tsx';
-import { IbcChainProvider } from '@/features/cosmos/chain-provider.tsx';
-import { PortfolioPositionTabs } from './ui/position-tabs';
-import { AssetBars } from './ui/asset-bars';
-import { useUnifiedAssets } from './api/use-unified-assets';
-import { PenumbraWaves } from '@/pages/explore/ui/waves.tsx';
-import { ShieldingTicker } from '@/widgets/shielding-ticker';
-import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { PortfolioCard } from './ui/portfolio-card';
-import { PagePath } from '@/shared/const/pages';
+import { Skeleton } from '@/shared/ui/skeleton';
+
+// Defer the entire desktop portfolio (cosmos-kit + chain-registry +
+// keplr/leap SDKs + interchain-ui) into a client-only chunk. The parent
+// route's First Load JS shouldn't carry ~1.5MB of Cosmos wallet
+// machinery that only matters once the user has scrolled into the
+// portfolio. Mobile path stays static (no cosmos-kit dependency).
+const DesktopPortfolioPage = dynamic(
+  () => import('./ui/desktop-page').then(m => ({ default: m.DesktopPortfolioPage })),
+  {
+    ssr: false,
+    loading: () => <PortfolioSkeleton />,
+  },
+);
 
 interface PortfolioPageProps {
   isMobile: boolean;
 }
 
-export const PortfolioPage = ({ isMobile }: PortfolioPageProps): React.ReactNode => {
-  const { data } = useRegistry();
-  if (isMobile) {
-    return <MobilePortfolioPage />;
-  }
+export const PortfolioPage = observer(
+  ({ isMobile }: PortfolioPageProps): React.ReactNode => {
+    if (isMobile) {
+      return <MobilePortfolioPage />;
+    }
+    return <DesktopPortfolioPage />;
+  },
+);
 
-  return (
-    <IbcChainProvider registry={data}>
-      <DesktopPortfolioPage />
-    </IbcChainProvider>
-  );
-};
+/**
+ * Inline placeholder while the desktop chunk loads. Sized to match the
+ * real layout so there's no jank when the chunk arrives.
+ */
+const PortfolioSkeleton = () => (
+  <div className='container mx-auto flex max-w-[1136px] flex-col gap-4 py-8'>
+    <div className='h-12'>
+      <Skeleton />
+    </div>
+    <div className='h-32'>
+      <Skeleton />
+    </div>
+    <div className='h-64'>
+      <Skeleton />
+    </div>
+  </div>
+);
 
 function MobilePortfolioPage() {
   return (
@@ -73,45 +89,3 @@ function MobilePortfolioPage() {
     </section>
   );
 }
-
-const DesktopPortfolioPage = observer(() => {
-  const [parent] = useAutoAnimate();
-  const { isPenumbraConnected, isCosmosConnected, isConnectionLoading } = useUnifiedAssets();
-
-  return (
-    <>
-      <PenumbraWaves />
-
-      <ShieldingTicker />
-
-      {!isConnectionLoading && (
-        <div ref={parent} className='container mx-auto flex max-w-[1136px] flex-col gap-4 py-8'>
-          <WalletConnect />
-
-          {isPenumbraConnected && (
-            <div className='flex justify-end'>
-              <Link href={PagePath.PortfolioStaking}>
-                <Button actionType='accent' priority='secondary' icon={Coins} density='compact'>
-                  Stake UM
-                </Button>
-              </Link>
-            </div>
-          )}
-
-          {/* Asset Allocation Bars */}
-          {(isPenumbraConnected || isCosmosConnected) && (
-            <PortfolioCard title={'Allocation'}>
-              <AssetBars />
-            </PortfolioCard>
-          )}
-
-          <AssetsTableLayout>
-            <AssetsTable />
-          </AssetsTableLayout>
-
-          <PortfolioPositionTabs />
-        </div>
-      )}
-    </>
-  );
-});
