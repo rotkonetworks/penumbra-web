@@ -44,8 +44,8 @@ const ValidatorTableLoader: FC<Props> = async props => {
                             className="text-text-primary hover:underline"
                             href={
                                 props.inactive
-                                    ? '/inspect/validators?filter=inactive&all=1'
-                                    : '/inspect/validators?all=1'
+                                    ? '/explore/validators?filter=inactive&all=1'
+                                    : '/explore/validators?all=1'
                             }
                         >
                             Show all

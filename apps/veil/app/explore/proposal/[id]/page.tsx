@@ -30,8 +30,8 @@ const ProposalPage: FC<Props> = async props => {
   return (
     <Container>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
-        <Breadcrumb href='/inspect/governance'>Governance</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore/governance'>Governance</Breadcrumb>
       </Breadcrumbs>
       <div className='flex flex-col gap-4 md:flex-row md:items-start'>
         <ProposalContainer

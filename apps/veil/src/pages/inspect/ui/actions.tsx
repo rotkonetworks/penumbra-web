@@ -26,7 +26,7 @@ export const PositionClosed = ({
               {closingTx && (
                 <Text color='text.secondary' truncate>
                   Tx:{' '}
-                  <Link href={`/inspect/tx/${closingTx}`} className='hover:underline'>
+                  <Link href={`/explore/tx/${closingTx}`} className='hover:underline'>
                     {closingTx}
                   </Link>
                 </Text>
@@ -58,7 +58,7 @@ export const PositionWithdraw = ({ withdrawal }: { withdrawal: PositionWithdrawa
 
               <Text color='text.secondary' truncate>
                 Tx:{' '}
-                <Link href={`/inspect/tx/${withdrawal.txHash}`} className='hover:underline'>
+                <Link href={`/explore/tx/${withdrawal.txHash}`} className='hover:underline'>
                   {withdrawal.txHash}
                 </Link>
               </Text>
@@ -87,7 +87,7 @@ export const PositionOpen = ({ state }: { state: PositionStateVV }) => {
 
               <Text color='text.secondary' truncate>
                 Tx:{' '}
-                <Link href={`/inspect/tx/${state.openingTx}`} className='hover:underline'>
+                <Link href={`/explore/tx/${state.openingTx}`} className='hover:underline'>
                   {state.openingTx}
                 </Link>
               </Text>

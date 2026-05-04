@@ -5,9 +5,10 @@ import { useBasePath, PagePath } from '@/shared/const/pages';
 
 export const Footer = () => {
   const currentPath = useBasePath();
-  const isInspectPage = currentPath === PagePath.Inspect;
+  // Only render the version footer on the chain-explorer page.
+  const isExplorePage = currentPath === PagePath.Explore;
 
-  if (!isInspectPage) {
+  if (!isExplorePage) {
     return null;
   }
 

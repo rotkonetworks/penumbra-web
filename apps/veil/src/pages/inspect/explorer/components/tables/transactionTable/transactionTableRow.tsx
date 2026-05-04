@@ -24,11 +24,11 @@ export interface Props {
 const TransactionTableRow: FC<Props> = props => (
     <TableRow
         className={props.new ? 'animate-new-data-bg' : undefined}
-        href={`/inspect/tx/${props.transaction.hash}`}
+        href={`/explore/tx/${props.transaction.hash}`}
     >
         <TableCell>
             <TransactionStatusIcon status={props.transaction.status} />
-            <Link href={`/inspect/tx/${props.transaction.hash}`}>
+            <Link href={`/explore/tx/${props.transaction.hash}`}>
                 {shortenHash(props.transaction.hash, 16)}
             </Link>
             <CopyToClipboard text={props.transaction.hash} />
@@ -36,7 +36,7 @@ const TransactionTableRow: FC<Props> = props => (
         {props.blockHeight && (
             <TableCell>
                 <BoxIcon className="text-text-secondary inline" size={16} />
-                <Link href={`/inspect/block/${props.transaction.blockHeight}`}>
+                <Link href={`/explore/block/${props.transaction.blockHeight}`}>
                     {formatNumber(props.transaction.blockHeight)}
                 </Link>
             </TableCell>

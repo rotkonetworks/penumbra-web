@@ -18,8 +18,8 @@ const BlockViewPage: FC<Props> = async props => {
   return (
     <Container narrow>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
-        <Breadcrumb href='/inspect/blocks'>Blocks</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore/blocks'>Blocks</Breadcrumb>
       </Breadcrumbs>
       <BlockViewContainer blockHeight={blockHeight} />
     </Container>

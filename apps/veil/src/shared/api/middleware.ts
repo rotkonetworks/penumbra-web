@@ -9,11 +9,7 @@ const LAST_PAIR_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 export const routingMiddleware = async (request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
-  if (pathname === '/') {
-    // Redirect the default homepage to the 'explore' page.
-    // TODO: Replace this with a path to a fully designed landing page.
-    return NextResponse.redirect(new URL(`/explore`, request.url));
-  }
+  // `/` is now the market/landing page itself (app/page.tsx); no redirect.
 
   // Remember the last viewed pair so /trade can redirect back to it.
   const tradePairMatch = pathname.match(/^\/trade\/([^/]+)\/([^/]+)\/?$/);

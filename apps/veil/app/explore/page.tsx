@@ -29,7 +29,7 @@ const InspectHomePage: FC = () => (
           header={
             <div className='flex items-center justify-between'>
               <h2 className='text-2xl font-medium'>Latest blocks</h2>
-              <Button density='compact' href='/inspect/blocks'>
+              <Button density='compact' href='/explore/blocks'>
                 View all
               </Button>
             </div>
@@ -42,7 +42,7 @@ const InspectHomePage: FC = () => (
           header={
             <div className='flex items-center justify-between'>
               <h2 className='text-2xl font-medium'>Latest transactions</h2>
-              <Button density='compact' href='/inspect/txs'>
+              <Button density='compact' href='/explore/txs'>
                 View all
               </Button>
             </div>

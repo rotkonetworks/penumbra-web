@@ -22,8 +22,8 @@ const ValidatorPage: FC<Props> = async props => {
   return (
     <Container>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
-        <Breadcrumb href='/inspect/validators'>Validators</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore/validators'>Validators</Breadcrumb>
       </Breadcrumbs>
       <div className='grid grid-cols-12 items-start gap-4'>
         <ValidatorContainer

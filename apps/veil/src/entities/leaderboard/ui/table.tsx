@@ -200,7 +200,7 @@ export const LPLeaderboard = observer(
                         return (
                           <Link
                             key={position.positionIdString}
-                            href={`/inspect/lp/${position.positionIdString}`}
+                            href={`/explore/lp/${position.positionIdString}`}
                             className={cn(
                               'relative col-span-6 grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr]',
                               'bg-transparent transition-colors hover:bg-action-hover-overlay',

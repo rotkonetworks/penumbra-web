@@ -20,7 +20,7 @@ const getTransactionLink = (id?: TransactionId) => {
   const hash = id?.inner ? uint8ArrayToHex(id.inner) : '';
 
   const TxLink = ({ children, ...rest }: { children?: ReactNode }) => (
-    <Link href={`/inspect/tx/${hash}`} {...rest}>
+    <Link href={`/explore/tx/${hash}`} {...rest}>
       {children}
     </Link>
   );
@@ -82,7 +82,7 @@ export const PortfolioTransactions = observer(() => {
             as={getTransactionLink(tx.id)}
             getMetadata={getMetadata}
             onClick={() =>
-              tx.id?.inner && router.push(`/inspect/tx/${uint8ArrayToHex(tx.id.inner)}`)
+              tx.id?.inner && router.push(`/explore/tx/${uint8ArrayToHex(tx.id.inner)}`)
             }
             endAdornment={
               <Button actionType='accent' density='compact' iconOnly icon={FileSearch}>

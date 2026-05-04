@@ -47,8 +47,8 @@ const ClientPage: FC<Props> = async props => {
   return (
     <Container>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
-        <Breadcrumb href='/inspect/ibc'>IBC Chains</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore/ibc'>IBC Chains</Breadcrumb>
       </Breadcrumbs>
       <IbcFlowHistoryContainer clientId={id} />
       <div

@@ -1,10 +1,12 @@
 import { usePagePath } from '@/shared/utils/usePagePath.ts';
 
 export enum PagePath {
-  Home = '',
+  Home = '/',
+  // Was '/inspect' (chain explorer); promoted to '/explore' as the
+  // top-level chain-explorer namespace. The market-overview/landing page
+  // that used to live at '/explore' is now the root `Home`.
   Explore = '/explore',
   Trade = '/trade',
-  Inspect = '/inspect',
   Portfolio = '/portfolio',
   PortfolioStaking = '/portfolio/staking',
   Tournament = '/tournament',
@@ -12,14 +14,14 @@ export enum PagePath {
   TournamentRound = '/tournament/:epoch',
   TournamentDelegator = '/tournament/delegator/:address',
   TradePair = '/trade/:primary/:numeraire',
-  InspectLp = '/inspect/lp/:id',
-  LpLeaderboard = '/inspect/lp-leaderboard',
+  ExploreLp = '/explore/lp/:id',
+  LpLeaderboard = '/explore/lp-leaderboard',
 }
 
 const basePath: Partial<Record<PagePath, PagePath>> = {
   [PagePath.TradePair]: PagePath.Trade,
   [PagePath.PortfolioStaking]: PagePath.Portfolio,
-  '/inspect/lp/:id': PagePath.Inspect,
+  '/explore/lp/:id': PagePath.Explore,
   '/tournament/:epoch': PagePath.Tournament,
 };
 

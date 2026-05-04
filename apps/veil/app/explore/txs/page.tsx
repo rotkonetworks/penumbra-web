@@ -35,7 +35,7 @@ const TransactionsPage: FC<Props> = async props => {
   return (
     <Container>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
         <Breadcrumb>Transactions</Breadcrumb>
       </Breadcrumbs>
       <TransactionTableContainer

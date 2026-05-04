@@ -35,7 +35,7 @@ function LpRewardRow({ lpReward, padStart }: { lpReward: LpRewardRowData; padSta
   return (
     <Link
       className='col-span-5 grid cursor-pointer grid-cols-subgrid transition-colors hover:bg-action-hover-overlay'
-      href={`/inspect/lp/${id}`}
+      href={`/explore/lp/${id}`}
     >
       <TableCell cell>#{lpReward.epoch}</TableCell>
       <TableCell cell>

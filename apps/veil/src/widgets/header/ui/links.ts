@@ -8,10 +8,11 @@ import { PagePath } from '@/shared/const/pages';
 // while it has no fresh data to show.
 export const HEADER_LINKS = [
   {
+    // Root `/`. The landing/market page (DEX pairs + stats).
     as: Link,
-    tabProps: { href: PagePath.Explore },
-    label: 'Explore',
-    value: PagePath.Explore,
+    tabProps: { href: PagePath.Home },
+    label: 'Home',
+    value: PagePath.Home,
     icon: Coins,
   },
   {
@@ -29,10 +30,12 @@ export const HEADER_LINKS = [
     icon: ArrowUpFromDot,
   },
   {
+    // /explore — on-chain explorer (blocks, txs, validators, governance,
+    // IBC, LPs).
     as: Link,
-    tabProps: { href: PagePath.Inspect },
-    label: 'Inspect',
-    value: PagePath.Inspect,
+    tabProps: { href: PagePath.Explore },
+    label: 'Explore',
+    value: PagePath.Explore,
     icon: MoonStar,
   },
   {

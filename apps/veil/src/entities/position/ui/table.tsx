@@ -252,7 +252,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                         <Text as='div' detailTechnical color='text.primary' truncate>
                           {position.idString}
                         </Text>
-                        <Link href={`/inspect/lp/${position.idString}`}>
+                        <Link href={`/explore/lp/${position.idString}`}>
                           <SquareArrowOutUpRight className='h-4 w-4 text-text-secondary' />
                         </Link>
                       </div>

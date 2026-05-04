@@ -5,7 +5,7 @@ import PenumbraWordmark from '../assets/penumbra-logo.svg';
 
 export const HeaderLogo = () => {
   return (
-    <Link className='inline-flex h-8 items-center gap-2' href={PagePath.Explore}>
+    <Link className='inline-flex h-8 items-center gap-2' href={PagePath.Home}>
       <PenumbraSymbol width={28} height={16} />
       <PenumbraWordmark width={104} height={9} />
     </Link>

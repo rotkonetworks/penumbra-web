@@ -16,7 +16,7 @@ export const useLpIdInUrl = () => {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   if (!params?.id) {
-    router.push('/inspect');
+    router.push('/explore');
     return '';
   }
   return params.id;

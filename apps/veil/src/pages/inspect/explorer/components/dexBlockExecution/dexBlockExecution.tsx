@@ -20,7 +20,7 @@ const DexBlockExecution: FC<Props> = props => (
         >
             <Link
                 className="inline-flex items-center gap-2"
-                href={`/inspect/block/${props.height}`}
+                href={`/explore/block/${props.height}`}
             >
                 <Link2Icon size={12} />
                 Block {formatNumber(props.height)}

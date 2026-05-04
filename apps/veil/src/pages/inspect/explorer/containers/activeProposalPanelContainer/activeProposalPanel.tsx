@@ -32,7 +32,7 @@ const ActiveProposalPanel: FC<Props> = props => (
                 'from-[9.77%] to-[rgba(193,166,204,0.35)] to-[99.84%] px-6',
                 'py-4 backdrop-blur-lg'
             )}
-            href={`/inspect/proposal/${props.proposal.id}`}
+            href={`/explore/proposal/${props.proposal.id}`}
         >
             <ProposalStatePill state={props.proposal.state} />
             <div

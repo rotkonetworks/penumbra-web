@@ -11,18 +11,18 @@ interface NavItem {
 }
 
 const ITEMS: NavItem[] = [
-  { label: 'Overview', href: '/inspect' },
-  { label: 'Blocks', href: '/inspect/blocks', matchPrefixes: ['/inspect/block'] },
-  { label: 'Transactions', href: '/inspect/txs', matchPrefixes: ['/inspect/tx'] },
-  { label: 'Validators', href: '/inspect/validators', matchPrefixes: ['/inspect/validator'] },
-  { label: 'Governance', href: '/inspect/governance', matchPrefixes: ['/inspect/proposal'] },
-  { label: 'IBC', href: '/inspect/ibc' },
-  { label: 'LPs', href: '/inspect/lp-leaderboard', matchPrefixes: ['/inspect/lp/'] },
+  { label: 'Overview', href: '/explore' },
+  { label: 'Blocks', href: '/explore/blocks', matchPrefixes: ['/explore/block'] },
+  { label: 'Transactions', href: '/explore/txs', matchPrefixes: ['/explore/tx'] },
+  { label: 'Validators', href: '/explore/validators', matchPrefixes: ['/explore/validator'] },
+  { label: 'Governance', href: '/explore/governance', matchPrefixes: ['/explore/proposal'] },
+  { label: 'IBC', href: '/explore/ibc' },
+  { label: 'LPs', href: '/explore/lp-leaderboard', matchPrefixes: ['/explore/lp/'] },
 ];
 
 const isActive = (item: NavItem, pathname: string): boolean => {
-  if (item.href === '/inspect') {
-    return pathname === '/inspect';
+  if (item.href === '/explore') {
+    return pathname === '/explore';
   }
   if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
     return true;

@@ -160,7 +160,7 @@ export const planBuildBroadcast = async (
       description:
         `Transaction ${shortenedTxHash} appeared on chain${detectionHeight ? ` at height ${detectionHeight}` : ''}. ${unfilledSwapsInfo}`.trim(),
       action: {
-        label: <Link href={`/inspect/tx/${txHash}`}>See details</Link>,
+        label: <Link href={`/explore/tx/${txHash}`}>See details</Link>,
         onClick: () => {},
       },
       dismissible: true,

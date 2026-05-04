@@ -31,7 +31,7 @@ const ValidatorsPage: FC<Props> = async props => {
   return (
     <Container>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
         <Breadcrumb>Validators</Breadcrumb>
       </Breadcrumbs>
       <div className='grid grid-cols-12 gap-4 lg:items-start'>

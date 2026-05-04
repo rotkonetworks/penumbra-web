@@ -17,7 +17,7 @@ const IbcPage: FC<Props> = async props => {
   return (
     <Container>
       <Breadcrumbs>
-        <Breadcrumb href='/inspect'>Explore</Breadcrumb>
+        <Breadcrumb href='/explore'>Explore</Breadcrumb>
         <Breadcrumb>IBC Chains</Breadcrumb>
       </Breadcrumbs>
       <IbcFlowHistoryContainer

@@ -43,11 +43,11 @@ export const InspectSearch = () => {
     setLoading(true);
 
     if (isPositionId(searchQuery)) {
-      router.push(`/inspect/lp/${searchQuery}`);
+      router.push(`/explore/lp/${searchQuery}`);
     } else if (isTransactionId(searchQuery)) {
-      router.push(`/inspect/tx/${searchQuery}`);
+      router.push(`/explore/tx/${searchQuery}`);
     } else if (isBlockHeight(searchQuery)) {
-      router.push(`/inspect/block/${searchQuery}`);
+      router.push(`/explore/block/${searchQuery}`);
     }
   };
 
