@@ -15,7 +15,7 @@ import { PriceSlider, roundToDecimals } from './price-slider';
 import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '@penumbra-zone/ui/Icon';
 import { Density } from '@penumbra-zone/ui/Density';
-import { useIsLqtEligible } from '@/shared/utils/is-lqt-eligible';
+import { useIsLqtEligible, LQT_ENABLED } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { LiquidityShape } from './liquidity-shape';
 
@@ -247,29 +247,31 @@ export const SimpleLiquidityOrderForm = observer(
           />
         </div>
         <div className='mb-4'>
-          <InfoRow
-            label='LQT Rewards'
-            value={isLQTEligible ? 'Eligible' : 'Not Eligible'}
-            valueColor={isLQTEligible ? 'success' : undefined}
-            toolTip={
-              isLQTEligible ? (
-                <>
-                  This pair qualifies for LQT rewards. By providing liquidity, you earn additional
-                  protocol incentives.{' '}
-                  <a href='https://penumbra-zone.webflow.io/tournament' className='underline'>
-                    Learn More.
-                  </a>
-                </>
-              ) : (
-                <>
-                  This pair is not currently eligible for LQT rewards. Explore other pairs or{' '}
-                  <a href='https://penumbra-zone.webflow.io/tournament' className='underline'>
-                    Learn More.
-                  </a>
-                </>
-              )
-            }
-          />
+          {LQT_ENABLED && (
+            <InfoRow
+              label='LQT Rewards'
+              value={isLQTEligible ? 'Eligible' : 'Not Eligible'}
+              valueColor={isLQTEligible ? 'success' : undefined}
+              toolTip={
+                isLQTEligible ? (
+                  <>
+                    This pair qualifies for LQT rewards. By providing liquidity, you earn additional
+                    protocol incentives.{' '}
+                    <a href='https://penumbra-zone.webflow.io/tournament' className='underline'>
+                      Learn More.
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    This pair is not currently eligible for LQT rewards. Explore other pairs or{' '}
+                    <a href='https://penumbra-zone.webflow.io/tournament' className='underline'>
+                      Learn More.
+                    </a>
+                  </>
+                )
+              }
+            />
+          )}
           <InfoRowGasFee
             gasFee={parentStore.gasFee.display}
             symbol={parentStore.gasFee.symbol}

@@ -1,7 +1,11 @@
 import Link from 'next/link';
-import { MoonStar, ArrowUpFromDot, Coins, Star, Flame } from 'lucide-react';
+import { MoonStar, ArrowUpFromDot, Coins, Flame } from 'lucide-react';
 import { PagePath } from '@/shared/const/pages';
 
+// Note: Tournament link is intentionally hidden from the header until the
+// next LQT epoch is live. The route handlers under /tournament still
+// exist so existing bookmarks resolve, but we don't advertise the page
+// while it has no fresh data to show.
 export const HEADER_LINKS = [
   {
     as: Link,
@@ -30,13 +34,6 @@ export const HEADER_LINKS = [
     label: 'Inspect',
     value: PagePath.Inspect,
     icon: MoonStar,
-  },
-  {
-    as: Link,
-    tabProps: { href: PagePath.Tournament },
-    label: 'Tournament',
-    value: PagePath.Tournament,
-    icon: Star,
   },
   {
     as: Link,
