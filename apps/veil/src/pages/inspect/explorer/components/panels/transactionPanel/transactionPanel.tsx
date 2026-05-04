@@ -20,7 +20,7 @@ const TransactionPanel: FC<Props> = props => (
         number={props.number}
         title={
             <>
-                <TransactionPanelIcon aria-label="Transaction panel" />
+                <TransactionPanelIcon aria-label="Transaction panel" className="h-5 w-5 shrink-0" />
                 <span>Total transactions</span>
             </>
         }

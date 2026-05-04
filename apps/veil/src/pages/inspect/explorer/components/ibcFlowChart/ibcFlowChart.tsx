@@ -86,13 +86,13 @@ const IbcFlowChart: FC<Props> = ({ data }) => {
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                 <Bar
                     dataKey="inflow"
-                    fill="#22c55e"
+                    fill="#5eead4"
                     name="Inflows"
                     radius={[2, 2, 0, 0]}
                 />
                 <Bar
                     dataKey="outflow"
-                    fill="#f59e0b"
+                    fill="#fb923c"
                     name="Outflows"
                     radius={[2, 2, 0, 0]}
                 />

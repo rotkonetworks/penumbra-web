@@ -1,5 +1,5 @@
 import { Text } from '@penumbra-zone/ui/Text';
-import { ExternalLink, BookOpen, Github, BarChart3 } from 'lucide-react';
+import { ExternalLink, BookOpen, Compass, MessageSquare } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface ResourceLinkProps {
@@ -40,10 +40,22 @@ export const Resources = () => (
         Go deeper
       </Text>
       <Text body color='text.secondary'>
-        Specifications, source code, and live data on UM mechanics.
+        Specifications, walkthroughs, and conversations from the people building Penumbra.
       </Text>
     </div>
     <div className='grid grid-cols-1 gap-3 tablet:grid-cols-2'>
+      <ResourceLink
+        href='https://guide.penumbra.zone/'
+        icon={Compass}
+        label='Penumbra guide'
+        description='Hands-on walkthroughs: running a node, building wallets, staking, governance, and using the DEX.'
+      />
+      <ResourceLink
+        href='https://forum.penumbra.zone/'
+        icon={MessageSquare}
+        label='Community forum'
+        description='Open discussion on protocol upgrades, validator operations, governance proposals, and ecosystem ideas.'
+      />
       <ResourceLink
         href='https://protocol.penumbra.zone/'
         icon={BookOpen}
@@ -55,18 +67,6 @@ export const Resources = () => (
         icon={ExternalLink}
         label='penumbra.zone'
         description='Project site with whitepapers, blog posts, and ecosystem updates.'
-      />
-      <ResourceLink
-        href='https://github.com/penumbra-zone/penumbra'
-        icon={Github}
-        label='penumbra-zone/penumbra'
-        description='The reference implementation. The DEX, batch swap, and burn logic live here.'
-      />
-      <ResourceLink
-        href='https://github.com/hitchho/tokenomic'
-        icon={BarChart3}
-        label='hitchho/tokenomic'
-        description='Community-built tokenomics dashboard with charts for issuance, burns, and supply allocation.'
       />
     </div>
   </section>

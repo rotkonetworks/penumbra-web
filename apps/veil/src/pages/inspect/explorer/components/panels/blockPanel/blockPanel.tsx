@@ -23,7 +23,7 @@ const BlockPanel: FC<Props> = props => (
         number={props.blockHeight ?? 0}
         title={
             <>
-                <BlockPanelIcon aria-label="Block panel" />
+                <BlockPanelIcon aria-label="Block panel" className="h-5 w-5 shrink-0" />
                 <span>Current block</span>
             </>
         }
