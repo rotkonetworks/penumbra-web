@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { App } from './app';
 import { getClientSideEnv } from '@/shared/api/env/getClientSideEnv';
+import { ChunkReloadGuard } from '@/shared/ui/chunk-reload-guard';
 
 import '@penumbra-zone/ui/style.css';
 import '@penumbra-zone/ui/theme.css';
@@ -17,6 +18,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
   return (
     <html lang='en'>
       <body className='scroll-area-page'>
+        <ChunkReloadGuard />
         <App clientEnv={clientEnv}>{children}</App>
       </body>
     </html>
