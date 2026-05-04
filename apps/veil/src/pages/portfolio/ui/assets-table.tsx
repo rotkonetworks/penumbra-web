@@ -8,6 +8,7 @@ import { observer } from 'mobx-react-lite';
 import { useUnifiedAssets } from '../api/use-unified-assets.ts';
 import { useAssetPrices } from '../api/use-asset-prices.ts';
 import { AssetRow } from '@/pages/portfolio/ui/asset-row.tsx';
+import { DelegationRows } from '@/pages/portfolio/ui/delegation-rows.tsx';
 import { PortfolioCard } from '@/pages/portfolio/ui/portfolio-card.tsx';
 import { ReactNode } from 'react';
 
@@ -125,6 +126,8 @@ export const AssetsTable = observer(() => {
     return <NoAssetsNotice />;
   }
 
+  const umPriceRow = prices['UM'];
+
   return (
     <Density compact>
       <div className='grid grid-cols-[1fr_1fr_1fr_1fr_auto_auto_auto] overflow-x-auto overflow-y-auto'>
@@ -148,6 +151,13 @@ export const AssetsTable = observer(() => {
             isLastRow={index === unifiedAssets.length - 1}
           />
         ))}
+
+        {/* Per-validator stake rows. The grid spans col-span-7 so the
+            sub-rows line up with the asset header columns. */}
+        <DelegationRows
+          umPrice={umPriceRow?.price}
+          umQuoteSymbol={umPriceRow?.quoteSymbol}
+        />
       </div>
     </Density>
   );

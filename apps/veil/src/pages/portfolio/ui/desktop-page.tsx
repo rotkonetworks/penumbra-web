@@ -15,7 +15,6 @@ import { WalletConnect } from './wallet-connect';
 import { PortfolioPositionTabs } from './position-tabs';
 import { AssetBars } from './asset-bars';
 import { PortfolioCard } from './portfolio-card';
-import { BalanceSummary } from './balance-summary';
 import { useUnifiedAssets } from '../api/use-unified-assets';
 
 /**
@@ -62,12 +61,6 @@ const PortfolioBody = observer(() => {
               </Link>
             </div>
           )}
-
-          {/* Available / Staked / Unbonding / Claimable summary —
-              fills the gap between the assets table (free balances)
-              and the dedicated /portfolio/staking page (delegations
-              and unbonding). Auto-hides when nothing is shielded. */}
-          {isPenumbraConnected && <BalanceSummary />}
 
           {/* Asset Allocation Bars */}
           {(isPenumbraConnected || isCosmosConnected) && (
