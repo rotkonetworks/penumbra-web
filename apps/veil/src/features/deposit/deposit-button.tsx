@@ -32,10 +32,15 @@ export const DepositButton = observer(
     const [isOpen, setIsOpen] = useState(false);
     const connected = connectionStore.connected;
 
+    // mobile = always icon-only.
+    // minimal in header (no children) = icon-only so it doesn't overflow.
+    // minimal with children (e.g. portfolio "Deposit from Coinbase") = labelled.
+    const iconOnly = variant === 'mobile' || (variant === 'minimal' && !children);
+
     const button = (
       <Button
         icon={ArrowDownToLine}
-        iconOnly={variant === 'mobile' || variant === 'minimal'}
+        iconOnly={iconOnly}
         actionType={actionType}
         density={variant === 'minimal' ? 'compact' : 'sparse'}
         priority={variant === 'minimal' ? 'secondary' : 'primary'}

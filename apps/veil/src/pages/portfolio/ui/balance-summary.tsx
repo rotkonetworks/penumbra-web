@@ -10,8 +10,10 @@ import { useBalances } from '@/shared/api/balances';
 import { useStakingTokenBalance } from '@/pages/portfolio/staking/api/use-staking-token-balance';
 import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
 import { useUnbondingTokens } from '@/pages/portfolio/staking/api/use-unbonding-tokens';
-import { getAmount } from '@penumbra-zone/getters/value-view';
+import { getAmount, getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
+import { getRateData } from '@penumbra-zone/getters/validator-info';
 import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { pnum } from '@penumbra-zone/types/pnum';
 import type { LucideIcon } from 'lucide-react';
 
 interface CardProps {
@@ -82,6 +84,25 @@ export const BalanceSummary = observer(() => {
     return null;
   }
 
+  // Each delegation token redeems for `validator_exchange_rate` UM. Sum
+  // amount × rate across all delegations to surface the actual UM balance
+  // staked rather than a per-validator split the user can't read at a glance.
+  const stakedUm = delegations.reduce((sum, d) => {
+    try {
+      const amount = pnum(d).toNumber();
+      const validator = getValidatorInfoFromValueView(d);
+      const rate = getRateData(validator);
+      const rateBps2 = rate.validatorExchangeRate
+        ? Number(joinLoHiAmount(rate.validatorExchangeRate))
+        : 0;
+      // rate is in "bps² basis points squared" (1e8 == 1.0).
+      return sum + amount * (rateBps2 / 1e8);
+    } catch {
+      return sum;
+    }
+  }, 0);
+  const stakedFmt = stakedUm > 0 ? `${stakedUm.toFixed(2)} UM` : '—';
+
   return (
     <div className='grid grid-cols-2 gap-3 desktop:grid-cols-4'>
       <Card
@@ -100,12 +121,12 @@ export const BalanceSummary = observer(() => {
         href='/portfolio/staking'
         icon={ArrowDownCircle}
         label='Staked'
-        primary={
+        primary={stakedFmt}
+        secondary={
           delegations.length > 0
-            ? `${delegations.length} validator${delegations.length === 1 ? '' : 's'}`
-            : '—'
+            ? `Across ${delegations.length} validator${delegations.length === 1 ? '' : 's'} — earning rewards`
+            : 'Tap to delegate UM and earn rewards'
         }
-        secondary='Tap to view delegations + earn rewards'
       />
       <Card
         href='/portfolio/staking'
