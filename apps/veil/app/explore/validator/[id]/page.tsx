@@ -10,6 +10,7 @@ import {
   ValidatorVotingPowerHistoryContainer,
   ValidatorVotingPowerPanelContainer,
 } from '@/pages/inspect/explorer/containers';
+import { StakeCta } from '@/pages/inspect/explorer/containers/validatorContainer/stake-cta';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 
 interface Props {
@@ -25,6 +26,9 @@ const ValidatorPage: FC<Props> = async props => {
         <Breadcrumb href='/explore'>Explore</Breadcrumb>
         <Breadcrumb href='/explore/validators'>Validators</Breadcrumb>
       </Breadcrumbs>
+      <div className='mb-4 flex justify-end'>
+        <StakeCta validatorId={id} />
+      </div>
       <div className='grid grid-cols-12 items-start gap-4'>
         <ValidatorContainer
           className={classNames(

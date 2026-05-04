@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { observer } from 'mobx-react-lite';
 import { useQueryClient } from '@tanstack/react-query';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -16,6 +17,8 @@ import { stakingStore } from '../model/staking-store';
 import { StakingHeader } from './header';
 import { DelegationsList } from './delegations-list';
 import { ValidatorsTable } from './validators-table';
+import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
+import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 
 export const StakingPage = observer(() => {
   const queryClient = useQueryClient();
@@ -39,6 +42,33 @@ export const StakingPage = observer(() => {
       void queryClient.invalidateQueries({ queryKey: ['view-service-unbonding-tokens'] });
     });
   }, [queryClient]);
+
+  // Deep-link from /explore/validator/[id]: ?delegate=<bech32 identity>
+  // pre-opens the delegate dialog for that validator once both wallet
+  // and validator-list are ready. We only auto-open once per page
+  // mount; after that the user is in normal control of the dialog.
+  const searchParams = useSearchParams();
+  const delegateTarget = searchParams?.get('delegate') ?? null;
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (!connected || !delegateTarget) return;
+    const validatorInfos = validatorInfosResult?.validatorInfos;
+    if (!validatorInfos?.length) return;
+    const match = validatorInfos.find(vi => {
+      const ik = getIdentityKeyFromValidatorInfo.optional(vi);
+      if (!ik) return false;
+      try {
+        return bech32mIdentityKey(ik) === delegateTarget;
+      } catch {
+        return false;
+      }
+    });
+    if (match) {
+      stakingStore.openDialog('delegate', match);
+      autoOpenedRef.current = true;
+    }
+  }, [connected, delegateTarget, validatorInfosResult]);
 
   if (connectedLoading) {
     return (
