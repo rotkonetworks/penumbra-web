@@ -137,13 +137,14 @@ function useIbcDenom(asset: UnifiedAsset) {
 }
 
 /**
- * Theme object passed to Skip widget.
- * Wrapped in `Object.freeze` so its reference remains stable across renders,
- * preventing unnecessary re-mounts in `LazySkipWidget`.
+ * Skip's `theme` prop is `'dark' | 'light' | PartialTheme`. Passing a bare
+ * `{ brandColor }` object made Skip fall back to its light defaults — the
+ * 'Connect Wallet' button rendered as white-on-white over our dark
+ * dialog. Use the dark preset and pass brandColor through the dedicated
+ * `brandColor` prop instead.
  */
-const theme = Object.freeze({
-  brandColor: penumbraTheme.color.primary.main,
-});
+const SKIP_THEME = 'dark' as const;
+const SKIP_BRAND_COLOR = penumbraTheme.color.primary.main;
 
 export function UnshieldButton({ asset }: { asset: ShieldedBalance }) {
   return <UnshieldDialog asset={asset} />;
@@ -177,7 +178,8 @@ export function GenericShieldButton() {
                 'penumbra-1': undefined,
               },
             }}
-            theme={theme}
+            theme={SKIP_THEME}
+            brandColor={SKIP_BRAND_COLOR}
             enableAmplitudeAnalytics={false}
           />
         </Suspense>
@@ -235,7 +237,8 @@ export const ShieldButton = ({ asset }: { asset: UnifiedAsset }) => {
                   [sourceChainId]: undefined,
                 },
               }}
-              theme={theme}
+              theme={SKIP_THEME}
+              brandColor={SKIP_BRAND_COLOR}
               enableAmplitudeAnalytics={false}
             />
           </Suspense>

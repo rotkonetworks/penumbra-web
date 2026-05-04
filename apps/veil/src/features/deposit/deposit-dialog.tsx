@@ -19,9 +19,12 @@ interface DepositDialogProps {
   onClose: () => void;
 }
 
-const skipTheme = Object.freeze({
-  brandColor: penumbraTheme.color.primary.main,
-});
+// Skip's theme prop is `"dark" | "light" | PartialTheme`. Passing just
+// `{ brandColor }` makes Skip fall back to its light defaults, so the
+// 'Connect Wallet' button rendered white-on-white over our dark dialog.
+// Use the dark preset and pass brandColor through the dedicated prop.
+const SKIP_THEME = 'dark' as const;
+const SKIP_BRAND_COLOR = penumbraTheme.color.primary.main;
 
 const SkeletonFallback = () => (
   <div className='flex h-[420px] w-full items-center justify-center p-4'>
@@ -89,7 +92,8 @@ export const DepositDialog = observer(({ isOpen, onClose }: DepositDialogProps) 
                 },
               }}
               connectedAddresses={connectedAddresses}
-              theme={skipTheme}
+              theme={SKIP_THEME}
+              brandColor={SKIP_BRAND_COLOR}
               enableAmplitudeAnalytics={false}
             />
           </Suspense>
