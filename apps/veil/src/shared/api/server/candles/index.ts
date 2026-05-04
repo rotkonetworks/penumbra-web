@@ -2,42 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ChainRegistryClient } from '@penumbra-labs/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
-import { dbCandleToOhlc } from '@/shared/api/server/candles/utils.ts';
-import { CandleApiResponse } from '@/shared/api/server/candles/types.ts';
+import { combineDbCandles } from '@/shared/api/server/candles/utils.ts';
+import { CandleApiResponse, DbCandle } from '@/shared/api/server/candles/types.ts';
 import { pindexerDb } from '@/shared/database/client';
 
 const MAINNET_CHAIN_ID = 'penumbra-1';
 
-const getCandles = async ({
-  baseAsset,
-  quoteAsset,
+const getCandlesOneDirection = async ({
+  assetStart,
+  assetEnd,
   window,
   chainId,
   page,
   limit,
 }: {
-  baseAsset: AssetId;
-  quoteAsset: AssetId;
+  assetStart: AssetId;
+  assetEnd: AssetId;
   window: DurationWindow;
   limit?: number;
   page?: number;
   chainId: string;
-}) => {
+}): Promise<DbCandle[]> => {
   const filteredCandles = pindexerDb
     .selectFrom('dex_ex_price_charts')
     .select(['start_time', 'open', 'close', 'low', 'high', 'swap_volume', 'direct_volume'])
     .where('the_window', '=', window)
-    .where('asset_start', '=', Buffer.from(baseAsset.inner))
-    .where('asset_end', '=', Buffer.from(quoteAsset.inner))
+    .where('asset_start', '=', Buffer.from(assetStart.inner))
+    .where('asset_end', '=', Buffer.from(assetEnd.inner))
     .orderBy('start_time', 'desc')
-    // Due to a lot of price volatility at the launch of the chain, manually setting start date a few days later
     .$if(chainId === MAINNET_CHAIN_ID, qb => qb.where('start_time', '>=', new Date('2024-08-06')))
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
     .$if(limit !== undefined, qb => qb.limit(limit!))
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kyseley limitation
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
     .$if(page !== undefined && limit !== undefined, qb => qb.offset(limit! * (page! - 1)));
 
-  // data needs to be ordered in asc order for the chart to parse it
   return pindexerDb
     .selectFrom(filteredCandles.as('candles'))
     .selectAll()
@@ -94,17 +92,45 @@ export async function GET(req: NextRequest): Promise<NextResponse<CandleApiRespo
     );
   }
 
-  // Need to query both directions and aggregate results
-  const candles = await getCandles({
-    baseAsset: baseAssetMetadata.penumbraAssetId,
-    quoteAsset: quoteAssetMetadata.penumbraAssetId,
-    window: durationWindow,
-    chainId,
-    limit,
-    page,
-  });
+  // Query both directions in parallel: pindexer's dex_ex_price_charts is
+  // direction-keyed, so (base→quote) holds taker-sell candles and
+  // (quote→base) holds taker-buy candles. Merging the two by start_time
+  // gives a single candle per bucket with split buy/sell volume.
+  const [forwardRows, reverseRows] = await Promise.all([
+    getCandlesOneDirection({
+      assetStart: baseAssetMetadata.penumbraAssetId,
+      assetEnd: quoteAssetMetadata.penumbraAssetId,
+      window: durationWindow,
+      chainId,
+      limit,
+      page,
+    }),
+    getCandlesOneDirection({
+      assetStart: quoteAssetMetadata.penumbraAssetId,
+      assetEnd: baseAssetMetadata.penumbraAssetId,
+      window: durationWindow,
+      chainId,
+      limit,
+      page,
+    }),
+  ]);
 
-  const response = candles.map(c => dbCandleToOhlc(c, baseAssetMetadata, quoteAssetMetadata));
+  const byTime = new Map<number, { fwd?: DbCandle; rev?: DbCandle }>();
+  for (const r of forwardRows) {
+    byTime.set(r.start_time.getTime(), { fwd: r });
+  }
+  for (const r of reverseRows) {
+    const t = r.start_time.getTime();
+    const slot = byTime.get(t);
+    if (slot) slot.rev = r;
+    else byTime.set(t, { rev: r });
+  }
+
+  const response = Array.from(byTime.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, { fwd, rev }]) =>
+      combineDbCandles(fwd, rev, baseAssetMetadata, quoteAssetMetadata),
+    );
 
   // Note: previously we ran insertEmptyCandles here to pad sparse books with
   // flat synthetic candles. With timeScale.uniformDistribution=true on the

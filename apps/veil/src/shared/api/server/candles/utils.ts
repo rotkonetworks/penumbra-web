@@ -8,15 +8,23 @@ import { calculateDisplayPrice } from '@/shared/utils/price-conversion.ts';
 export interface CandleWithVolume {
   ohlc: OhlcData<UTCTimestamp>;
   volume: number;
+  // Buy/sell split: buyVolume is base bought *with* quote (taker bid),
+  // sellVolume is base sold *for* quote (taker ask). Both are reported in
+  // display units of the quote asset so the two sides are comparable for
+  // gradient/ratio rendering. Optional for back-compat with consumers that
+  // only read total volume.
+  buyVolume?: number;
+  sellVolume?: number;
+  // Subset of `volume` from direct (non-routed) swaps on this exact pair.
+  directVolume?: number;
 }
 
 export const dbCandleToOhlc = (c: DbCandle, base: Metadata, quote: Metadata): CandleWithVolume => {
-  // dex_ex_price_charts stores swap+direct volume in atomic units of the
-  // quote asset (asset_end). Convert to display units by dividing by
-  // 10^quoteExponent (e.g. 10^6 for USDC).
+  // Single-direction shim kept for any caller that still does one query;
+  // production /api/candles route uses combineDbCandles below.
   const quoteExponent = getDisplayDenomExponent(quote);
-  const rawVolume = c.direct_volume + c.swap_volume;
-  const displayVolume = rawVolume / Math.pow(10, quoteExponent);
+  const sellVolume = c.swap_volume / Math.pow(10, quoteExponent);
+  const directVolume = c.direct_volume / Math.pow(10, quoteExponent);
 
   return {
     ohlc: {
@@ -26,7 +34,106 @@ export const dbCandleToOhlc = (c: DbCandle, base: Metadata, quote: Metadata): Ca
       open: calculateDisplayPrice(c.open, base, quote),
       time: (c.start_time.getTime() / 1000) as UTCTimestamp,
     },
-    volume: displayVolume,
+    volume: sellVolume,
+    buyVolume: 0,
+    sellVolume,
+    directVolume,
+  };
+};
+
+/**
+ * Merge a forward (base→quote, taker-sell) and reverse (quote→base, taker-buy)
+ * candle for the same time bucket into one CandleWithVolume with split volume.
+ *
+ * Either side may be undefined — pindexer only writes a row for a direction
+ * that had at least one swap in the bucket.
+ */
+export const combineDbCandles = (
+  forward: DbCandle | undefined,
+  reverse: DbCandle | undefined,
+  base: Metadata,
+  quote: Metadata,
+): CandleWithVolume => {
+  if (!forward && !reverse) {
+    throw new Error('combineDbCandles: both sides are undefined');
+  }
+  const baseExponent = getDisplayDenomExponent(base);
+  const quoteExponent = getDisplayDenomExponent(quote);
+
+  // sellVolume is already in quote atomic units (forward direction stores
+  // swap_volume in asset_end == quote). Divide by quote exponent.
+  const sellVolume = (forward?.swap_volume ?? 0) / Math.pow(10, quoteExponent);
+
+  // Forward stores prices as quote/base in atomic units. calculateDisplayPrice
+  // converts to display quote/base.
+  const fwdClose = forward ? calculateDisplayPrice(forward.close, base, quote) : undefined;
+  const revClose = reverse ? calculateDisplayPrice(reverse.close, quote, base) : undefined;
+
+  // Reverse direction stores swap_volume in asset_end == base atomic units.
+  // Convert base atomic → display base, then multiply by quote/base price to
+  // express buy volume in display quote units. If forward isn't present in
+  // this bucket, fall back to 1 / reverseClose for the price.
+  const conversionPrice =
+    fwdClose !== undefined
+      ? fwdClose
+      : revClose !== undefined && revClose > 0
+        ? 1 / revClose
+        : 0;
+  const buyVolume =
+    ((reverse?.swap_volume ?? 0) / Math.pow(10, baseExponent)) * conversionPrice;
+
+  const directForward = (forward?.direct_volume ?? 0) / Math.pow(10, quoteExponent);
+  const directReverse =
+    ((reverse?.direct_volume ?? 0) / Math.pow(10, baseExponent)) * conversionPrice;
+  const directVolume = directForward + directReverse;
+
+  // OHLC: prefer forward direction (already in quote/base orientation).
+  // If only reverse has data, invert reverse's prices.
+  let open: number;
+  let close: number;
+  let high: number;
+  let low: number;
+  let timeMs: number;
+
+  if (forward) {
+    open = calculateDisplayPrice(forward.open, base, quote);
+    close = calculateDisplayPrice(forward.close, base, quote);
+    high = calculateDisplayPrice(forward.high, base, quote);
+    low = calculateDisplayPrice(forward.low, base, quote);
+    timeMs = forward.start_time.getTime();
+    if (reverse) {
+      // Widen high/low using inverted reverse extremes.
+      const revHigh = calculateDisplayPrice(reverse.high, quote, base);
+      const revLow = calculateDisplayPrice(reverse.low, quote, base);
+      // 1/revLow is the highest forward-orientation price reverse-side saw.
+      if (revLow > 0) high = Math.max(high, 1 / revLow);
+      if (revHigh > 0) low = Math.min(low, 1 / revHigh);
+    }
+  } else {
+    // reverse-only bucket
+    const revOpen = calculateDisplayPrice(reverse!.open, quote, base);
+    const revClose2 = calculateDisplayPrice(reverse!.close, quote, base);
+    const revHigh = calculateDisplayPrice(reverse!.high, quote, base);
+    const revLow = calculateDisplayPrice(reverse!.low, quote, base);
+    open = revOpen > 0 ? 1 / revOpen : 0;
+    close = revClose2 > 0 ? 1 / revClose2 : 0;
+    high = revLow > 0 ? 1 / revLow : 0;
+    low = revHigh > 0 ? 1 / revHigh : 0;
+    timeMs = reverse!.start_time.getTime();
+  }
+
+  return {
+    ohlc: {
+      close,
+      high,
+      low,
+      open,
+      time: (timeMs / 1000) as UTCTimestamp,
+    },
+    volume: buyVolume + sellVolume,
+    buyVolume,
+    sellVolume,
+    directVolume,
   };
 };
 
@@ -71,6 +178,9 @@ export const insertEmptyCandles = (
               high: prev.ohlc.close,
             },
             volume: 0,
+            buyVolume: 0,
+            sellVolume: 0,
+            directVolume: 0,
           });
         }
         nextTime = (addDurationWindow(window, new Date(nextTime * 1000)).getTime() /
