@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Eye, ShieldCheckIcon, Info } from 'lucide-react';
 import { ConnectButton } from '@/features/connect/connect-button';
-import { DepositButton } from '@/features/deposit/deposit-button';
 import { observer } from 'mobx-react-lite';
 import { CosmosConnectButton } from '@/features/cosmos/cosmos-connect-button.tsx';
 import { useUnifiedAssets } from '../api/use-unified-assets.ts';
@@ -53,14 +52,10 @@ export const WalletConnect = observer(() => {
           </div>
 
           {isPenumbraConnected ? (
-            // Show total asset value when connected
-            <div className='flex w-full items-center justify-between'>
-              <div className='font-mono text-3xl text-primary-light'>
-                {formattedShieldedValue} USDC
-              </div>
-              <div className='flex w-fit items-center gap-2'>
-                <DepositButton variant='default'>Deposit</DepositButton>
-              </div>
+            // Show total asset value when connected. Deposit lives in the
+            // header — keeping it here too just clutters the card.
+            <div className='font-mono text-3xl text-primary-light'>
+              {formattedShieldedValue} USDC
             </div>
           ) : (
             <>
