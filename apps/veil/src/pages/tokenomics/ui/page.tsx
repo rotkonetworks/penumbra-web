@@ -5,6 +5,7 @@ import { fetchTokenomicsTimeseries } from '../server/timeseries';
 import { TokenomicsHero } from './hero';
 import { HeadlineStats } from './headline-stats';
 import { WhatUmIs } from './what-um-is';
+import { Information } from './information';
 import { NoMev } from './no-mev';
 import { IssuancePanel } from './issuance-panel';
 import { Arbitrage } from './arbitrage';
@@ -65,6 +66,7 @@ export const TokenomicsPage = async () => {
         <TokenomicsHero stats={heroStats} />
       {metrics && <HeadlineStats metrics={metrics} />}
       <WhatUmIs />
+      <Information />
       <NoMev />
       {metrics && timeseries && (
         <IssuancePanel metrics={metrics} inflation={timeseries.inflation} />
