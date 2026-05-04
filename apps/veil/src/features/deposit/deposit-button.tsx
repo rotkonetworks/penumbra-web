@@ -35,7 +35,7 @@ export const DepositButton = observer(
     const button = (
       <Button
         icon={ArrowDownToLine}
-        iconOnly={variant === 'mobile'}
+        iconOnly={variant === 'mobile' || variant === 'minimal'}
         actionType={actionType}
         density={variant === 'minimal' ? 'compact' : 'sparse'}
         priority={variant === 'minimal' ? 'secondary' : 'primary'}

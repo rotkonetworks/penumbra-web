@@ -1,6 +1,7 @@
 import { Text } from '@penumbra-zone/ui/Text';
 import Link from 'next/link';
 import { Eye, Zap, Coins } from 'lucide-react';
+import { PagePath } from '@/shared/const/pages';
 
 const primaryCtaCx =
   'inline-flex items-center justify-center rounded-sm bg-primary-main px-4 py-2 text-sm font-medium text-base-black transition-colors hover:bg-primary-light';
@@ -39,7 +40,7 @@ export const ExploreHero = () => {
           <Link className={secondaryCtaCx} href='/portfolio'>
             View portfolio
           </Link>
-          <Link className={secondaryCtaCx} href='/tokenomics'>
+          <Link className={secondaryCtaCx} href={PagePath.Tokenomics}>
             How UM earns
           </Link>
         </div>
