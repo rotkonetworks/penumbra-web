@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCanvas } from 'canvas';
 import {
   renderTournamentEarningsCanvas,
   TournamentParams,
@@ -14,6 +13,12 @@ export async function GET(req: NextRequest) {
   if (!chainId) {
     return NextResponse.json({ error: 'PENUMBRA_CHAIN_ID is not set' }, { status: 500 });
   }
+
+  // canvas has a native binding (cairo / pango) that we can't always build at
+  // deploy time. Lazy-load it inside the request handler so that the build's
+  // page-data collection step doesn't crash on a missing .node when canvas
+  // postinstall scripts were skipped.
+  const { createCanvas } = await import('canvas');
 
   const registryClient = new ChainRegistryClient();
   const registry = await registryClient.remote.get(chainId);
