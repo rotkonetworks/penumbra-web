@@ -59,7 +59,7 @@ export const WalletConnect = observer(() => {
                 {formattedShieldedValue} USDC
               </div>
               <div className='flex w-fit items-center gap-2'>
-                <DepositButton variant='minimal'>Deposit from Coinbase</DepositButton>
+                <DepositButton variant='default'>Deposit</DepositButton>
               </div>
             </div>
           ) : (

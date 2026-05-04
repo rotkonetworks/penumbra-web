@@ -1,11 +1,16 @@
 'use client';
 
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { theme as penumbraTheme } from '@penumbra-zone/ui/theme';
 import { ShieldDialog } from '@/pages/portfolio/ui/shield-dialog';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useDepositAddress } from './use-deposit-address';
+import {
+  DepositMethodPicker,
+  DepositBackToPicker,
+  type DepositRoute,
+} from './deposit-method-picker';
 
 const LazySkipWidget = lazy(() => import('@skip-go/widget').then(mod => ({ default: mod.Widget })));
 
@@ -18,12 +23,6 @@ const skipTheme = Object.freeze({
   brandColor: penumbraTheme.color.primary.main,
 });
 
-const defaultRoute = {
-  srcChainId: 'noble-1',
-  srcAssetDenom: 'uusdc',
-  destChainId: 'penumbra-1',
-};
-
 const SkeletonFallback = () => (
   <div className='flex h-[420px] w-full items-center justify-center p-4'>
     <Skeleton />
@@ -31,34 +30,71 @@ const SkeletonFallback = () => (
 );
 
 /**
- * Deposit modal: embeds the Skip widget pre-routed Noble→Penumbra USDC. The
- * Penumbra destination is always a freshly-rotated ephemeral address so the
- * route partner (Skip / Coinbase / IBC relayers) can't link two deposits to
- * the same sub-account. The user never sees, copies, or pastes an address.
+ * Two-step deposit modal:
+ *
+ *  1. DepositMethodPicker — quick chips for the user's likely source
+ *     (Coinbase, Binance, Cosmos Hub, Osmosis, Ethereum, …). Picking a
+ *     chip pre-fills Skip's defaultRoute so the user lands on the right
+ *     source chain + asset without scrolling Skip's chain list.
+ *  2. Skip widget — embedded, with `connectedAddresses['penumbra-1']`
+ *     set to a freshly-rotated ephemeral address so the user never has
+ *     to copy or paste a Penumbra address.
+ *
+ * The user can always go back from the Skip view to re-pick. The
+ * ephemeral address is regenerated each time the dialog reopens (60s
+ * staleTime in useDepositAddress).
  */
 export const DepositDialog = observer(({ isOpen, onClose }: DepositDialogProps) => {
   const { data: penumbraAddress } = useDepositAddress();
+  const [route, setRoute] = useState<DepositRoute | null>(null);
+
+  // Reset back to the picker every time the dialog reopens.
+  useEffect(() => {
+    if (!isOpen) {
+      setRoute(null);
+    }
+  }, [isOpen]);
 
   const connectedAddresses = useMemo(
     () => (penumbraAddress ? { 'penumbra-1': penumbraAddress } : undefined),
     [penumbraAddress],
   );
 
+  const skipDefaultRoute = useMemo(
+    () =>
+      route
+        ? {
+            srcChainId: route.srcChainId,
+            srcAssetDenom: route.srcAssetDenom,
+            destChainId: 'penumbra-1',
+          }
+        : undefined,
+    [route],
+  );
+
   return (
     <ShieldDialog isOpen={isOpen} onClose={onClose}>
-      <Suspense fallback={<SkeletonFallback />}>
-        <LazySkipWidget
-          defaultRoute={defaultRoute}
-          filter={{
-            destination: {
-              'penumbra-1': undefined,
-            },
-          }}
-          connectedAddresses={connectedAddresses}
-          theme={skipTheme}
-          enableAmplitudeAnalytics={false}
-        />
-      </Suspense>
+      {!route ? (
+        <DepositMethodPicker onPick={setRoute} />
+      ) : (
+        <div className='flex flex-col gap-3'>
+          <DepositBackToPicker onBack={() => setRoute(null)} />
+          <Suspense fallback={<SkeletonFallback />}>
+            <LazySkipWidget
+              key={`${route.srcChainId}-${route.srcAssetDenom}`}
+              defaultRoute={skipDefaultRoute}
+              filter={{
+                destination: {
+                  'penumbra-1': undefined,
+                },
+              }}
+              connectedAddresses={connectedAddresses}
+              theme={skipTheme}
+              enableAmplitudeAnalytics={false}
+            />
+          </Suspense>
+        </div>
+      )}
     </ShieldDialog>
   );
 });
