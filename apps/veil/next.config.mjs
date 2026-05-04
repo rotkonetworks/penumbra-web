@@ -48,7 +48,17 @@ const nextConfig = {
   env: getCommitInfo(),
   serverExternalPackages: ['pino-pretty'],
   experimental: {
-    optimizePackageImports: ['@penumbra-zone/ui', 'chain-registry', 'osmo-query', 'cosmos-kit'],
+    optimizePackageImports: [
+      '@penumbra-zone/ui',
+      'chain-registry',
+      'osmo-query',
+      'cosmos-kit',
+      'recharts',
+      'lucide-react',
+      '@radix-ui/react-icons',
+      'date-fns',
+      'dayjs',
+    ],
     serverComponentsHmrCache: true,
   },
   turbopack: {
