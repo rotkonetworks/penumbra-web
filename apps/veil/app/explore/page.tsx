@@ -9,6 +9,13 @@ import {
 } from '@/pages/inspect/explorer/containers';
 import { Button, Container } from '@/pages/inspect/explorer/components';
 
+// /explore home defaults to a static prerender, which means the SSR'd
+// 'Latest blocks' / 'Latest transactions' lists were frozen at the build
+// timestamp and stale-tabs would still show 3-hour-old rows even after
+// the live WS subscription updated 'Current block'. ISR every 30s rebuilds
+// the snapshot in the background so cold loads land on fresh rows.
+export const revalidate = 30;
+
 const InspectHomePage: FC = () => (
   <>
     <Container>

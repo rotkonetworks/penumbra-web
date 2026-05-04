@@ -127,10 +127,25 @@ const SearchContainer: FC<Props> = props => {
 
     const onInputFocus = useCallback(() => setFocused(true), [])
 
-    const onInputBlur = useCallback(() => {
-        setFocused(false)
-        props.onBlur?.call(undefined)
-    }, [props.onBlur])
+    // Without this, the dropdown unmounts the instant the user clicks a
+    // result link (focus leaves the input → setFocused(false) →
+    // <AnimatePresence> tears the link out before the click registers).
+    // If the new focus target is inside the search container (a Link or
+    // the recent-results list), keep the dropdown open and let the click
+    // navigate. Anything outside the container — close as before.
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    const onInputBlur = useCallback(
+        (e: React.FocusEvent<HTMLInputElement>) => {
+            const next = e.relatedTarget as Node | null
+            if (next && containerRef.current?.contains(next)) {
+                return
+            }
+            setFocused(false)
+            props.onBlur?.call(undefined)
+        },
+        [props.onBlur],
+    )
 
     const onInputChange = useCallback(
         (e: ChangeEvent<HTMLInputElement>) => {
@@ -207,6 +222,7 @@ const SearchContainer: FC<Props> = props => {
 
     return (
         <div
+            ref={containerRef}
             className={classNames(
                 'relative w-full sm:w-[568px] xl:w-[639px]!',
                 props.className
