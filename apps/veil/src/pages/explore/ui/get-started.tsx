@@ -63,7 +63,7 @@ export const GetStarted = () => (
         icon={ArrowRightLeft}
         step='2.'
         title='Shield assets'
-        body='Bridge USDC, ATOM, OSMO, or any IBC asset into the shielded pool. Only you can see your shielded balances.'
+        body='Send USDC straight from Coinbase via Noble — no separate bridge, no wrapped tokens. ATOM, OSMO, ETH, BTC and any IBC asset shield the same way.'
       />
       <Step
         href='/trade/UM/USDC'
