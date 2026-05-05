@@ -48,7 +48,14 @@ export const useRefetchOnNewBlock = (
   disabled?: boolean,
 ) => {
   const { data: blockHeight } = useLatestBlockHeight();
-  const queryKeyString = JSON.stringify(queryKey);
+
+  // useLatestBlockHeight ticks every block (~5s), which fires this hook
+  // across every per-block query (book, candles, swaps, ...) on the trade
+  // page. JSON.stringify on a string queryKey produces a wasteful '"x"'
+  // wrapper allocation per render — short-circuit when it's already a
+  // string (the common case) and only stringify for object/array keys.
+  const queryKeyString =
+    typeof queryKey === 'string' ? queryKey : JSON.stringify(queryKey);
 
   useEffect(() => {
     if (!blockHeight || disabled) {

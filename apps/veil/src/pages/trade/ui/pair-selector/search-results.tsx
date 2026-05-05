@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Search } from 'lucide-react';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
@@ -27,21 +28,28 @@ export interface SearchResultsProps {
   search?: string;
 }
 
-const filterAsset = (asset: Metadata, search: string): boolean => {
+// Caller is responsible for lowercasing `searchLc` once — avoids re-running
+// String#toLowerCase on the same query for every asset in the list.
+const filterAsset = (asset: Metadata, searchLc: string): boolean => {
   return (
-    asset.symbol.toLowerCase().includes(search.toLowerCase()) ||
-    asset.description.toLowerCase().includes(search.toLowerCase())
+    asset.symbol.toLowerCase().includes(searchLc) ||
+    asset.description.toLowerCase().includes(searchLc)
   );
 };
 
 const useFilteredAssets = (options: AssetSelectorValue[], search: string) => {
-  return options.filter(option => {
-    if (isBalancesResponse(option)) {
-      const metadata = getMetadataFromBalancesResponse(option);
-      return filterAsset(metadata, search);
-    }
-    return filterAsset(option, search);
-  });
+  // Memoize so typing in the search box doesn't re-walk the whole asset list
+  // and the upstream useMemo on `merged` keeps a stable reference.
+  return useMemo(() => {
+    if (!search) return options;
+    const searchLc = search.toLowerCase();
+    return options.filter(option => {
+      const metadata = isBalancesResponse(option)
+        ? getMetadataFromBalancesResponse(option)
+        : option;
+      return filterAsset(metadata, searchLc);
+    });
+  }, [options, search]);
 };
 
 const mergeOptions = (
@@ -69,7 +77,13 @@ export const SearchResults = observer(({ onSelect, search }: SearchResultsProps)
   const { data: assets } = useAssets();
   const { data: balances } = useBalances(subaccount);
 
-  const merged = mergeOptions(assets, balances ?? [], subaccount);
+  // mergeOptions does a groupAndSortBalances + asset.filter + sort by
+  // priorityScore — non-trivial work that doesn't depend on the search
+  // text. Memoize so each keystroke only re-runs the cheaper text filter.
+  const merged = useMemo(
+    () => mergeOptions(assets, balances ?? [], subaccount),
+    [assets, balances, subaccount],
+  );
   const filtered = useFilteredAssets(merged, search ?? '');
 
   const onClick = (asset: Metadata) => {
