@@ -93,6 +93,27 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
         setBalanceFraction={x => store.setBalanceFraction(x)}
       />
       <div className='mb-4'>
+        {/* Effective fill price = quote spent / base received. The Market
+            form derives one side from the other via estimateQuote /
+            estimateBase, so once both inputs settle we already know what
+            'unit price' the trader would actually pay. Surface it
+            explicitly — trader currently has to do the division
+            themselves to compare against the chart's mid. */}
+        {(() => {
+          const base = store.baseInputAmount;
+          const quote = store.quoteInputAmount;
+          if (!base || !quote || base <= 0 || quote <= 0) return null;
+          const fillPrice = quote / base;
+          const decimals =
+            fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
+          return (
+            <InfoRow
+              label='Avg fill price'
+              value={`${fillPrice.toFixed(decimals)} ${store.quoteAsset?.symbol ?? ''}`}
+              toolTip='Estimated unit price your market order would clear at, derived from the quoted total ÷ base amount. Compare against the chart mid for a rough slippage check.'
+            />
+          );
+        })()}
         <InfoRowTradingFee />
         <InfoRowGasFee
           gasFee={parentStore.gasFee.display}
