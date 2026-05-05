@@ -1,5 +1,5 @@
 import cn from 'clsx';
-import { Minus, MousePointer2, Slash, Square, Trash2, Type } from 'lucide-react';
+import { Minus, MousePointer2, Slash, Square, Trash2, Type, Undo2, Redo2 } from 'lucide-react';
 import type { ToolMode } from './types';
 
 interface ToolbarProps {
@@ -7,6 +7,10 @@ interface ToolbarProps {
   onToolChange: (tool: ToolMode) => void;
   onClearAll: () => void;
   hasDrawings: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 interface ToolButtonProps {
@@ -36,7 +40,16 @@ const ToolButton = ({ active, title, onClick, children }: ToolButtonProps) => (
   </button>
 );
 
-export const DrawingToolbar = ({ tool, onToolChange, onClearAll, hasDrawings }: ToolbarProps) => {
+export const DrawingToolbar = ({
+  tool,
+  onToolChange,
+  onClearAll,
+  hasDrawings,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+}: ToolbarProps) => {
   return (
     <div className='absolute left-2 top-2 z-20 flex flex-col gap-1 rounded border border-other-tonal-stroke bg-base-black/80 p-1 backdrop-blur'>
       <ToolButton
@@ -73,6 +86,21 @@ export const DrawingToolbar = ({ tool, onToolChange, onClearAll, hasDrawings }: 
         onClick={() => onToolChange(tool === 'text' ? 'none' : 'text')}
       >
         <Type size={14} />
+      </ToolButton>
+      <div className='my-1 h-px bg-other-tonal-stroke' />
+      <ToolButton
+        title={canUndo ? 'Undo (Ctrl/Cmd-Z)' : 'Nothing to undo'}
+        active={false}
+        onClick={canUndo ? onUndo : () => {}}
+      >
+        <Undo2 size={14} className={canUndo ? '' : 'opacity-40'} />
+      </ToolButton>
+      <ToolButton
+        title={canRedo ? 'Redo (Ctrl/Cmd-Shift-Z)' : 'Nothing to redo'}
+        active={false}
+        onClick={canRedo ? onRedo : () => {}}
+      >
+        <Redo2 size={14} className={canRedo ? '' : 'opacity-40'} />
       </ToolButton>
       {hasDrawings && (
         <ToolButton title='Clear all drawings on this pair' active={false} onClick={onClearAll}>

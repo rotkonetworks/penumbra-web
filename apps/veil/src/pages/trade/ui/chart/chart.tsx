@@ -96,7 +96,32 @@ export const Chart = observer(() => {
     add: addDrawing,
     remove: removeDrawing,
     clearAll: clearDrawings,
+    undo: undoDrawing,
+    redo: redoDrawing,
+    canUndo,
+    canRedo,
   } = useDrawings(`${baseSymbol}/${quoteSymbol}`);
+
+  // Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z while the chart is the active subtree.
+  // Listening on the document so the shortcuts work regardless of which
+  // chart sub-element has focus, but we ignore events that bubble out of
+  // an editable input/textarea so the user's text-annotation typing isn't
+  // hijacked.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key.toLowerCase() !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) redoDrawing();
+      else undoDrawing();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [undoDrawing, redoDrawing]);
   const [tool, setTool] = useState<ToolMode>('none');
 
   const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
@@ -394,6 +419,10 @@ export const Chart = observer(() => {
               onToolChange={setTool}
               onClearAll={clearDrawings}
               hasDrawings={drawings.length > 0}
+              onUndo={undoDrawing}
+              onRedo={redoDrawing}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
             <HoverTooltip subscribeHover={subscribeHover} quoteSymbol={quoteSymbol} />
             {pendingText && (
