@@ -12,6 +12,8 @@ interface PriceContextMenuProps {
   x: number;
   y: number;
   price: string;
+  /** % gap from current chain mid, pre-formatted with +/- sign and trailing %. */
+  priceFromMid?: string | null;
   items: PriceMenuItem[];
   onClose: () => void;
 }
@@ -22,7 +24,14 @@ const toneClass: Record<NonNullable<PriceMenuItem['tone']>, string> = {
   neutral: 'text-text-primary',
 };
 
-export const PriceContextMenu = ({ x, y, price, items, onClose }: PriceContextMenuProps) => {
+export const PriceContextMenu = ({
+  x,
+  y,
+  price,
+  priceFromMid,
+  items,
+  onClose,
+}: PriceContextMenuProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +60,12 @@ export const PriceContextMenu = ({ x, y, price, items, onClose }: PriceContextMe
         <Text detail color='text.secondary'>
           at price
         </Text>
-        <div className='font-mono text-sm text-text-primary'>{price}</div>
+        <div className='flex items-baseline gap-1.5 font-mono text-sm text-text-primary'>
+          <span>{price}</span>
+          {priceFromMid && (
+            <span className='text-xs text-text-secondary'>{priceFromMid} from mid</span>
+          )}
+        </div>
       </div>
       {items.map((item, idx) => (
         <button

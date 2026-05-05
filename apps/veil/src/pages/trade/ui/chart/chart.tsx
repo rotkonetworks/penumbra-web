@@ -655,15 +655,29 @@ export const Chart = observer(() => {
               className='absolute left-0 right-0 z-10 h-2 -translate-y-1/2 cursor-row-resize bg-transparent hover:bg-other-solid-stroke/40'
               style={{ top: `${(1 - volumeRatio) * 100}%` }}
             />
-            {menu && (
-              <PriceContextMenu
-                x={menu.x}
-                y={menu.y}
-                price={formatPrice(menu.price)}
-                items={buildMenuItems(menu.price)}
-                onClose={() => setMenu(null)}
-              />
-            )}
+            {menu && (() => {
+              // Live % gap from chain mid for the right-clicked level.
+              // Suppress sub-bp moves so the header doesn't flicker
+              // '0.00% from mid' on a level the trader picked at-the-mid.
+              const deltaPct =
+                marketPrice && marketPrice > 0
+                  ? ((menu.price - marketPrice) / marketPrice) * 100
+                  : null;
+              const priceFromMid =
+                deltaPct !== null && Math.abs(deltaPct) >= 0.05
+                  ? `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}%`
+                  : null;
+              return (
+                <PriceContextMenu
+                  x={menu.x}
+                  y={menu.y}
+                  price={formatPrice(menu.price)}
+                  priceFromMid={priceFromMid}
+                  items={buildMenuItems(menu.price)}
+                  onClose={() => setMenu(null)}
+                />
+              );
+            })()}
           </>
         )}
       </div>
