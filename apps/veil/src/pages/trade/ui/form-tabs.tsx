@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -9,9 +10,27 @@ import { isWhichForm, useOrderFormStore } from './order-form/store/OrderFormStor
 import { observer } from 'mobx-react-lite';
 import cn from 'clsx';
 
+// Module-scoped — re-allocating three label objects per render gave Tabs's
+// shallow prop compare a fresh reference every time, which made any future
+// memo on Tabs ineffective.
+const FORM_TAB_OPTIONS = [
+  { value: 'Market', label: 'Market' },
+  { value: 'Limit', label: 'Limit' },
+  { value: 'SimpleLP', label: 'Provide Liquidity' },
+];
+
 export const FormTabs = observer(() => {
   const [parent] = useAutoAnimate();
   const store = useOrderFormStore();
+
+  const onTabChange = useCallback(
+    (value: string) => {
+      if (isWhichForm(value)) {
+        store.setWhichForm(value);
+      }
+    },
+    [store],
+  );
 
   return (
     <div
@@ -26,16 +45,8 @@ export const FormTabs = observer(() => {
           <Tabs
             value={store.whichForm}
             actionType='accent'
-            onChange={value => {
-              if (isWhichForm(value)) {
-                store.setWhichForm(value);
-              }
-            }}
-            options={[
-              { value: 'Market', label: 'Market' },
-              { value: 'Limit', label: 'Limit' },
-              { value: 'SimpleLP', label: 'Provide Liquidity' },
-            ]}
+            onChange={onTabChange}
+            options={FORM_TAB_OPTIONS}
           />
         </Density>
       </div>

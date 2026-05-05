@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -18,6 +18,15 @@ enum PositionsTabsType {
   TRADE_HISTORY = 'TRADE_HISTORY',
 }
 
+// Module-scoped — same reasoning as form-tabs: avoid re-allocating four
+// option objects per render and the corresponding identity churn.
+const HISTORY_TAB_OPTIONS = [
+  { value: PositionsTabsType.OPEN_POSITIONS, label: 'Open positions' },
+  { value: PositionsTabsType.CLOSED_POSITIONS, label: 'Closed' },
+  { value: PositionsTabsType.POSITION_HISTORY, label: 'Position history' },
+  { value: PositionsTabsType.TRADE_HISTORY, label: 'Trade history' },
+];
+
 /**
  * Bottom panel tabs — split out from a single 'My Positions' view that
  * mixed open and closed by default and hid withdrawn behind a toggle.
@@ -35,6 +44,8 @@ export const HistoryTabs = () => {
   const [tab, setTab] = useState<PositionsTabsType>(PositionsTabsType.OPEN_POSITIONS);
   const { baseAsset, quoteAsset } = usePathToMetadata();
 
+  const onTabChange = useCallback((value: string) => setTab(value as PositionsTabsType), []);
+
   return (
     <div ref={parent} className='flex w-screen flex-col desktop:w-auto'>
       <div className='flex items-center justify-between gap-2 border-b border-b-other-solid-stroke px-4'>
@@ -42,13 +53,8 @@ export const HistoryTabs = () => {
           <Tabs
             value={tab}
             actionType='accent'
-            onChange={value => setTab(value as PositionsTabsType)}
-            options={[
-              { value: PositionsTabsType.OPEN_POSITIONS, label: 'Open positions' },
-              { value: PositionsTabsType.CLOSED_POSITIONS, label: 'Closed' },
-              { value: PositionsTabsType.POSITION_HISTORY, label: 'Position history' },
-              { value: PositionsTabsType.TRADE_HISTORY, label: 'Trade history' },
-            ]}
+            onChange={onTabChange}
+            options={HISTORY_TAB_OPTIONS}
           />
         </Density>
       </div>
