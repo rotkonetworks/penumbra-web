@@ -35,6 +35,14 @@ const BlockTableUpdater: FC<Props> = ({
     const queueRef = useRef<TransformedPartialBlockFragment[]>([])
     const animationFrameRef = useRef<number>(undefined)
     const updateTimestampRef = useRef(0)
+    // Schedule the animation loop only when there's something to do — the
+    // previous form ran rAF forever (60 callbacks/sec) even on a quiet
+    // chain with nothing to drain. kickAnimationLoop is set inside the
+    // mount-effect below; the subscription handler calls it after each
+    // queued block to start (or keep) the loop, and the loop self-stops
+    // when the queue is drained.
+    const kickAnimationLoopRef = useRef<() => void>(() => {})
+    const kickAnimationLoop = () => kickAnimationLoopRef.current()
     const [blocks, setBlocks] = useState(props.blocks ?? [])
 
     const blockHeightsRef = useRef(
@@ -120,6 +128,7 @@ const BlockTableUpdater: FC<Props> = ({
                     timestamp: dayjs(block.createdAt).valueOf(),
                     transactionsCount: block.transactionsCount,
                 })
+                kickAnimationLoop()
             })
         )
 
@@ -146,26 +155,36 @@ const BlockTableUpdater: FC<Props> = ({
 
     useEffect(() => {
         const animationLoop = () => {
-            if (queueRef.current.length) {
-                const now = performance.now()
-
-                if (now - updateTimestampRef.current >= animationFrameMs) {
-                    const block = queueRef.current.shift()
-
-                    if (block) {
-                        setBlocks(prev => [block, ...prev].slice(0, 10))
-                        updateTimestampRef.current = now
-                    }
+            animationFrameRef.current = undefined
+            if (!queueRef.current.length) {
+                return
+            }
+            const now = performance.now()
+            if (now - updateTimestampRef.current >= animationFrameMs) {
+                const block = queueRef.current.shift()
+                if (block) {
+                    setBlocks(prev => [block, ...prev].slice(0, 10))
+                    updateTimestampRef.current = now
                 }
             }
+            // Re-arm only if there's still work — either queued items not
+            // yet drained, or we're still inside the throttle window and
+            // need to wake up to drain them.
+            if (queueRef.current.length) {
+                animationFrameRef.current = requestAnimationFrame(animationLoop)
+            }
+        }
 
+        // Idempotent kick — the subscription handler calls this after each
+        // pushed block to (re)start the loop. No-op if already scheduled.
+        kickAnimationLoopRef.current = () => {
+            if (animationFrameRef.current !== undefined) return
             animationFrameRef.current = requestAnimationFrame(animationLoop)
         }
 
-        animationFrameRef.current = requestAnimationFrame(animationLoop)
-
         return () => {
-            if (animationFrameRef.current) {
+            kickAnimationLoopRef.current = () => {}
+            if (animationFrameRef.current !== undefined) {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
