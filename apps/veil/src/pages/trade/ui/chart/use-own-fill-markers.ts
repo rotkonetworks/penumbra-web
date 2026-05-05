@@ -1,18 +1,18 @@
 'use client';
 
 import { useEffect } from 'react';
-import { observer } from 'mobx-react-lite';
 import { connectionStore } from '@/shared/model/connection';
 import { useLatestSwaps } from '../../api/latest-swaps';
 import type { OwnFillMarker } from './use-chart-config';
-
-void observer;
 
 /**
  * Pulls the user's recent swap fills on the active pair (via the view
  * service + pindexer reconciliation in useLatestSwaps) and pushes them
  * into the chart as time/price markers. Empty array clears markers when
  * the user disconnects or the pair changes.
+ *
+ * Must be called inside an `observer`-wrapped component so the
+ * connectionStore reads below track on disconnect/account-switch.
  */
 export const useOwnFillMarkers = (
   setMarkers: (markers: OwnFillMarker[]) => void,

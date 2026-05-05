@@ -1,7 +1,6 @@
 'use client';
 
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { observer } from 'mobx-react-lite';
 import { useRouter } from 'next/navigation';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Dialog } from '@penumbra-zone/ui/Dialog';
@@ -18,7 +17,10 @@ import { SearchResults } from './search-results';
 import { DefaultResults } from './default-results';
 import { FilterInput } from './filter-input';
 
-export const PairSelector = observer(() => {
+// PairSelector reads no MobX state — its child SearchResults does, but
+// observer() doesn't propagate down the tree, so wrapping the parent gave
+// us nothing but a Reaction tracker firing on every unrelated MobX action.
+export const PairSelector = () => {
   const router = useRouter();
   const { baseAsset, quoteAsset } = usePathToMetadata();
 
@@ -209,4 +211,4 @@ export const PairSelector = observer(() => {
       </Dialog>
     </div>
   );
-});
+};
