@@ -23,6 +23,11 @@ interface Props {
 
 const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
   {
+    key: 'midPrice',
+    label: 'Mid-price line',
+    hint: 'Live mid of the on-chain route book, drawn across the candles.',
+  },
+  {
     key: 'depth',
     label: 'Order book depth',
     hint: 'Live route-book depth as a heatmap on the chart edge.',

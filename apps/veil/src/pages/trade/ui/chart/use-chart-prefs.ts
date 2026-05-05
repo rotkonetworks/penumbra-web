@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
  */
 export interface ChartPrefs {
   depth: boolean;
+  midPrice: boolean;
   ownPositions: boolean;
   // wired up in subsequent passes
   ownTrades: boolean;
@@ -25,6 +26,7 @@ const DEFAULTS: ChartPrefs = {
   // (MEXC/Binance-style). Users who want the heat shape can opt in via the
   // settings menu.
   depth: false,
+  midPrice: true,
   ownPositions: true,
   ownTrades: false,
   openOrders: false,

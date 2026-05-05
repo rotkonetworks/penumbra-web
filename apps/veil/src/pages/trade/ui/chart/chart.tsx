@@ -482,12 +482,14 @@ export const Chart = observer(() => {
           <>
             <div className='h-full w-full' ref={chartRef} />
             {prefs.depth && <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />}
-            <MidPriceOverlay
-              marketPrice={marketPrice}
-              yAtPrice={yAtPrice}
-              subscribeRedraw={subscribeRedraw}
-              quoteSymbol={quoteSymbol}
-            />
+            {prefs.midPrice && (
+              <MidPriceOverlay
+                marketPrice={marketPrice}
+                yAtPrice={yAtPrice}
+                subscribeRedraw={subscribeRedraw}
+                quoteSymbol={quoteSymbol}
+              />
+            )}
             <DrawingsOverlay
               drawings={drawings}
               yAtPrice={yAtPrice}
