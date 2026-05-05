@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useBook } from '../api/book';
 import { calculateSpread } from './trace';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
@@ -13,12 +14,16 @@ export const useMarketPrice = (
   symbols: { base: string; quote: string };
 } => {
   const pathSymbols = usePathSymbols();
-  const symbols = {
-    base: baseSymbol ?? pathSymbols.baseSymbol,
-    quote: quoteSymbol ?? pathSymbols.quoteSymbol,
-  };
+  const base = baseSymbol ?? pathSymbols.baseSymbol;
+  const quote = quoteSymbol ?? pathSymbols.quoteSymbol;
 
-  const { data: book } = useBook(symbols.base, symbols.quote);
+  // Memoize so the returned object identity stays stable across renders
+  // when base/quote haven't changed — consumers that list the whole
+  // `symbols` object as a useEffect dep (e.g. OrderFormStore's marketPrice
+  // sync) were re-firing every render because of the fresh literal.
+  const symbols = useMemo(() => ({ base, quote }), [base, quote]);
+
+  const { data: book } = useBook(base, quote);
   if (!book?.multiHops) {
     return {
       marketPrice: undefined,
