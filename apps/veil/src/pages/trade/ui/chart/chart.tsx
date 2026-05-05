@@ -70,7 +70,6 @@ export const Chart = observer(() => {
     xAtTime,
     setOwnPositionLines,
     setOwnFillMarkers,
-    setMidPriceLine,
     chartReady,
     resetView,
     timeAtX,
@@ -98,14 +97,6 @@ export const Chart = observer(() => {
     markTriggered: markAlertTriggered,
   } = usePriceAlerts(pairKey);
   useAlertWatcher({ marketPrice, alerts: pairAlerts, onFire: markAlertTriggered });
-
-  // Render the on-chain mid-price as a dotted price line on the candle
-  // axis. Gated on chartReady so we don't try to call createPriceLine
-  // before the series exists. Matches the 'Mid price' header above.
-  useEffect(() => {
-    if (!chartReady) return;
-    setMidPriceLine(marketPrice);
-  }, [chartReady, marketPrice, setMidPriceLine]);
   const {
     drawings,
     add: addDrawing,
