@@ -2,6 +2,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import type { Trace } from '@/shared/api/server/book/types';
 import { calculateSpread } from '../../model/trace';
 import { usePathSymbols } from '../../model/use-path';
+import { useTickDirection } from '../../model/use-tick-direction';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
@@ -14,6 +15,11 @@ export const SpreadRow = ({
 }) => {
   const spreadInfo = calculateSpread(sellOrders, buyOrders);
   const pair = usePathSymbols();
+  // Tick direction off the parsed mid-price string. The chart label, the
+  // summary 'Mid price' card and the document title ticker already use
+  // useTickDirection so the same number flashes the same colour
+  // everywhere — surface the same idiom here.
+  const direction = useTickDirection(spreadInfo ? parseFloat(spreadInfo.midPrice) : undefined);
 
   if (!spreadInfo) {
     return null;
@@ -23,6 +29,14 @@ export const SpreadRow = ({
     tradeFormStore.setWhichForm('Limit');
     tradeFormStore.limitForm.setPriceInput(spreadInfo.midPrice);
   };
+
+  const midColor =
+    direction === 'up'
+      ? 'success.light'
+      : direction === 'down'
+        ? 'destructive.light'
+        : 'text.primary';
+  const arrow = direction === 'up' ? '▲ ' : direction === 'down' ? '▼ ' : '';
 
   return (
     <div
@@ -38,7 +52,8 @@ export const SpreadRow = ({
       title='Click to set limit price to mid'
       className='col-span-4 flex h-full cursor-pointer items-center justify-center gap-2 border-b border-b-other-tonal-stroke px-3 py-3 text-xs hover:bg-action-hover-overlay'
     >
-      <Text detailTechnical color='success.light'>
+      <Text detailTechnical color={midColor}>
+        {arrow}
         {pnum(spreadInfo.midPrice).toFormattedString({
           commas: false,
           decimals: 7,
