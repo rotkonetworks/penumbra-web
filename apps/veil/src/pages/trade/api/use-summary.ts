@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { DurationWindow } from '@/shared/utils/duration.ts';
-import { useRefetchOnNewBlock } from '@/shared/api/compact-block.ts';
 import { fetchSummary, Summary } from '@/shared/api/server/summary';
 import { useAssets } from '@/shared/api/assets';
 import { deserialize, serialize } from '@/shared/utils/serializer';
@@ -31,6 +30,15 @@ export const useSummary = (
     queryKey: ['summary', baseSymbol, quoteSymbol],
     retry: 1,
     enabled: startAsset !== undefined && endAsset !== undefined,
+    // 24h aggregates (high/low/volume/change) genuinely shift on a minute-
+    // scale, not block-scale. Refresh every 30s only while the tab is
+    // focused — that's plenty fresh for the header strip while cutting
+    // ~10x the request load vs the previous useRefetchOnNewBlock cadence
+    // (1 block ≈ 5s on Penumbra mainnet). Live mid-price stays fast via
+    // useMarketPrice/useBook, which is the actual price-tracking signal.
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     queryFn: async (): Promise<SummaryWithMetadata | undefined> => {
       if (
         startAsset === undefined ||
@@ -45,8 +53,6 @@ export const useSummary = (
       return { ...out, start, end };
     },
   });
-
-  useRefetchOnNewBlock('summary', query);
 
   return query;
 };
