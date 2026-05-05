@@ -70,6 +70,7 @@ export const Chart = observer(() => {
     xAtTime,
     setOwnPositionLines,
     setOwnFillMarkers,
+    chartReady,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
@@ -259,7 +260,10 @@ export const Chart = observer(() => {
         setTool('none');
       }
     });
-  }, [subscribeChartClick, addDrawing]);
+    // chartReady listed so the effect re-runs once createChart has actually
+    // mounted — first run at mount sees an empty chart and the inner subscribe
+    // would short-circuit otherwise.
+  }, [subscribeChartClick, addDrawing, chartReady]);
 
   // Reset the pending anchor whenever the tool leaves a two-click mode
   // (e.g. user picks cursor mid-placement) so a stale half-shape doesn't

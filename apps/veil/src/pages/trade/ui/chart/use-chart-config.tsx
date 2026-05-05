@@ -1,4 +1,4 @@
-import { RefObject, useCallback, useRef } from 'react';
+import { RefObject, useCallback, useRef, useState } from 'react';
 import {
   createChart,
   IChartApi,
@@ -57,6 +57,14 @@ export const useChartConfig = (
   const volumeSeriesRef = useRef<ReturnType<IChartApi['addHistogramSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+
+  // chartReady flips true after createChart() runs in setChartRef. Consumers
+  // that need to subscribe to chart events list this in their useEffect deps
+  // so the effect re-runs once the chart actually exists. Without this the
+  // effect runs once at mount when chartRef.current is still null, the
+  // subscription short-circuits, and never re-attempts — that's the silent
+  // 'drawings tool does nothing' bug.
+  const [chartReady, setChartReady] = useState(false);
 
   const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
     const series = seriesRef.current;
@@ -195,6 +203,7 @@ export const useChartConfig = (
       chartRef.current?.remove();
       chartRef.current = undefined;
       chartElRef.current = null;
+      setChartReady(false);
       return;
     }
 
@@ -270,6 +279,9 @@ export const useChartConfig = (
           void loadMore();
         }
       });
+
+      // Tell consumer effects that the chart is ready to be subscribed to.
+      setChartReady(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dependent data is called from the function using current data
   }, []);
@@ -439,6 +451,7 @@ export const useChartConfig = (
     timeAtX,
     setOwnPositionLines,
     setOwnFillMarkers,
+    chartReady,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
