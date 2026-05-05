@@ -30,6 +30,10 @@ interface Rung {
 interface PreviewState {
   yLower: number;
   yUpper: number;
+  /** Pixel y of the live chain mid, or undefined if mid is outside the
+   *  LP's drawn range (in which case we don't render the marker — it
+   *  would land off-band and confuse the read). */
+  yMid: number | undefined;
   rungs: Rung[];
 }
 
@@ -144,9 +148,16 @@ export const LpPreviewOverlay = observer(
           setPos(null);
           return;
         }
+        // Mid marker — only when mid lies within the LP's drawn range,
+        // otherwise the line would render off-band and read as if the
+        // form were misconfigured. (Out-of-range mids are usually a
+        // transient state mid-typing, not a steady configuration.)
+        const yMidRaw = yAtPrice(m);
+        const inRange = m >= lo && m <= hi;
         setPos({
           yLower: Math.max(yLo, yHi),
           yUpper: Math.min(yLo, yHi),
+          yMid: inRange ? yMidRaw : undefined,
           rungs,
         });
       };
@@ -179,6 +190,35 @@ export const LpPreviewOverlay = observer(
             borderBottom: `1px dashed ${RANGE_EDGE}`,
           }}
         />
+        {/* Mid-price marker — a faint dashed horizontal across the LP
+            band labelling where the live chain mid sits. Makes the
+            buy/sell split (green below, red above) explicit instead of
+            implicit, and lets the trader see whether their range is
+            symmetric around mid or skewed. */}
+        {pos.yMid !== undefined && (
+          <>
+            <div
+              className='absolute left-0'
+              style={{
+                right: 56,
+                top: pos.yMid - 0.5,
+                height: 1,
+                borderTop: '1px dashed rgba(255, 255, 255, 0.45)',
+              }}
+            />
+            <div
+              className='absolute rounded-sm bg-base-black/70 px-1 text-[10px] tabular-nums text-text-secondary'
+              style={{
+                right: 60,
+                top: pos.yMid - 7,
+                lineHeight: '14px',
+                pointerEvents: 'none',
+              }}
+            >
+              Mid
+            </div>
+          </>
+        )}
         {/* Per-position 'shadow' bars: green for bids below mid, red for
             asks above mid. Width proportional to the rung's quote-
             equivalent quantity. Read like a paper-thin DepthOverlay for
