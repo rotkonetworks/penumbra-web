@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
-import { DurationWindow, durationWindows } from '@/shared/utils/duration.ts';
+import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { useInfiniteCandles } from '../../api/infinite-candles';
 import { useLatestCandles } from '../../api/latest-candles';
@@ -41,12 +41,19 @@ import { useAlertWatcher } from './alerts/use-alert-watcher';
 import { AlertsMenu } from './alerts/alerts-menu';
 
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
+const DURATION_KEY = 'veil_chart_duration';
 
 const readStoredVolumeRatio = (): number => {
   if (typeof window === 'undefined') return 0.2;
   const raw = window.localStorage.getItem(VOLUME_RATIO_KEY);
   const n = raw ? Number(raw) : NaN;
   return Number.isFinite(n) && n >= 0.05 && n <= 0.6 ? n : 0.2;
+};
+
+const readStoredDuration = (): DurationWindow => {
+  if (typeof window === 'undefined') return '1d';
+  const raw = window.localStorage.getItem(DURATION_KEY);
+  return raw && isDurationWindow(raw) ? raw : '1d';
 };
 
 // Stable no-op setter shared across renders. Hoisted so we don't allocate a
@@ -64,9 +71,30 @@ const formatPrice = (p: number): string => {
 };
 
 export const Chart = observer(() => {
-  const [duration, setDuration] = useState<DurationWindow>('1d');
+  // Start at '1d' on SSR / first client render to keep hydration stable, then
+  // hydrate from localStorage in an effect (same pattern as the volume ratio
+  // and chart prefs).
+  const [duration, setDurationState] = useState<DurationWindow>('1d');
   const [volumeRatio, setVolumeRatioState] = useState(0.2);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const stored = readStoredDuration();
+    if (stored !== duration) setDurationState(stored);
+    // duration intentionally excluded — only read once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist on every change so a tab reload lands the trader on the same
+  // timeframe they were last looking at.
+  const setDuration = useCallback((next: DurationWindow) => {
+    setDurationState(next);
+    try {
+      window.localStorage.setItem(DURATION_KEY, next);
+    } catch {
+      // ignore storage errors (private mode, quota, etc)
+    }
+  }, []);
 
   // we need two queries to avoid overfetching. if we leave only the infinite query, it will
   // be requested PAGE times on each block, causing many unnecessary requests.
