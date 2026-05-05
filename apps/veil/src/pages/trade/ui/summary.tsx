@@ -91,7 +91,7 @@ export const Summary = () => {
 
   const { data, isPending: isLoading, error } = useSummary(window);
   const getMetadata = useGetMetadata();
-  const { marketPrice, bestBid, bestAsk } = useMarketPrice();
+  const { marketPrice, bestBid, bestAsk, spreadPercentage } = useMarketPrice();
   const midDirection = useTickDirection(marketPrice);
 
   if (error) {
@@ -130,7 +130,7 @@ export const Summary = () => {
           regardless of when the last trade landed. Distinct from 'Last
           price' which can be hours stale on quiet pairs. */}
       <SummaryCard title='Mid price' loading={isLoading && marketPrice == null}>
-        <Tooltip message='Average of the best bid and best ask on the on-chain route book — the price the DEX would clear a marginal swap at right now.'>
+        <Tooltip message='Average of the best bid and best ask on the on-chain route book — the price the DEX would clear a marginal swap at right now. The smaller number is the spread between bid and ask, in basis points of mid — a wider spread means more cost to cross.'>
           <div className='flex items-center gap-1'>
             <Text
               detail
@@ -145,6 +145,15 @@ export const Summary = () => {
               {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
               {marketPrice != null ? round({ value: marketPrice, decimals: 6 }) : '-'}
             </Text>
+            {/* Spread as % of mid — book tightness at a glance. Same
+                number the route-book SpreadRow shows; surface it on the
+                Mid card too so a trader can vet a pair from the header
+                alone without scanning to the order book. */}
+            {spreadPercentage != null && Number.isFinite(spreadPercentage) && (
+              <Text detail color='text.secondary'>
+                · {spreadPercentage.toFixed(2)}%
+              </Text>
+            )}
           </div>
         </Tooltip>
       </SummaryCard>
