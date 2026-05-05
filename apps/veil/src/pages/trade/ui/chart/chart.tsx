@@ -168,15 +168,35 @@ export const Chart = observer(() => {
     canRedo,
   } = useDrawings(pairKey);
 
-  // Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z while the chart is the active subtree.
-  // Listening on the document so the shortcuts work regardless of which
-  // chart sub-element has focus, but we ignore events that bubble out of
-  // an editable input/textarea so the user's text-annotation typing isn't
-  // hijacked.
+  const [tool, setTool] = useState<ToolMode>('none');
+
+  const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
+
+  // Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z for undo/redo, plus Esc to cancel an
+  // active drawing tool. Listening on the document so the shortcuts work
+  // regardless of which chart sub-element has focus, but we ignore events
+  // that bubble out of an editable input/textarea so order-form typing or
+  // a pending text-annotation isn't hijacked (the text-annotation input
+  // owns its own Esc handler that commits/cancels in place).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === 'Escape') {
+        // Esc is a no-op when nothing's active so we don't fight the
+        // user's other dialogs/menus that also want Escape.
+        if (tool !== 'none' || menu !== null) {
+          e.preventDefault();
+          setTool('none');
+          setMenu(null);
+        }
         return;
       }
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -187,10 +207,7 @@ export const Chart = observer(() => {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [undoDrawing, redoDrawing]);
-  const [tool, setTool] = useState<ToolMode>('none');
-
-  const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
+  }, [undoDrawing, redoDrawing, tool, menu]);
 
   useEffect(() => {
     const initial = readStoredVolumeRatio();
