@@ -16,6 +16,8 @@ import {
 } from '@/pages/inspect/explorer/containers';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
+import { ActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
+import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
 
 interface Props {
   searchParams: Promise<{ all?: string; dir?: string; filter?: string; sort?: string }>;
@@ -33,12 +35,19 @@ const ValidatorsPage: FC<Props> = async props => {
       ? ValidatorStateFilter.Inactive
       : ValidatorStateFilter.Active;
 
+  // 90d active-stake + delegation/undelegation flow timeseries.
+  // Server-fetched here so the chart hydrates immediately on first paint
+  // alongside the rest of the panel data.
+  const stakeHistory = await fetchActiveStakeHistory(90);
+
   return (
     <Container>
       <Breadcrumbs>
         <Breadcrumb href='/explore'>Explore</Breadcrumb>
         <Breadcrumb>Validators</Breadcrumb>
       </Breadcrumbs>
+
+      <ActiveStakeChart data={stakeHistory} />
       <div className='grid grid-cols-12 gap-4 lg:items-start'>
         <ActiveVotingPowerPanelContainer
           className='col-span-full md:col-span-4'
