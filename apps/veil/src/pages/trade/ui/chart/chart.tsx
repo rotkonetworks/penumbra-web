@@ -484,6 +484,15 @@ export const Chart = observer(() => {
     if (showSell) {
       items.push({ label: 'Sell at this price', tone: 'sell', onSelect: applyLimit('sell') });
     }
+    const drawHorizontalLine = () => {
+      addDrawing({
+        id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        kind: 'horizontal-line',
+        price,
+        color: DRAWING_COLOR,
+        createdAt: Date.now(),
+      });
+    };
     items.push(
       { label: 'Set as LP lower bound', tone: 'neutral', onSelect: applyLPBound('lower') },
       { label: 'Set as LP upper bound', tone: 'neutral', onSelect: applyLPBound('upper') },
@@ -495,6 +504,11 @@ export const Chart = observer(() => {
         tone: 'neutral',
         onSelect: setAlertHere,
       },
+      // Drop a horizontal line on the chart at this price level — same
+      // result as switching to the line-drawing tool and clicking, just
+      // one click instead of two. Useful for marking S/R levels off a
+      // glance at the candle.
+      { label: 'Mark this price (horizontal line)', tone: 'neutral', onSelect: drawHorizontalLine },
       { label: 'Reset chart view', tone: 'neutral', onSelect: resetView },
     );
     return items;
