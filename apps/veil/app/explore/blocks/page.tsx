@@ -28,6 +28,10 @@ const BlocksPage: FC<Props> = async props => {
         header={<h1 className='text-2xl font-medium'>Blocks</h1>}
         limit={{ length, offset }}
         pagination
+        // Live-update only on page 1 (the head). Paginated pages would
+        // get push events about heights that aren't on screen, which
+        // would just churn state for no benefit.
+        subscription={page === 0}
       />
     </Container>
   );

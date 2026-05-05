@@ -53,6 +53,9 @@ const TransactionsPage: FC<Props> = async props => {
         blockHeight
         pagination
         time
+        // Live-update only on page 1 (head). Pagination disables the
+        // subscription so we don't churn rows for off-screen heights.
+        subscription={page === 0 && !ibcStatusFilter}
       />
     </Container>
   );
