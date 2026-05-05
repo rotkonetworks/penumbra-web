@@ -45,12 +45,20 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     subaccount,
     stateFilter,
   );
-  const displayPositions = getDisplayPositions({
-    positions: data?.pages,
-    asset1Filter: base,
-    asset2Filter: quote,
-    getMetadata,
-  });
+  // getDisplayPositions walks every fetched page and resolves metadata per
+  // asset on each entry — non-trivial on a wallet with many LP positions.
+  // Memoize so it only re-runs when the underlying inputs actually change.
+  // useGetMetadata's return is now useCallback-stable so this dep is honest.
+  const displayPositions = useMemo(
+    () =>
+      getDisplayPositions({
+        positions: data?.pages,
+        asset1Filter: base,
+        asset2Filter: quote,
+        getMetadata,
+      }),
+    [data?.pages, base, quote, getMetadata],
+  );
 
   const { observerEl } = useObserver(isLoading || isRefetching || isFetchingNextPage, () => {
     void fetchNextPage();
