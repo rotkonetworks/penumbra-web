@@ -2,8 +2,10 @@ import { ReactNode } from 'react';
 import cn from 'clsx';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Text } from '@penumbra-zone/ui/Text';
+import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useSummary } from '../api/use-summary';
+import { useMarketPrice } from '../model/useMarketPrice';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { round } from '@penumbra-zone/types/round';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -49,6 +51,7 @@ const SummaryCard = ({
 export const Summary = () => {
   const { data, isPending: isLoading, error } = useSummary('1d');
   const getMetadata = useGetMetadata();
+  const { marketPrice } = useMarketPrice();
 
   if (error) {
     return (
@@ -60,10 +63,23 @@ export const Summary = () => {
 
   return (
     <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-text-primary'>
+      {/* Live midprice off the on-chain liquidity-position route book —
+          what the DEX would actually clear a marginal swap at right now,
+          regardless of when the last trade landed. Distinct from 'Last
+          price' which can be hours stale on quiet pairs. */}
+      <SummaryCard title='Mid price' loading={isLoading && marketPrice == null}>
+        <Tooltip message='Average of the best bid and best ask on the on-chain route book — the price the DEX would clear a marginal swap at right now.'>
+          <Text detail color='text.primary'>
+            {marketPrice != null ? round({ value: marketPrice, decimals: 6 }) : '-'}
+          </Text>
+        </Tooltip>
+      </SummaryCard>
       <SummaryCard title='Last price' loading={isLoading}>
-        <Text detail color='text.primary'>
-          {data?.price ? round({ value: data.price, decimals: 6 }) : '-'}
-        </Text>
+        <Tooltip message='Most recent fill on this pair. Lags the mid price on quiet pairs.'>
+          <Text detail color='text.primary'>
+            {data?.price ? round({ value: data.price, decimals: 6 }) : '-'}
+          </Text>
+        </Tooltip>
       </SummaryCard>
       <SummaryCard title='24h Change' loading={isLoading}>
         {data && (
