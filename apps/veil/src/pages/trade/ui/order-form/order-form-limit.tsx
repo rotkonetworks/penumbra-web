@@ -70,6 +70,29 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       </div>
       <div className='mb-4'>
         <InfoRow label='Available balance' value={store.balance} />
+        {/* % of mid the limit price sits at — catches fat-finger order-of-
+            magnitude typos before submit. Coloured by direction-of-intent
+            so a buy 5% above mid (i.e. would cross immediately) reads as
+            error, mirroring Bybit/Hyperliquid. */}
+        {(() => {
+          const limit = parseFloat(store.priceInput);
+          const mid = parentStore.marketPrice;
+          if (!Number.isFinite(limit) || limit <= 0 || !mid || mid <= 0) {
+            return null;
+          }
+          const deltaPct = ((limit - mid) / mid) * 100;
+          const sign = deltaPct > 0 ? '+' : '';
+          // For a buy, a positive delta means paying more than mid =
+          // crossing the spread (bad). For a sell, the inverse.
+          const wouldCross = isBuy ? deltaPct > 0.5 : deltaPct < -0.5;
+          return (
+            <InfoRow
+              label='Distance from mid'
+              value={`${sign}${deltaPct.toFixed(2)}%`}
+              valueColor={wouldCross ? 'error' : undefined}
+            />
+          );
+        })()}
         <InfoRowTradingFee />
         <InfoRowGasFee
           gasFee={parentStore.gasFee.display}
