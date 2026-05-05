@@ -1,4 +1,15 @@
-import { memo, useId, useEffect, useState, useRef, KeyboardEvent } from 'react';
+import {
+  memo,
+  useId,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  KeyboardEvent,
+  ChangeEvent,
+  WheelEvent,
+} from 'react';
 import { useComponentSize } from 'react-use-size';
 import { round } from '@penumbra-zone/types/round';
 import { Icon } from '@penumbra-zone/ui/Icon';
@@ -64,13 +75,41 @@ const OrderInputImpl = ({
       : value;
 
   // prevent input from exceeding the specified number of decimals
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    const key = parseInt(event.key);
-    const decimalPart = roundedValue.split('.')[1] ?? '';
-    if (!isNaN(key) && typeof decimals !== 'undefined' && decimalPart.length >= decimals) {
-      event.preventDefault();
-    }
-  };
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      const key = parseInt(event.key);
+      const decimalPart = roundedValue.split('.')[1] ?? '';
+      if (!isNaN(key) && typeof decimals !== 'undefined' && decimalPart.length >= decimals) {
+        event.preventDefault();
+      }
+    },
+    [roundedValue, decimals],
+  );
+
+  // Stable handlers — without these, every keystroke (or every block-tick
+  // re-render of the parent observer form) re-allocates four DOM event
+  // listeners per OrderInput. With 3 OrderInputs in the limit form and 4
+  // in the range LP form, that adds up quickly. The blur-on-wheel idiom
+  // prevents accidental scroll-wheel value changes that browsers ship for
+  // type='number'.
+  const onChangeInput = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => onChange?.(e.target.value),
+    [onChange],
+  );
+  const onFocus = useCallback(() => setIsFocused(true), []);
+  const onBlur = useCallback(() => setIsFocused(false), []);
+  const onWheel = useCallback(
+    (e: WheelEvent<HTMLInputElement>) => (e.target as HTMLInputElement).blur(),
+    [],
+  );
+
+  // Inline style object would be a fresh literal each render; React's
+  // shallow-equal would mark the input dirty even when denomWidth hasn't
+  // changed. Memoize on the only piece of data it depends on.
+  const inputStyle = useMemo(
+    () => ({ paddingRight: denomWidth + 20 }),
+    [denomWidth],
+  );
 
   useEffect(() => {
     // useComponentSize doesnt set width correctly on updates, so we
@@ -122,17 +161,14 @@ const OrderInputImpl = ({
               '[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
               "[&[type='number']]:[-moz-appearance:textfield]",
             )}
-            style={{ paddingRight: denomWidth + 20 }}
+            style={inputStyle}
             value={roundedValue}
             disabled={disabled}
-            onChange={e => onChange?.(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onChange={onChangeInput}
+            onFocus={onFocus}
+            onBlur={onBlur}
             onKeyDown={onKeyDown}
-            onWheel={e => {
-              // Remove focus to prevent scroll changes
-              (e.target as HTMLInputElement).blur();
-            }}
+            onWheel={onWheel}
             placeholder={placeholder}
             type='number'
             max={max}
