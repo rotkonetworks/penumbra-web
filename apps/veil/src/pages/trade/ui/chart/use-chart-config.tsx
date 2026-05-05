@@ -155,7 +155,12 @@ export const useChartConfig = (
     });
   }, []);
 
-  const setCandlesData = (candles: CandleWithVolume[] = []) => {
+  // useCallback so the consumer's chart-paint useEffect, which lists
+  // setCandlesData / setVolumeData in its deps, doesn't re-fire on every
+  // Chart render (Chart re-renders every block via useMarketPrice). The
+  // body only reads seriesRef / volumeSeriesRef — both stable refs — so
+  // empty deps are honest.
+  const setCandlesData = useCallback((candles: CandleWithVolume[] = []) => {
     seriesRef.current?.setData(
       candles.map(candle => ({
         ...candle.ohlc,
@@ -182,9 +187,9 @@ export const useChartConfig = (
         });
       }
     }
-  };
+  }, []);
 
-  const setVolumeData = (candles: CandleWithVolume[] = []) => {
+  const setVolumeData = useCallback((candles: CandleWithVolume[] = []) => {
     volumeSeriesRef.current?.setData(
       candles.map(candle => ({
         time: candle.ohlc.time,
@@ -195,7 +200,7 @@ export const useChartConfig = (
             : theme.color.destructive.light + '80',
       })),
     );
-  };
+  }, []);
 
   /**
    * Push the latest few candles into the existing series via series.update()
