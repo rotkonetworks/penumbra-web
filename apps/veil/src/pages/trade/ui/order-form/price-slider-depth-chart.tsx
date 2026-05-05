@@ -7,7 +7,11 @@ import { useBook } from '../../api/book';
 import { Trace } from '@/shared/api/server/book/types';
 import { scaleCanvas, drawFilledPath } from '@/shared/ui/canvas-toolkit';
 
-const bgColor = 'rgba(250, 250, 250, 0.05)';
+// Buy depth on the left of the midpoint, sell on the right. Higher
+// opacity than the previous near-invisible 5%-white so the user can
+// actually read the route depth around the price band they're picking.
+const BUY_FILL = 'rgba(94, 234, 212, 0.22)';
+const SELL_FILL = 'rgba(251, 146, 60, 0.22)';
 
 function DepthChartRenderer({
   scale,
@@ -82,7 +86,7 @@ function DepthChartRenderer({
             // draw a line from the left of the chart to the first buy coordinate
             [0, buyCoordinates[0]?.y0 ?? 0],
           ] as [number, number][],
-          bgColor,
+          BUY_FILL,
         );
       }
 
@@ -101,13 +105,22 @@ function DepthChartRenderer({
             // draw a line from the bottom of the chart to the first sell coordinate
             [sellCoordinates[0]?.x0 ?? width, height],
           ] as [number, number][],
-          bgColor,
+          SELL_FILL,
         );
       }
     }
   }, [data, width, height, scale]);
 
-  return <canvas ref={deptchChartRef} />;
+  // Absolute-position the canvas so it overlays the slider track instead
+  // of pushing handles down. Pointer-events disabled so it doesn't eat
+  // the slider thumb drag.
+  return (
+    <canvas
+      ref={deptchChartRef}
+      className='pointer-events-none absolute top-0 left-0 z-0'
+      style={{ width, height }}
+    />
+  );
 }
 
 export default DepthChartRenderer;
