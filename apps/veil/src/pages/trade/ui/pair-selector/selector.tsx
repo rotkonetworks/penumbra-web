@@ -46,6 +46,30 @@ export const PairSelector = observer(() => {
     }
   }, [baseAsset, isOpen, quoteAsset]);
 
+  // '/' opens the pair switcher from anywhere on the trade page — the
+  // shortcut Slack/GitHub/Discord/Hyperliquid all share. Ignore the press
+  // when the user is typing into an input or contentEditable so we don't
+  // hijack legitimate text entry.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setIsOpen(true);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   const onSelect = useCallback(
     (base: Metadata, quote: Metadata) => {
       handleRouting({ router, baseAsset: base, quoteAsset: quote });
