@@ -75,7 +75,16 @@ export const RangeLiquidityOrderForm = observer(
               label='Upper Price Bound'
               value={store.upperPriceInput}
               decimals={store.quoteAsset?.exponent ?? defaultDecimals}
-              onChange={price => store.setUpperPriceInput(price)}
+              // Bound MobX setter directly — OrderInput is memo'd and a
+              // fresh inline wrapper would defeat the memo on the *other*
+              // inputs in this form. Cast widens the setter's optional
+              // `fromOption` arg to OrderInput's onChange contract;
+              // OrderInput only ever passes the first arg at runtime, so
+              // fromOption defaults to false (same behaviour as the old
+              // `price => setUpperPriceInput(price)` wrapper).
+              onChange={
+                store.setUpperPriceInput as (amount: string, ...args: unknown[]) => void
+              }
               denominator={store.quoteAsset?.symbol}
             />
           </div>
@@ -92,7 +101,9 @@ export const RangeLiquidityOrderForm = observer(
               label='Lower Price Bound'
               value={store.lowerPriceInput}
               decimals={store.quoteAsset?.exponent ?? defaultDecimals}
-              onChange={price => store.setLowerPriceInput(price)}
+              onChange={
+                store.setLowerPriceInput as (amount: string, ...args: unknown[]) => void
+              }
               denominator={store.quoteAsset?.symbol}
             />
           </div>
@@ -107,7 +118,9 @@ export const RangeLiquidityOrderForm = observer(
             <OrderInput
               label='Fee tier'
               value={store.feeTierPercentInput}
-              onChange={amount => store.setFeeTierPercentInput(amount)}
+              onChange={
+                store.setFeeTierPercentInput as (amount: string, ...args: unknown[]) => void
+              }
               denominator='%'
             />
           </div>
