@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
+import { useMarketPrice } from '../../../model/useMarketPrice';
 import type { Drawing } from './types';
 
 interface DrawingsOverlayProps {
@@ -70,6 +71,11 @@ export const DrawingsOverlay = ({
   const [tLines, setTLines] = useState<PositionedTrendLine[]>([]);
   const [rects, setRects] = useState<PositionedRectangle[]>([]);
   const [texts, setTexts] = useState<PositionedText[]>([]);
+  // Live chain mid — used to annotate each horizontal-line drawing with
+  // its current % gap from mid. The trader marks a level once and the
+  // label keeps re-stamping the live distance as mid drifts, no more
+  // manual mental arithmetic to gauge whether a level is within reach.
+  const { marketPrice } = useMarketPrice();
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
@@ -182,52 +188,82 @@ export const DrawingsOverlay = ({
         className='pointer-events-none absolute inset-0 z-[6] h-full w-full'
         style={{ overflow: 'visible' }}
       >
-        {hLines.map(line => (
-          <g key={line.id} className='pointer-events-auto'>
-            <line
-              x1='0'
-              x2='100%'
-              y1={line.y}
-              y2={line.y}
-              stroke={line.color}
-              strokeWidth='1'
-              strokeDasharray='4 3'
-            />
-            {/* Wider invisible hit area for easier right-clicking */}
-            <line
-              x1='0'
-              x2='100%'
-              y1={line.y}
-              y2={line.y}
-              stroke='transparent'
-              strokeWidth='8'
-              style={{ cursor: 'pointer' }}
-              onContextMenu={openMenu(line.id, formatPrice(line.price))}
-            >
-              <title>Right-click to delete · {formatPrice(line.price)}</title>
-            </line>
-            <rect
-              x='0'
-              y={line.y - 7}
-              width='52'
-              height='14'
-              fill={line.color}
-              opacity='0.85'
-              style={{ cursor: 'pointer' }}
-              onContextMenu={openMenu(line.id, formatPrice(line.price))}
-            />
-            <text
-              x='4'
-              y={line.y + 4}
-              fill='#0d0d0d'
-              fontSize='10'
-              fontFamily='monospace'
-              style={{ pointerEvents: 'none', userSelect: 'none' }}
-            >
-              {formatPrice(line.price)}
-            </text>
-          </g>
-        ))}
+        {hLines.map(line => {
+          // % distance of this drawn level from the live chain mid. Hide
+          // when sub-bp (visual noise) or when mid hasn't loaded.
+          const deltaPct =
+            marketPrice && marketPrice > 0
+              ? ((line.price - marketPrice) / marketPrice) * 100
+              : null;
+          const showDelta = deltaPct !== null && Math.abs(deltaPct) >= 0.05;
+          const deltaText = showDelta
+            ? `${deltaPct! > 0 ? '+' : ''}${deltaPct!.toFixed(2)}%`
+            : null;
+          return (
+            <g key={line.id} className='pointer-events-auto'>
+              <line
+                x1='0'
+                x2='100%'
+                y1={line.y}
+                y2={line.y}
+                stroke={line.color}
+                strokeWidth='1'
+                strokeDasharray='4 3'
+              />
+              {/* Wider invisible hit area for easier right-clicking */}
+              <line
+                x1='0'
+                x2='100%'
+                y1={line.y}
+                y2={line.y}
+                stroke='transparent'
+                strokeWidth='8'
+                style={{ cursor: 'pointer' }}
+                onContextMenu={openMenu(line.id, formatPrice(line.price))}
+              >
+                <title>
+                  Right-click to delete · {formatPrice(line.price)}
+                  {deltaText ? ` (${deltaText} from mid)` : ''}
+                </title>
+              </line>
+              <rect
+                x='0'
+                y={line.y - 7}
+                width='52'
+                height='14'
+                fill={line.color}
+                opacity='0.85'
+                style={{ cursor: 'pointer' }}
+                onContextMenu={openMenu(line.id, formatPrice(line.price))}
+              />
+              <text
+                x='4'
+                y={line.y + 4}
+                fill='#0d0d0d'
+                fontSize='10'
+                fontFamily='monospace'
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {formatPrice(line.price)}
+              </text>
+              {/* Live mid-delta annotation, rendered to the right of the
+                  price label so the price chunk stays the same width. */}
+              {deltaText && (
+                <text
+                  x='56'
+                  y={line.y + 4}
+                  fill={line.color}
+                  fontSize='10'
+                  fontFamily='monospace'
+                  opacity='0.85'
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                  {deltaText}
+                </text>
+              )}
+            </g>
+          );
+        })}
 
         {tLines.map(line => {
           const dx = line.x2 - line.x1;
