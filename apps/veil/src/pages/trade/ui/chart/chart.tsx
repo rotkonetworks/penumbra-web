@@ -19,6 +19,7 @@ import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
 import { MidPriceOverlay } from './mid-price-overlay';
+import { LpPreviewOverlay } from './lp-preview-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
 import { useOwnFillMarkers } from './use-own-fill-markers';
 import { usePathSymbols } from '../../model/use-path';
@@ -567,6 +568,10 @@ export const Chart = observer(() => {
           <>
             <div className='h-full w-full' ref={chartRef} />
             {prefs.depth && <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />}
+            {/* Live preview of the LP position the trader is constructing —
+                only paints when whichForm is SimpleLP / RangeLP and bounds
+                are set, so it's a no-op for traders not in LP mode. */}
+            <LpPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
             {prefs.midPrice && (
               <MidPriceOverlay
                 marketPrice={marketPrice}
