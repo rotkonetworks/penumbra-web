@@ -41,6 +41,16 @@ const BlockTableUpdater: FC<Props> = ({
         new Set(props.blocks?.map(block => block.height))
     )
 
+    // Track latest blocks via a ref so the subscription effect can read
+    // 'knownTop' without listing 'blocks' as a dep — putting blocks in
+    // the deps tears the websocket down on every state update, and the
+    // replay event from the new stream gets dropped as a duplicate, so
+    // the table stops live-updating after the first block.
+    const blocksRef = useRef<TransformedPartialBlockFragment[]>(blocks)
+    useEffect(() => {
+        blocksRef.current = blocks
+    }, [blocks])
+
     useEffect(() => {
         if (!subscription) {
             return
@@ -95,7 +105,7 @@ const BlockTableUpdater: FC<Props> = ({
                 // or rendered). If it's farther, fetch the missing window in
                 // one round-trip and reset.
                 const knownTop = Math.max(
-                    blocks[0]?.height ?? 0,
+                    blocksRef.current[0]?.height ?? 0,
                     queueRef.current[queueRef.current.length - 1]?.height ?? 0,
                 )
                 if (knownTop > 0 && block.height - knownTop > 1) {
@@ -124,7 +134,7 @@ const BlockTableUpdater: FC<Props> = ({
             unsubscribe()
             document.removeEventListener('visibilitychange', onVisible)
         }
-    }, [client, subscription, blocks])
+    }, [client, subscription])
 
     useEffect(() => {
         const animationLoop = () => {
