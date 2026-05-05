@@ -1,5 +1,4 @@
-import { ReactNode } from 'react';
-import { observer } from 'mobx-react-lite';
+import { ReactNode, memo } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Icon } from '@penumbra-zone/ui/Icon';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
@@ -24,7 +23,11 @@ const getValueColor = (valueColor: InfoRowProps['valueColor']) => {
   return 'text.primary';
 };
 
-export const InfoRow = observer(
+// Pure props — was wrapped in observer() but reads no MobX state, so it
+// was paying for a Reaction tracker on every render with nothing to react
+// to. memo() instead so it only re-renders when its parent passes new
+// values, not when the parent itself re-renders.
+export const InfoRow = memo(
   ({ label, isLoading, value, valueColor, toolTip }: InfoRowProps) => {
     return (
       <div className='mb-1 flex items-center justify-between py-1 last:mb-0'>

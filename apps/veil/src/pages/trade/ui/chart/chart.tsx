@@ -131,7 +131,7 @@ export const Chart = observer(() => {
     redo: redoDrawing,
     canUndo,
     canRedo,
-  } = useDrawings(`${baseSymbol}/${quoteSymbol}`);
+  } = useDrawings(pairKey);
 
   // Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z while the chart is the active subtree.
   // Listening on the document so the shortcuts work regardless of which
