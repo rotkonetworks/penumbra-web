@@ -155,7 +155,7 @@ export const RangeLiquidityOrderForm = observer(
                 key={shape}
                 shape={shape}
                 selected={store._liquidityShape === shape}
-                onClick={() => store.setLiquidityShape(shape)}
+                onSelect={store.setLiquidityShape}
               />
             ))}
           </div>

@@ -20,6 +20,11 @@ import { useIsLqtEligible, LQT_ENABLED } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { LiquidityShape } from './liquidity-shape';
 
+// Hoist Object.values(EnumX) to module scope — it allocates a fresh array
+// per call, and the LP form re-renders every block-tick via marketPrice.
+// Same idiom we use in the limit / range / form-tabs hoists.
+const LIQUIDITY_SHAPES = Object.values(LiquidityDistributionShape);
+
 export const SimpleLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
     const { connected } = connectionStore;
@@ -186,12 +191,12 @@ export const SimpleLiquidityOrderForm = observer(
             </Tooltip>
           </div>
           <div className='flex w-full gap-2'>
-            {Object.values(LiquidityDistributionShape).map(shape => (
+            {LIQUIDITY_SHAPES.map(shape => (
               <LiquidityShape
                 key={shape}
                 shape={shape}
                 selected={store.liquidityShape === shape}
-                onClick={() => store.setLiquidityShape(shape)}
+                onSelect={store.setLiquidityShape}
               />
             ))}
           </div>

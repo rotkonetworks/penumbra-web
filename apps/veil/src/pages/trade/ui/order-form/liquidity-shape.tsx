@@ -10,7 +10,7 @@ import StablekindSelected from '@/shared/assets/liquidity-shapes/Type=Stablekind
 import VolatileDefault from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Default.svg';
 import VolatileHover from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Hover.svg';
 import VolatileSelected from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Selected.svg';
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 
 const shapeMapping = {
@@ -49,66 +49,80 @@ const isSupportedShape = (
   return shape in shapeMapping;
 };
 
-export const LiquidityShape = ({
-  shape,
-  onClick,
-  selected,
-}: {
-  shape: LiquidityDistributionShape;
-  onClick: () => void;
-  selected: boolean;
-}) => {
-  const [isHovered, setIsHovered] = useState(false);
+// Wrapped in memo + onSelect-with-shape API so the LP forms can pass the
+// store's bound `setLiquidityShape` action directly. Previously each LP
+// form re-allocated three `() => store.setLiquidityShape(shape)` arrows
+// per render (and the form re-renders every block-tick via marketPrice),
+// dragging all three shape buttons + their SVGs through reconciliation
+// each time. With memo + a stable onSelect, only the *previously-
+// selected* and *newly-selected* button re-render on a click.
+export const LiquidityShape = memo(
+  ({
+    shape,
+    onSelect,
+    selected,
+  }: {
+    shape: LiquidityDistributionShape;
+    onSelect: (shape: LiquidityDistributionShape) => void;
+    selected: boolean;
+  }) => {
+    const [isHovered, setIsHovered] = useState(false);
+    const onClick = useCallback(() => onSelect(shape), [onSelect, shape]);
+    const onMouseEnter = useCallback(() => setIsHovered(true), []);
+    const onMouseLeave = useCallback(() => setIsHovered(false), []);
 
-  if (!isSupportedShape(shape)) {
-    return null;
-  }
+    if (!isSupportedShape(shape)) {
+      return null;
+    }
 
-  const {
-    text,
-    default: Default,
-    hover: Hover,
-    selected: Selected,
-    disabled,
-    tooltipMessage,
-  } = shapeMapping[shape];
+    const {
+      text,
+      default: Default,
+      hover: Hover,
+      selected: Selected,
+      disabled,
+      tooltipMessage,
+    } = shapeMapping[shape];
 
-  if (disabled) {
-    return null;
-  }
+    if (disabled) {
+      return null;
+    }
 
-  return (
-    <div
-      key={shape}
-      className={cn(
-        'flex min-h-10 flex-1 flex-col items-center justify-center rounded-sm border p-3 active:opacity-80 active:duration-[0.1s]',
-        selected ? 'bg-other-tonal-fill5' : undefined,
-        selected ? 'border-primary-main' : 'border-transparent',
-      )}
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Tooltip message={tooltipMessage}>
-        <div className='relative mb-1 flex w-full justify-center'>
-          <Default />
-          <Hover
-            className={cn(
-              'absolute inset-0 z-10 h-full w-full transition-opacity duration-200',
-              isHovered && !selected ? 'opacity-100' : 'opacity-0',
-            )}
-          />
-          <Selected
-            className={cn(
-              'absolute inset-0 z-20 h-full w-full transition-opacity duration-200',
-              selected ? 'opacity-100' : 'opacity-0',
-            )}
-          />
-        </div>
-        <Text detail color='text.secondary'>
-          {text}
-        </Text>
-      </Tooltip>
-    </div>
-  );
-};
+    return (
+      <div
+        key={shape}
+        className={cn(
+          'flex min-h-10 flex-1 flex-col items-center justify-center rounded-sm border p-3 active:opacity-80 active:duration-[0.1s]',
+          selected ? 'bg-other-tonal-fill5' : undefined,
+          selected ? 'border-primary-main' : 'border-transparent',
+        )}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        <Tooltip message={tooltipMessage}>
+          <div className='relative mb-1 flex w-full justify-center'>
+            <Default />
+            <Hover
+              className={cn(
+                'absolute inset-0 z-10 h-full w-full transition-opacity duration-200',
+                isHovered && !selected ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+            <Selected
+              className={cn(
+                'absolute inset-0 z-20 h-full w-full transition-opacity duration-200',
+                selected ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+          </div>
+          <Text detail color='text.secondary'>
+            {text}
+          </Text>
+        </Tooltip>
+      </div>
+    );
+  },
+);
+
+LiquidityShape.displayName = 'LiquidityShape';
