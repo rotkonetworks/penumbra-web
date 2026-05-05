@@ -57,6 +57,7 @@ export const useChartConfig = (
   const volumeSeriesRef = useRef<ReturnType<IChartApi['addHistogramSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+  const midPriceLineRef = useRef<IPriceLine | undefined>(undefined);
 
   // chartReady flips true after createChart() runs in setChartRef. Consumers
   // that need to subscribe to chart events list this in their useEffect deps
@@ -322,6 +323,45 @@ export const useChartConfig = (
   }, []);
 
   /**
+   * Render or update a single price line at the live mid-price. Pass
+   * undefined to remove. Distinct from setOwnPositionLines so the mid
+   * line is never accidentally cleared by a position-list update.
+   */
+  const setMidPriceLine = useCallback((price: number | undefined) => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (price === undefined || !Number.isFinite(price) || price <= 0) {
+      if (midPriceLineRef.current) {
+        try {
+          series.removePriceLine(midPriceLineRef.current);
+        } catch {
+          // chart torn down
+        }
+        midPriceLineRef.current = undefined;
+      }
+      return;
+    }
+    const opts: CreatePriceLineOptions = {
+      price,
+      color: theme.color.primary.main,
+      lineStyle: LineStyle.Dotted,
+      lineWidth: 1,
+      axisLabelVisible: true,
+      title: 'mid',
+    };
+    if (midPriceLineRef.current) {
+      try {
+        midPriceLineRef.current.applyOptions(opts);
+      } catch {
+        // line was removed under us; recreate
+        midPriceLineRef.current = series.createPriceLine(opts);
+      }
+    } else {
+      midPriceLineRef.current = series.createPriceLine(opts);
+    }
+  }, []);
+
+  /**
    * Reset zoom/pan: fit all data on the time axis and re-enable
    * autoscale on the price axis. Mirrors what lightweight-charts'
    * own controls do — but exposed so the right-click menu can offer
@@ -470,6 +510,7 @@ export const useChartConfig = (
     timeAtX,
     setOwnPositionLines,
     setOwnFillMarkers,
+    setMidPriceLine,
     chartReady,
     resetView,
     subscribeRedraw,
