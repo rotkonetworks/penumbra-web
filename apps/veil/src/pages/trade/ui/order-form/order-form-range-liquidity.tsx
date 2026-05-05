@@ -1,6 +1,9 @@
 import { observer } from 'mobx-react-lite';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
+import { Tooltip } from '@penumbra-zone/ui/Tooltip';
+import { Icon } from '@penumbra-zone/ui/Icon';
+import { InfoIcon } from 'lucide-react';
 import { Slider as PenumbraSlider } from '@penumbra-zone/ui/Slider';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
@@ -8,6 +11,7 @@ import { OrderInput } from './order-input';
 import { SelectGroup } from './select-group';
 import { InfoRow } from './info-row';
 import { InfoRowGasFee } from './info-row-gas-fee';
+import { LiquidityShape } from './liquidity-shape';
 import { OrderFormStore } from './store/OrderFormStore';
 import {
   MAX_POSITION_COUNT,
@@ -16,6 +20,7 @@ import {
   LowerBoundOptions,
   FeeTierOptions,
 } from './store/RangeOrderFormStore';
+import { LiquidityDistributionShape } from '@/shared/math/position';
 
 export const RangeLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
@@ -113,6 +118,24 @@ export const RangeLiquidityOrderForm = observer(
           />
         </div>
         <div className='mb-4'>
+          <div className='mb-2 flex items-center gap-1'>
+            <Text small color='text.secondary'>
+              Liquidity Shape
+            </Text>
+            <Tooltip message='Choose how your liquidity is weighted across the range. Linear spreads it evenly; Concentrated stacks it near mid; Volatile pushes it to the edges.'>
+              <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+            </Tooltip>
+          </div>
+          <div className='mb-4 flex w-full gap-2'>
+            {Object.values(LiquidityDistributionShape).map(shape => (
+              <LiquidityShape
+                key={shape}
+                shape={shape}
+                selected={store._liquidityShape === shape}
+                onClick={() => store.setLiquidityShape(shape)}
+              />
+            ))}
+          </div>
           <OrderInput
             label='Number of positions'
             value={store.positionCountInput}

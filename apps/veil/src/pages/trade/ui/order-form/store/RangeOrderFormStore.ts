@@ -87,6 +87,10 @@ export class RangeOrderFormStore {
     makeAutoObservable(this);
   }
 
+  setLiquidityShape = (shape: LiquidityDistributionShape) => {
+    this._liquidityShape = shape;
+  };
+
   get baseAsset(): undefined | AssetInfo {
     return this._baseAsset;
   }

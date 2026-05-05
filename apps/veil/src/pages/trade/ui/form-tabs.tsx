@@ -10,13 +10,19 @@ import { isWhichForm, useOrderFormStore } from './order-form/store/OrderFormStor
 import { observer } from 'mobx-react-lite';
 import cn from 'clsx';
 
-// Module-scoped — re-allocating three label objects per render gave Tabs's
+// Module-scoped — re-allocating four label objects per render gave Tabs's
 // shallow prop compare a fresh reference every time, which made any future
 // memo on Tabs ineffective.
+//
+// Provide Liquidity vs. Range LP: SimpleLP is the guided form (auto-derived
+// position count, default shape, presets); Range LP exposes every knob —
+// fee tier, position count, liquidity-shape selector, manual bounds. Same
+// underlying tx, two surfaces.
 const FORM_TAB_OPTIONS = [
   { value: 'Market', label: 'Market' },
   { value: 'Limit', label: 'Limit' },
   { value: 'SimpleLP', label: 'Provide Liquidity' },
+  { value: 'RangeLP', label: 'Range LP' },
 ];
 
 export const FormTabs = observer(() => {

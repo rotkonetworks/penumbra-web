@@ -19,8 +19,9 @@ const shapeMapping = {
     default: ConcentratedDefault,
     hover: ConcentratedHover,
     selected: ConcentratedSelected,
-    tooltipMessage: '',
-    disabled: true,
+    tooltipMessage:
+      'Equal liquidity at every price step in the range. Lowest concentration, highest range coverage — best when you have no strong view on where the market will sit.',
+    disabled: false,
   },
   [LiquidityDistributionShape.PYRAMID]: {
     text: 'Concentrated',
