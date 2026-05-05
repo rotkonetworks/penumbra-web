@@ -322,6 +322,25 @@ export const useChartConfig = (
   }, []);
 
   /**
+   * Reset zoom/pan: fit all data on the time axis and re-enable
+   * autoscale on the price axis. Mirrors what lightweight-charts'
+   * own controls do — but exposed so the right-click menu can offer
+   * 'Reset chart view' without the user hunting for the chart's
+   * native UI.
+   */
+  const resetView = useCallback(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series) return;
+    try {
+      chart.timeScale().fitContent();
+      series.priceScale().applyOptions({ autoScale: true });
+    } catch {
+      // chart torn down
+    }
+  }, []);
+
+  /**
    * Subscribe to native chart clicks. lightweight-charts captures pointer
    * events on its canvas and exposes them via subscribeClick — using DOM
    * onClick on the container does not fire reliably. Caller receives
@@ -452,6 +471,7 @@ export const useChartConfig = (
     setOwnPositionLines,
     setOwnFillMarkers,
     chartReady,
+    resetView,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,

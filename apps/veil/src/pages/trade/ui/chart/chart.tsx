@@ -71,6 +71,7 @@ export const Chart = observer(() => {
     setOwnPositionLines,
     setOwnFillMarkers,
     chartReady,
+    resetView,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
@@ -362,6 +363,7 @@ export const Chart = observer(() => {
         tone: 'neutral',
         onSelect: setAlertHere,
       },
+      { label: 'Reset chart view', tone: 'neutral', onSelect: resetView },
     );
     return items;
   };
