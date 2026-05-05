@@ -15,6 +15,7 @@ import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
+import { useMarketPrice } from '@/pages/trade/model/useMarketPrice';
 import { usePositions } from '../api/use-positions';
 import { stateToString } from '../model/state-to-string';
 import { getDisplayPositions } from '../model/get-display-positions';
@@ -40,6 +41,12 @@ export interface PositionsTableProps {
 export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsTableProps) => {
   const { connected, subaccount } = connectionStore;
   const getMetadata = useGetMetadata();
+  // Live mid for the pair this table is scoped to. Used to render a
+  // 'distance from mid' subtitle under each position's price so the
+  // trader can see which rungs are at-the-money vs. deep in the book
+  // without reading the chart. useMarketPrice key reads come from
+  // the route, so this returns mid for the same pair the table renders.
+  const { marketPrice } = useMarketPrice();
 
   const { data, isLoading, isRefetching, isFetchingNextPage, fetchNextPage, error } = usePositions(
     subaccount,
@@ -222,11 +229,43 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                             </>
                           }
                         >
-                          <ValueViewComponent
-                            priority='tertiary'
-                            valueView={order.effectivePrice}
-                            trailingZeros={false}
-                          />
+                          <div className='flex flex-col items-start'>
+                            <ValueViewComponent
+                              priority='tertiary'
+                              valueView={order.effectivePrice}
+                              trailingZeros={false}
+                            />
+                            {/* Distance from mid — surfaces which rungs are
+                                at-the-money vs. deep in the book at a glance.
+                                Penumbra positions are limit-like, so 'far
+                                from mid' just means dormant, not broken — the
+                                colour is informational, not alarming. */}
+                            {position.isOpened &&
+                              marketPrice != null &&
+                              marketPrice > 0 &&
+                              (() => {
+                                const eff = pnum(order.effectivePrice).toNumber();
+                                if (!Number.isFinite(eff) || eff <= 0) return null;
+                                const deltaPct = ((eff - marketPrice) / marketPrice) * 100;
+                                const abs = Math.abs(deltaPct);
+                                const sign = deltaPct > 0 ? '+' : '';
+                                const tone =
+                                  abs < 1
+                                    ? 'text-success-light'
+                                    : abs < 5
+                                      ? 'text-text-secondary'
+                                      : 'text-neutral-light';
+                                return (
+                                  <span
+                                    className={cn('text-[10px] tabular-nums', tone)}
+                                    style={{ lineHeight: 1 }}
+                                  >
+                                    {sign}
+                                    {deltaPct.toFixed(2)}% from mid
+                                  </span>
+                                );
+                              })()}
+                          </div>
                         </Tooltip>
                       )}
                     </TableCell>
