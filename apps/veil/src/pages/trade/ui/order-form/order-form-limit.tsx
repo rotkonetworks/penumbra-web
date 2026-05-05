@@ -14,6 +14,12 @@ import { SelectGroup } from './select-group';
 import { OrderFormStore } from './store/OrderFormStore';
 import { BuyLimitOrderOptions, SellLimitOrderOptions } from './store/LimitOrderFormStore';
 
+// Module-scoped — Object.values() of an enum allocates a fresh array on
+// every call, defeating any prop-identity-based skipping in SelectGroup.
+// Same idiom as the form-tabs / history-tabs / trades-tabs hoists.
+const BUY_PRICE_OPTIONS = Object.values(BuyLimitOrderOptions);
+const SELL_PRICE_OPTIONS = Object.values(SellLimitOrderOptions);
+
 export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFormStore }) => {
   const { connected } = connectionStore;
   const { defaultDecimals, limitForm: store } = parentStore;
@@ -85,7 +91,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
           />
         </div>
         <SelectGroup
-          options={Object.values(isBuy ? BuyLimitOrderOptions : SellLimitOrderOptions)}
+          options={isBuy ? BUY_PRICE_OPTIONS : SELL_PRICE_OPTIONS}
           value={store.priceInputOption}
           onChange={option =>
             store.setPriceInputOption(option as BuyLimitOrderOptions | SellLimitOrderOptions)

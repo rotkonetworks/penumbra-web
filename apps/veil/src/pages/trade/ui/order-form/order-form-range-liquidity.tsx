@@ -22,6 +22,16 @@ import {
 } from './store/RangeOrderFormStore';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 
+// Module-scoped — Object.values() of an enum allocates a fresh array on
+// every call, and these three SelectGroups otherwise re-allocate three
+// 4-or-5-element arrays per parent re-render (which fires every block-tick
+// via marketPrice). Same idiom as the form-tabs / history-tabs / limit-form
+// option hoists.
+const UPPER_BOUND_OPTIONS = Object.values(UpperBoundOptions);
+const LOWER_BOUND_OPTIONS = Object.values(LowerBoundOptions);
+const FEE_TIER_OPTIONS = Object.values(FeeTierOptions);
+const LIQUIDITY_SHAPES = Object.values(LiquidityDistributionShape);
+
 export const RangeLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
     const { connected } = connectionStore;
@@ -89,7 +99,7 @@ export const RangeLiquidityOrderForm = observer(
             />
           </div>
           <SelectGroup
-            options={Object.values(UpperBoundOptions)}
+            options={UPPER_BOUND_OPTIONS}
             value={store.upperPriceInputOption}
             onChange={option => store.setUpperPriceInputOption(option as UpperBoundOptions)}
           />
@@ -108,7 +118,7 @@ export const RangeLiquidityOrderForm = observer(
             />
           </div>
           <SelectGroup
-            options={Object.values(LowerBoundOptions)}
+            options={LOWER_BOUND_OPTIONS}
             value={store.lowerPriceInputOption}
             onChange={option => store.setLowerPriceInputOption(option as LowerBoundOptions)}
           />
@@ -125,7 +135,7 @@ export const RangeLiquidityOrderForm = observer(
             />
           </div>
           <SelectGroup
-            options={Object.values(FeeTierOptions)}
+            options={FEE_TIER_OPTIONS}
             value={store.feeTierPercentInputOption}
             onChange={option => store.setFeeTierPercentInputOption(option as FeeTierOptions)}
           />
@@ -140,7 +150,7 @@ export const RangeLiquidityOrderForm = observer(
             </Tooltip>
           </div>
           <div className='mb-4 flex w-full gap-2'>
-            {Object.values(LiquidityDistributionShape).map(shape => (
+            {LIQUIDITY_SHAPES.map(shape => (
               <LiquidityShape
                 key={shape}
                 shape={shape}
