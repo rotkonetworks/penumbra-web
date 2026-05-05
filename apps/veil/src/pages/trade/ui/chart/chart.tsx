@@ -70,7 +70,6 @@ export const Chart = observer(() => {
     xAtTime,
     setOwnPositionLines,
     setOwnFillMarkers,
-    setMidPriceLine,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
@@ -95,13 +94,6 @@ export const Chart = observer(() => {
     markTriggered: markAlertTriggered,
   } = usePriceAlerts(pairKey);
   useAlertWatcher({ marketPrice, alerts: pairAlerts, onFire: markAlertTriggered });
-
-  // Render the on-chain mid-price as a dotted price line on the candle
-  // axis. Always visible — represents the most-important reference for
-  // any limit/LP placement and matches the 'Mid price' header above.
-  useEffect(() => {
-    setMidPriceLine(marketPrice);
-  }, [marketPrice, setMidPriceLine]);
   const {
     drawings,
     add: addDrawing,
