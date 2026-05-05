@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
@@ -14,6 +14,19 @@ enum TradesTabsType {
   MyTrades = 'my-trades',
 }
 
+// Module-scoped — same reasoning as form-tabs and history-tabs: avoid
+// re-allocating two-or-three option objects per render so the Tabs
+// shallow prop-compare can stay effective.
+const TRADES_OPTIONS_WITH_CHART = [
+  { value: TradesTabsType.Chart, label: 'Chart' },
+  { value: TradesTabsType.MarketTrades, label: 'Market Trades' },
+  { value: TradesTabsType.MyTrades, label: 'My Trades' },
+];
+const TRADES_OPTIONS_NO_CHART = [
+  { value: TradesTabsType.MarketTrades, label: 'Market Trades' },
+  { value: TradesTabsType.MyTrades, label: 'My Trades' },
+];
+
 export const TradesTabs = ({ withChart = false }: { withChart?: boolean }) => {
   const [parent] = useAutoAnimate();
 
@@ -23,6 +36,7 @@ export const TradesTabs = ({ withChart = false }: { withChart?: boolean }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   const toggleCollapsed = () => setCollapsed(prev => !prev);
+  const onTabChange = useCallback((value: string) => setTab(value as TradesTabsType), []);
 
   return (
     <div ref={parent} className='flex flex-col'>
@@ -31,19 +45,8 @@ export const TradesTabs = ({ withChart = false }: { withChart?: boolean }) => {
           <Tabs
             value={tab}
             actionType='accent'
-            onChange={value => setTab(value as TradesTabsType)}
-            options={
-              withChart
-                ? [
-                    { value: TradesTabsType.Chart, label: 'Chart' },
-                    { value: TradesTabsType.MarketTrades, label: 'Market Trades' },
-                    { value: TradesTabsType.MyTrades, label: 'My Trades' },
-                  ]
-                : [
-                    { value: TradesTabsType.MarketTrades, label: 'Market Trades' },
-                    { value: TradesTabsType.MyTrades, label: 'My Trades' },
-                  ]
-            }
+            onChange={onTabChange}
+            options={withChart ? TRADES_OPTIONS_WITH_CHART : TRADES_OPTIONS_NO_CHART}
           />
         </Density>
 
