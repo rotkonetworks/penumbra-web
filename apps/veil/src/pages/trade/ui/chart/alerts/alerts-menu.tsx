@@ -120,7 +120,14 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
           role='menu'
         >
           <Text detail color='text.secondary'>
-            <span className='block px-1 pb-2'>Price alerts · {pair}</span>
+            <span className='block px-1 pb-2'>
+              Price alerts · {pair}
+              {marketPrice != null && (
+                <span className='ml-1 tabular-nums text-text-primary'>
+                  · Mid {marketPrice.toPrecision(6)}
+                </span>
+              )}
+            </span>
           </Text>
 
           <form onSubmit={onSubmit} className='flex flex-col gap-2'>
@@ -194,27 +201,44 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
                 <span className='block px-1 pb-1'>Active</span>
               </Text>
               <ul className='flex flex-col gap-1'>
-                {active.map(a => (
-                  <li
-                    key={a.id}
-                    className='flex items-center justify-between rounded px-1 py-1 hover:bg-action-hover-overlay'
-                  >
-                    <Text small color='text.primary'>
-                      {a.direction} {a.targetPrice}
-                      {a.ntfyTopic && (
-                        <span className='ml-1 text-text-secondary'>· ntfy:{a.ntfyTopic}</span>
-                      )}
-                    </Text>
-                    <button
-                      type='button'
-                      aria-label='Remove alert'
-                      onClick={() => onRemove(a.id)}
-                      className='rounded p-0.5 text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary'
+                {active.map(a => {
+                  // % distance from current mid. Positive means target sits
+                  // above mid (waiting for a rally), negative below (waiting
+                  // for a drop). A small visible cue of how 'live' each
+                  // alert is — at 0.05% the alert is essentially at mid; at
+                  // 30% the trader probably forgot they set it.
+                  const deltaPct =
+                    marketPrice != null && marketPrice > 0
+                      ? ((a.targetPrice - marketPrice) / marketPrice) * 100
+                      : null;
+                  return (
+                    <li
+                      key={a.id}
+                      className='flex items-center justify-between rounded px-1 py-1 hover:bg-action-hover-overlay'
                     >
-                      <X className='h-3.5 w-3.5' />
-                    </button>
-                  </li>
-                ))}
+                      <Text small color='text.primary'>
+                        {a.direction} {a.targetPrice}
+                        {deltaPct !== null && (
+                          <span className='ml-1 tabular-nums text-text-secondary'>
+                            ({deltaPct > 0 ? '+' : ''}
+                            {deltaPct.toFixed(2)}%)
+                          </span>
+                        )}
+                        {a.ntfyTopic && (
+                          <span className='ml-1 text-text-secondary'>· ntfy:{a.ntfyTopic}</span>
+                        )}
+                      </Text>
+                      <button
+                        type='button'
+                        aria-label='Remove alert'
+                        onClick={() => onRemove(a.id)}
+                        className='rounded p-0.5 text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary'
+                      >
+                        <X className='h-3.5 w-3.5' />
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
