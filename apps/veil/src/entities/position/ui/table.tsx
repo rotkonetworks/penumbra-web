@@ -4,7 +4,7 @@ import cn from 'clsx';
 import Link from 'next/link';
 import orderBy from 'lodash/orderBy';
 import { ChevronDown, ChevronUp, SquareArrowOutUpRight } from 'lucide-react';
-import { Fragment, ReactNode, useCallback, useMemo, useState } from 'react';
+import { Fragment, ReactNode, memo, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -53,6 +53,61 @@ const LOADING_PLACEHOLDER = new Array(5).fill({
   ],
 }) as DisplayPosition[];
 
+interface SortBy {
+  key: string;
+  direction: 'desc' | 'asc';
+}
+
+// Module-scoped + memo'd. Was previously defined inside PositionsTable
+// via useCallback — but useCallback returns a new function whenever its
+// deps change, and `sortBy` was in the deps, so every header click
+// destroyed and remounted all six header DOM nodes. Hoisted out and
+// receiving an `activeDirection` that's only set on the currently-
+// sorted header (undefined for the others) lets memo skip every
+// inactive header on each click — only the previously-active and the
+// newly-active actually re-render.
+const SortableTableHeader = memo(
+  ({
+    sortKey,
+    activeDirection,
+    onSelect,
+    children,
+  }: {
+    sortKey: string;
+    /** Direction when this is the active sort column, undefined otherwise. */
+    activeDirection: 'asc' | 'desc' | undefined;
+    onSelect: (next: SortBy) => void;
+    children: ReactNode;
+  }) => {
+    const active = activeDirection !== undefined;
+    const onClick = () => {
+      onSelect({
+        key: sortKey,
+        direction: activeDirection === 'desc' ? 'asc' : 'desc',
+      });
+    };
+    return (
+      <TableCell heading>
+        <button
+          className={cn(
+            'flex border-none bg-none',
+            active ? 'text-text-primary' : 'text-text-secondary',
+          )}
+          onClick={onClick}
+        >
+          <Text tableHeadingSmall whitespace='nowrap'>
+            {children}
+          </Text>
+          {activeDirection === 'asc' && <ChevronUp className='h-4 w-4' />}
+          {activeDirection === 'desc' && <ChevronDown className='h-4 w-4' />}
+        </button>
+      </TableCell>
+    );
+  },
+);
+
+SortableTableHeader.displayName = 'SortableTableHeader';
+
 export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsTableProps) => {
   const { connected, subaccount } = connectionStore;
   const getMetadata = useGetMetadata();
@@ -86,10 +141,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     void fetchNextPage();
   });
 
-  const [sortBy, setSortBy] = useState<{
-    key: string;
-    direction: 'desc' | 'asc';
-  }>({
+  const [sortBy, setSortBy] = useState<SortBy>({
     key: 'effectivePrice',
     direction: 'desc',
   });
@@ -97,41 +149,6 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
   const sortedPositions = useMemo<DisplayPosition[]>(() => {
     return orderBy([...displayPositions], `sortValues.${sortBy.key}`, sortBy.direction);
   }, [displayPositions, sortBy]);
-
-  const SortableTableHeader = useCallback(
-    ({ sortKey, children }: { sortKey: string; children: ReactNode }) => {
-      return (
-        <TableCell heading>
-          <button
-            className={cn(
-              'flex border-none bg-none',
-              sortBy.key === sortKey ? 'text-text-primary' : 'text-text-secondary',
-            )}
-            onClick={() => {
-              setSortBy({
-                key: sortKey,
-                direction: sortBy.key === sortKey && sortBy.direction === 'desc' ? 'asc' : 'desc',
-              });
-            }}
-          >
-            <Text tableHeadingSmall whitespace='nowrap'>
-              {children}
-            </Text>
-            {sortKey === sortBy.key && (
-              <>
-                {sortBy.direction === 'asc' ? (
-                  <ChevronUp className='h-4 w-4' />
-                ) : (
-                  <ChevronDown className='h-4 w-4' />
-                )}
-              </>
-            )}
-          </button>
-        </TableCell>
-      );
-    },
-    [sortBy, setSortBy],
-  );
 
   if (!connected) {
     return <NotConnectedNotice />;
@@ -152,13 +169,49 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     >
       <Density slim>
         <div className='col-span-8 grid grid-cols-subgrid'>
-          <SortableTableHeader sortKey='type'>Type</SortableTableHeader>
-          <SortableTableHeader sortKey='tradeAmount'>Trade Amount</SortableTableHeader>
-          <SortableTableHeader sortKey='effectivePrice'>Effective Price</SortableTableHeader>
-          <SortableTableHeader sortKey='feeTier'>Fee Tier</SortableTableHeader>
-          <SortableTableHeader sortKey='basePrice'>Base Price</SortableTableHeader>
+          <SortableTableHeader
+            sortKey='type'
+            activeDirection={sortBy.key === 'type' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Type
+          </SortableTableHeader>
+          <SortableTableHeader
+            sortKey='tradeAmount'
+            activeDirection={sortBy.key === 'tradeAmount' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Trade Amount
+          </SortableTableHeader>
+          <SortableTableHeader
+            sortKey='effectivePrice'
+            activeDirection={sortBy.key === 'effectivePrice' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Effective Price
+          </SortableTableHeader>
+          <SortableTableHeader
+            sortKey='feeTier'
+            activeDirection={sortBy.key === 'feeTier' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Fee Tier
+          </SortableTableHeader>
+          <SortableTableHeader
+            sortKey='basePrice'
+            activeDirection={sortBy.key === 'basePrice' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Base Price
+          </SortableTableHeader>
           <TableCell heading>Current Value</TableCell>
-          <SortableTableHeader sortKey='positionId'>Position ID</SortableTableHeader>
+          <SortableTableHeader
+            sortKey='positionId'
+            activeDirection={sortBy.key === 'positionId' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Position ID
+          </SortableTableHeader>
           <TableCell heading>
             <HeaderActionButton displayPositions={sortedPositions} />
           </TableCell>
