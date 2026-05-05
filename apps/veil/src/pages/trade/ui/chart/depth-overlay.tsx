@@ -17,6 +17,8 @@ interface BarPos {
   y: number;
   width: number;
   color: string;
+  /** Pre-rendered tooltip — `Bid 0.123 (-1.23%) · click to sell here`. */
+  title: string;
 }
 
 interface DepthOverlayProps {
@@ -55,11 +57,18 @@ const prefill = (price: number, side: 'bid' | 'ask') => {
   tradeFormStore.limitForm.setPriceInput(formatted);
 };
 
+const formatPriceCompact = (p: number): string => {
+  if (p >= 1) return p.toFixed(4);
+  if (p >= 0.01) return p.toFixed(5);
+  if (p >= 0.0001) return p.toFixed(6);
+  return p.toPrecision(4);
+};
+
 // One memoized bar per book level. The depth overlay re-renders every
 // block via useBook; without memo each of 30+ bars would re-allocate
 // its inline style + onClick closure per tick. memo() with primitive
-// props (top, width, color, price, side) lets React skip every bar
-// whose level data hasn't moved between blocks. The internal style
+// props (top, width, color, price, side, title) lets React skip every
+// bar whose level data hasn't moved between blocks. The internal style
 // memo + useCallback keep the bar's own DOM listener / style identity
 // stable, the same idiom we use on OrderInput and LiquidityShape.
 const DepthBar = memo(
@@ -69,12 +78,14 @@ const DepthBar = memo(
     color,
     price,
     side,
+    title,
   }: {
     top: number;
     width: number;
     color: string;
     price: number;
     side: 'bid' | 'ask';
+    title: string;
   }) => {
     const style = useMemo(
       () => ({
@@ -92,6 +103,7 @@ const DepthBar = memo(
         className='pointer-events-auto absolute right-0 cursor-pointer'
         style={style}
         onClick={onClick}
+        title={title}
       />
     );
   },
@@ -107,6 +119,19 @@ export const DepthOverlay = observer(
       if (!data?.multiHops) return undefined;
       return buildLevels(data.multiHops.buy, data.multiHops.sell);
     }, [data]);
+
+    // Mid is the average of best bid + best ask off the levels we just
+    // built — read from the same source the SpreadRow uses so the tooltip
+    // %s line up with everywhere else mid is shown. Computed alongside
+    // bars (not via useMarketPrice) so the title strings refresh in lock
+    // step with the bar geometry instead of trailing a frame behind.
+    const mid = useMemo(() => {
+      if (!levels) return undefined;
+      const bestBid = levels.bids[0]?.price;
+      const bestAsk = levels.asks[levels.asks.length - 1]?.price;
+      if (bestBid === undefined || bestAsk === undefined) return undefined;
+      return (bestBid + bestAsk) / 2;
+    }, [levels]);
 
     const [bars, setBars] = useState<BarPos[]>([]);
 
@@ -124,6 +149,14 @@ export const DepthOverlay = observer(
           for (const lvl of rows) {
             const y = yAtPrice(lvl.price);
             if (y === undefined) continue;
+            const deltaPct =
+              mid !== undefined && mid > 0 ? ((lvl.price - mid) / mid) * 100 : null;
+            const deltaText =
+              deltaPct !== null && Math.abs(deltaPct) >= 0.05
+                ? ` (${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}%)`
+                : '';
+            const sideLabel = side === 'bid' ? 'Bid' : 'Ask';
+            const action = side === 'bid' ? 'sell' : 'buy';
             next.push({
               id: `${side}-${lvl.price}`,
               side,
@@ -131,6 +164,7 @@ export const DepthOverlay = observer(
               y,
               width: Math.max(1, scale(lvl.total)),
               color,
+              title: `${sideLabel} ${formatPriceCompact(lvl.price)}${deltaText} · click to ${action} here`,
             });
           }
         };
@@ -140,7 +174,7 @@ export const DepthOverlay = observer(
       };
       // subscribeRedraw fires once immediately and on relevant chart events.
       return subscribeRedraw(recompute);
-    }, [levels, yAtPrice, subscribeRedraw, width]);
+    }, [levels, mid, yAtPrice, subscribeRedraw, width]);
 
     if (!levels) return null;
 
@@ -159,6 +193,7 @@ export const DepthOverlay = observer(
             color={b.color}
             price={b.price}
             side={b.side}
+            title={b.title}
           />
         ))}
       </div>
