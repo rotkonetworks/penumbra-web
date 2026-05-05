@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
 // theme.ts is a typing stub — most fields resolve to ''.
 // Use the actual hex values from theme.css so the line and label render.
@@ -30,6 +31,10 @@ const formatPrice = (p: number): string => {
  * DOM overlay (not a lightweight-charts price line) so the render path can't
  * take down the chart if the API changes or the line ref desyncs across
  * rerenders.
+ *
+ * The label is clickable: pre-fills the limit form with the current mid
+ * price, mirroring the route-book SpreadRow's existing 'click to use mid'
+ * behaviour so the same gesture works wherever the mid is visible.
  */
 export const MidPriceOverlay = ({
   marketPrice,
@@ -63,10 +68,19 @@ export const MidPriceOverlay = ({
   const color =
     direction === 'up' ? UP_COLOR : direction === 'down' ? DOWN_COLOR : NEUTRAL_COLOR;
   const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '·';
+  const priceStr = formatPrice(marketPrice);
+
+  const useMidAsLimit = () => {
+    tradeFormStore.setWhichForm('Limit');
+    tradeFormStore.limitForm.setPriceInput(priceStr);
+  };
 
   return (
     <div
       aria-label='Mid price'
+      // The wrapper is pointer-events-none so the dotted line doesn't
+      // swallow chart pans/clicks. The clickable label below opts back
+      // into pointer events.
       className='pointer-events-none absolute left-0 right-0 z-[6]'
       style={{ top: y - 1, height: 2 }}
     >
@@ -80,8 +94,11 @@ export const MidPriceOverlay = ({
           opacity: 0.85,
         }}
       />
-      <div
-        className='absolute -translate-y-1/2 rounded-sm px-1 py-px text-[10px] leading-tight'
+      <button
+        type='button'
+        onClick={useMidAsLimit}
+        title={`Click to set limit price to mid (${priceStr})`}
+        className='pointer-events-auto absolute -translate-y-1/2 cursor-pointer rounded-sm px-1 py-px text-[10px] leading-tight transition-opacity hover:opacity-90'
         style={{
           right: 0,
           top: 1,
@@ -89,8 +106,8 @@ export const MidPriceOverlay = ({
           color: LABEL_TEXT,
         }}
       >
-        {arrow} {formatPrice(marketPrice)} {quoteSymbol}
-      </div>
+        {arrow} {priceStr} {quoteSymbol}
+      </button>
     </div>
   );
 };
