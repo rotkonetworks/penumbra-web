@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
-import { Text } from '@penumbra-zone/ui/Text';
 import { PositionsTable } from '@/entities/position';
 import { usePathToMetadata } from '../model/use-path';
 import { PositionState_PositionStateEnum as State } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
+import { MyTrades } from './trades/my-trades';
 
 enum PositionsTabsType {
   /** OPENED positions — actively quoting on-chain. */
@@ -63,18 +63,8 @@ export const HistoryTabs = () => {
         {tab === PositionsTabsType.POSITION_HISTORY && (
           <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.WITHDRAWN]} />
         )}
-        {tab === PositionsTabsType.TRADE_HISTORY && <TradeHistoryPlaceholder />}
+        {tab === PositionsTabsType.TRADE_HISTORY && <MyTrades />}
       </div>
     </div>
   );
 };
-
-const TradeHistoryPlaceholder = () => (
-  <div className='flex flex-col items-center justify-center gap-2 py-12'>
-    <Text color='text.secondary'>Trade history coming soon.</Text>
-    <Text small color='text.secondary'>
-      Tracks swap fills you executed on this pair. Open positions show as &quot;Open
-      positions&quot; above.
-    </Text>
-  </div>
-);
