@@ -27,6 +27,15 @@ const HISTORY_TAB_OPTIONS = [
   { value: PositionsTabsType.TRADE_HISTORY, label: 'Trade history' },
 ];
 
+// Same idiom — these single-element arrays never change between renders
+// but were previously being allocated fresh on every parent re-render
+// and handed to PositionsTable / usePositions / React Query as a prop
+// + queryKey component. Hoist to module scope so the identity stays
+// stable and downstream memoization actually works.
+const FILTER_OPENED = [State.OPENED];
+const FILTER_CLOSED = [State.CLOSED];
+const FILTER_WITHDRAWN = [State.WITHDRAWN];
+
 /**
  * Bottom panel tabs — split out from a single 'My Positions' view that
  * mixed open and closed by default and hid withdrawn behind a toggle.
@@ -61,13 +70,13 @@ export const HistoryTabs = () => {
 
       <div className='p-4'>
         {tab === PositionsTabsType.OPEN_POSITIONS && (
-          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.OPENED]} />
+          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={FILTER_OPENED} />
         )}
         {tab === PositionsTabsType.CLOSED_POSITIONS && (
-          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.CLOSED]} />
+          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={FILTER_CLOSED} />
         )}
         {tab === PositionsTabsType.POSITION_HISTORY && (
-          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.WITHDRAWN]} />
+          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={FILTER_WITHDRAWN} />
         )}
         {tab === PositionsTabsType.TRADE_HISTORY && <MyTrades />}
       </div>

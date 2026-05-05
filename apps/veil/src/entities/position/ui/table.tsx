@@ -38,6 +38,21 @@ export interface PositionsTableProps {
   stateFilter?: PositionState_PositionStateEnum[];
 }
 
+// Module-scoped placeholder rows for the loading state. The shape only
+// needs to satisfy the renderer's optional chains; previously we built
+// this fresh every render even when isLoading was false. The five
+// entries reference the same placeholder object, so a single allocation
+// at module load is enough.
+const LOADING_PLACEHOLDER = new Array(5).fill({
+  position: {},
+  orders: [
+    {
+      baseAsset: { asset: {} },
+      quoteAsset: { asset: {} },
+    },
+  ],
+}) as DisplayPosition[];
+
 export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsTableProps) => {
   const { connected, subaccount } = connectionStore;
   const getMetadata = useGetMetadata();
@@ -118,20 +133,6 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     [sortBy, setSortBy],
   );
 
-  const loadingArr = new Array(5).fill({
-    position: {},
-    orders: [
-      {
-        baseAsset: {
-          asset: {},
-        },
-        quoteAsset: {
-          asset: {},
-        },
-      },
-    ],
-  }) as DisplayPosition[];
-
   if (!connected) {
     return <NotConnectedNotice />;
   }
@@ -163,7 +164,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
           </TableCell>
         </div>
 
-        {(isLoading ? loadingArr : sortedPositions).map((position, index) => (
+        {(isLoading ? LOADING_PLACEHOLDER : sortedPositions).map((position, index) => (
           <Fragment key={`${position.idString}${index}`}>
             {position.orders
               .slice(0, position.isWithdrawn ? 1 : Infinity)
