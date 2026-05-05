@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -22,6 +22,24 @@ const FORM_TAB_OPTIONS = [
 export const FormTabs = observer(() => {
   const [parent] = useAutoAnimate();
   const store = useOrderFormStore();
+
+  // Hydrate the user's last selected form on mount. The store defaults to
+  // 'Market' on SSR and on the first client render so React hydration
+  // stays stable; this effect then swaps in whatever the user had open
+  // last (Market / Limit / SimpleLP). Same pattern as chart timeframe
+  // and chart prefs.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('veil_which_form');
+      if (raw && isWhichForm(raw) && raw !== store.whichForm) {
+        store.setWhichForm(raw);
+      }
+    } catch {
+      // ignore storage errors
+    }
+    // store is stable, only run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onTabChange = useCallback(
     (value: string) => {

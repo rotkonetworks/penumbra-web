@@ -185,6 +185,16 @@ export class OrderFormStore {
 
   setWhichForm(x: WhichForm) {
     this._whichForm = x;
+    // Persist client-side so the next page load lands on the same form.
+    // Reads happen from useOrderFormStore via a useEffect on mount, never
+    // here — keeping localStorage off the SSR path.
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('veil_which_form', x);
+      } catch {
+        // ignore quota / private mode errors
+      }
+    }
   }
 
   setHighlight(x: boolean) {
