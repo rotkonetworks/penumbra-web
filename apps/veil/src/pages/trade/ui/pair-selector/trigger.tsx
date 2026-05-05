@@ -15,7 +15,7 @@ export const Trigger = ({ onClick, pair }: TriggerProps) => {
       <button
         type='button'
         title='Switch pair  ·  press / to open from anywhere'
-        className='flex cursor-pointer items-center gap-1'
+        className='group flex cursor-pointer items-center gap-1.5'
         onClick={onClick}
       >
         <div className='z-10'>
@@ -28,6 +28,16 @@ export const Trigger = ({ onClick, pair }: TriggerProps) => {
         <Text body>
           {pair.base.symbol}/{pair.quote.symbol}
         </Text>
+
+        {/* Discoverable shortcut hint, same idiom Slack / Linear / GitHub
+            use. Hidden on small screens so it doesn't crowd the pair
+            label on mobile, where the shortcut isn't usable anyway. */}
+        <kbd
+          className='hidden h-5 min-w-5 items-center justify-center rounded-sm border border-other-tonal-stroke px-1 text-[10px] leading-none text-text-secondary tabular-nums opacity-70 transition-opacity group-hover:opacity-100 desktop:inline-flex'
+          aria-hidden='true'
+        >
+          /
+        </kbd>
 
         <i className='flex size-6 items-center justify-center p-1'>
           <ChevronDown />
