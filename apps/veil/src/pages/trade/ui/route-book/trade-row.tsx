@@ -7,7 +7,11 @@ import { Trace } from '@/shared/api/server/book/types.ts';
 import { pluralize } from '@/shared/utils/pluralize';
 import { pnum } from '@penumbra-zone/types/pnum';
 
-const SELL_BG_COLOR = 'rgba(175, 38, 38, 0.24)';
+// MEXC-style depth: saturated bars filling from the right edge of the row
+// (where the cumulative totals sit) inward, leaving the price column on
+// the left fully readable. Slightly more opaque than the previous
+// fill-from-left form so the depth shape is visible at a glance.
+const SELL_BG_COLOR = 'rgba(175, 38, 38, 0.32)';
 
 const TradeRowImpl = ({
   trace,
@@ -20,7 +24,7 @@ const TradeRowImpl = ({
   relativeSize: number;
   onClick?: (price: string) => void;
 }) => {
-  const bgColor = isSell ? SELL_BG_COLOR : 'rgba(28, 121, 63, 0.24)';
+  const bgColor = isSell ? SELL_BG_COLOR : 'rgba(28, 121, 63, 0.32)';
   const tokens = trace.hops.map(valueView => getSymbolFromValueView(valueView));
   const interactive = !!onClick;
 
@@ -41,7 +45,12 @@ const TradeRowImpl = ({
       }
       title={interactive ? `Click to ${isSell ? 'buy' : 'sell'} at this price` : undefined}
       style={{
-        backgroundImage: `linear-gradient(to right, ${bgColor} ${relativeSize}%, transparent ${relativeSize}%)`,
+        // Fill from the right edge inward — `to left` reads the gradient
+        // stops as 'paint colour from the right up to relativeSize%, then
+        // transparent the rest of the way to the left'. Mirrors MEXC /
+        // Bybit / Binance depth viz so the price column on the left stays
+        // unobstructed.
+        backgroundImage: `linear-gradient(to left, ${bgColor} ${relativeSize}%, transparent ${relativeSize}%)`,
       }}
       className={cn(
         'relative col-span-4 grid h-full grid-cols-subgrid items-center border-b border-other-tonal-fill15 px-4',
