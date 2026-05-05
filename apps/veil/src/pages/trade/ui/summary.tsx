@@ -201,6 +201,27 @@ export const Summary = () => {
           </Text>
         )}
       </SummaryCard>
+      {/* Total route-book liquidity in display denom — already computed
+          server-side (SUM(liquidity × price) over the pair) but wasn't
+          surfaced before. Reads as 'depth available right now', a
+          first-pass pair-vetting signal a trader scans before sizing. */}
+      <SummaryCard title='Liquidity' loading={isLoading}>
+        {data ? (
+          <Tooltip message='Total depth of the route book on this pair, valued in the indexing denom. A higher number means a market order can absorb more size before crossing through the book.'>
+            <Density compact>
+              <ValueViewComponent
+                valueView={toValueView({ value: data.liquidity, getMetadata })}
+                context='table'
+                abbreviate
+              />
+            </Density>
+          </Tooltip>
+        ) : (
+          <Text detail color='text.primary'>
+            -
+          </Text>
+        )}
+      </SummaryCard>
     </div>
   );
 };
