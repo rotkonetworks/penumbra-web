@@ -33,6 +33,32 @@ const LOWER_BOUND_OPTIONS = Object.values(LowerBoundOptions);
 const FEE_TIER_OPTIONS = Object.values(FeeTierOptions);
 const LIQUIDITY_SHAPES = Object.values(LiquidityDistributionShape);
 
+// Live mid-relative readout for a typed bound. Renders nothing when the
+// input is empty, mid is loading, or the typed value lands within sub-bp
+// of mid. Sits between the OrderInput and the preset-chip SelectGroup
+// so the trader sees `+5.21% from mid` while typing a custom bound,
+// instead of having to mentally compare the typed value to the chart.
+const BoundDistanceFromMid = ({
+  input,
+  mid,
+}: {
+  input: string;
+  mid: number | undefined;
+}) => {
+  const typed = parseFloat(input);
+  if (!Number.isFinite(typed) || typed <= 0 || !mid || mid <= 0) return null;
+  const deltaPct = ((typed - mid) / mid) * 100;
+  if (Math.abs(deltaPct) < 0.05) return null;
+  return (
+    <div className='-mt-1 mb-2 px-1'>
+      <Text detail color='text.secondary'>
+        {deltaPct > 0 ? '+' : ''}
+        {deltaPct.toFixed(2)}% from mid
+      </Text>
+    </div>
+  );
+};
+
 export const RangeLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
     const { connected } = connectionStore;
@@ -108,6 +134,10 @@ export const RangeLiquidityOrderForm = observer(
               denominator={store.quoteAsset?.symbol}
             />
           </div>
+          <BoundDistanceFromMid
+            input={store.upperPriceInput}
+            mid={parentStore.marketPrice}
+          />
           <SelectGroup
             options={UPPER_BOUND_OPTIONS}
             value={store.upperPriceInputOption}
@@ -128,6 +158,10 @@ export const RangeLiquidityOrderForm = observer(
               denominator={store.quoteAsset?.symbol}
             />
           </div>
+          <BoundDistanceFromMid
+            input={store.lowerPriceInput}
+            mid={parentStore.marketPrice}
+          />
           <SelectGroup
             options={LOWER_BOUND_OPTIONS}
             value={store.lowerPriceInputOption}
