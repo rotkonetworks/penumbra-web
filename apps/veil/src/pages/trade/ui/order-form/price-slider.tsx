@@ -51,26 +51,6 @@ const Thumb = ({
   const value = values[i] ?? 0;
   const otherValue = values[i === 0 ? 1 : 0];
 
-  const moveHandler = (event: MouseEvent | TouchEvent) => {
-    if (!deltaRef.current) {
-      return;
-    }
-
-    const isTouch = event instanceof TouchEvent;
-    const clientX = isTouch ? (event.touches[0]?.clientX ?? 0) : event.clientX;
-
-    deltaRef.current.deltaX = clientX - deltaRef.current.initX;
-    const dx = deltaRef.current.deltaX;
-
-    const minX = i === 0 ? 0 : scale(otherValue);
-    const maxX = i === 1 ? scale(scale.domain()[1] ?? 0) : scale(otherValue);
-    const nextX = Math.min(Math.max(minX, scale(value) + dx), maxX);
-    onMove(scale.invert(nextX));
-
-    // Clear any text selection
-    window.getSelection()?.removeAllRanges();
-  };
-
   const handlePointerDown = (event: React.MouseEvent | React.TouchEvent) => {
     const isTouch = event instanceof TouchEvent;
     const clientX = isTouch
@@ -84,8 +64,49 @@ const Thumb = ({
 
     onPointerDown();
 
+    // Pointermoves fire 60-100×/s during a drag; each one was hitting
+    // onMove (a MobX setter → form re-render). Coalesce to one update
+    // per animation frame so the form reconciles at most once per paint
+    // and the slider stays smooth.
+    let pendingNext: number | null = null;
+    let rafId = 0;
+    const flush = () => {
+      rafId = 0;
+      if (pendingNext === null) return;
+      const next = pendingNext;
+      pendingNext = null;
+      onMove(next);
+      // Clear any text selection — was inside the per-event hot loop, fine
+      // to do it once per flushed frame instead.
+      window.getSelection()?.removeAllRanges();
+    };
+
+    const moveHandler = (ev: MouseEvent | TouchEvent) => {
+      if (!deltaRef.current) {
+        return;
+      }
+      const isTouchEv = ev instanceof TouchEvent;
+      const cx = isTouchEv ? (ev.touches[0]?.clientX ?? 0) : ev.clientX;
+
+      deltaRef.current.deltaX = cx - deltaRef.current.initX;
+      const dx = deltaRef.current.deltaX;
+
+      const minX = i === 0 ? 0 : scale(otherValue);
+      const maxX = i === 1 ? scale(scale.domain()[1] ?? 0) : scale(otherValue);
+      const nextX = Math.min(Math.max(minX, scale(value) + dx), maxX);
+      pendingNext = scale.invert(nextX);
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
+    };
+
     const upHandler = () => {
       document.removeEventListener(isTouch ? 'touchmove' : 'mousemove', moveHandler);
+      // Drain any pending rAF so the released position lands exactly at
+      // the cursor, not a frame behind.
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        flush();
+      }
       deltaRef.current = null;
     };
 
