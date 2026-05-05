@@ -107,6 +107,48 @@ const DurationButton = memo(
 
 DurationButton.displayName = 'DurationButton';
 
+// Click-to-place overlay shown only while a drawing tool is active.
+// Extracted + memo'd so the chart's per-block re-render doesn't drag a
+// fresh inline onClick closure through reconciliation. Internally
+// useCallback'd over the (already-stable) priceAtY / timeAtX / onResolve
+// trio so the underlying div listener is stable for as long as it's
+// mounted.
+const ClickCaptureOverlay = memo(
+  ({
+    priceAtY,
+    timeAtX,
+    containerRef,
+    onResolve,
+  }: {
+    priceAtY: (y: number) => number | undefined;
+    timeAtX: (x: number) => number | undefined;
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    onResolve: (
+      point: { x: number; y: number },
+      price: number,
+      time: number | undefined,
+    ) => void;
+  }) => {
+    const onClick = useCallback(
+      (e: ReactMouseEvent) => {
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const price = priceAtY(y);
+        const time = timeAtX(x);
+        if (price === undefined) return;
+        onResolve({ x, y }, price, time);
+      },
+      [priceAtY, timeAtX, containerRef, onResolve],
+    );
+    return <div className='absolute inset-0 z-[5] cursor-crosshair' onClick={onClick} />;
+  },
+);
+
+ClickCaptureOverlay.displayName = 'ClickCaptureOverlay';
+
 export const Chart = observer(() => {
   // Start at '1d' on SSR / first client render to keep hydration stable, then
   // hydrate from localStorage in an effect (same pattern as the volume ratio
@@ -396,61 +438,62 @@ export const Chart = observer(() => {
 
   // Single click-handling routine used by both the lightweight-charts native
   // subscribeClick (when it fires) and the DOM click-capture overlay above
-  // (which is the reliable path while a tool is selected).
-  const handleDrawingClick = (
-    point: { x: number; y: number },
-    price: number,
-    time: number | undefined,
-  ) => {
-    const t = toolRef.current;
-    if (t === 'text') {
-      if (time === undefined) return;
-      setPendingText({ x: point.x, y: point.y, time, price });
-      setPendingTextValue('');
-      return;
-    }
-    if (t === 'horizontal-line') {
-      addDrawing({
-        id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        kind: 'horizontal-line',
-        price,
-        color: DRAWING_COLOR,
-        createdAt: Date.now(),
-      });
-      setTool('none');
-      return;
-    }
-    if (t === 'trend-line' || t === 'rectangle') {
-      if (time === undefined) return;
-      if (pendingAnchorRef.current === null) {
-        pendingAnchorRef.current = { time, price };
+  // (which is the reliable path while a tool is selected). useCallback'd so
+  // the subscribeChartClick effect can list it as a dep without re-firing
+  // every render, and so the click-capture overlay's onClick stays stable
+  // across the chart's per-block re-renders.
+  const handleDrawingClick = useCallback(
+    (point: { x: number; y: number }, price: number, time: number | undefined) => {
+      const t = toolRef.current;
+      if (t === 'text') {
+        if (time === undefined) return;
+        setPendingText({ x: point.x, y: point.y, time, price });
+        setPendingTextValue('');
         return;
       }
-      const a = pendingAnchorRef.current;
-      addDrawing({
-        id: `${t === 'trend-line' ? 'tl' : 'rc'}-${Date.now()}-${Math.floor(
-          Math.random() * 1000,
-        )}`,
-        kind: t,
-        time1: a.time,
-        price1: a.price,
-        time2: time,
-        price2: price,
-        color: DRAWING_COLOR,
-        createdAt: Date.now(),
-      });
-      pendingAnchorRef.current = null;
-      setTool('none');
-    }
-  };
+      if (t === 'horizontal-line') {
+        addDrawing({
+          id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          kind: 'horizontal-line',
+          price,
+          color: DRAWING_COLOR,
+          createdAt: Date.now(),
+        });
+        setTool('none');
+        return;
+      }
+      if (t === 'trend-line' || t === 'rectangle') {
+        if (time === undefined) return;
+        if (pendingAnchorRef.current === null) {
+          pendingAnchorRef.current = { time, price };
+          return;
+        }
+        const a = pendingAnchorRef.current;
+        addDrawing({
+          id: `${t === 'trend-line' ? 'tl' : 'rc'}-${Date.now()}-${Math.floor(
+            Math.random() * 1000,
+          )}`,
+          kind: t,
+          time1: a.time,
+          price1: a.price,
+          time2: time,
+          price2: price,
+          color: DRAWING_COLOR,
+          createdAt: Date.now(),
+        });
+        pendingAnchorRef.current = null;
+        setTool('none');
+      }
+    },
+    [addDrawing],
+  );
 
   useEffect(() => {
     return subscribeChartClick(handleDrawingClick);
     // chartReady listed so the effect re-runs once createChart has actually
     // mounted — first run at mount sees an empty chart and the inner subscribe
     // would short-circuit otherwise.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleDrawingClick is a stable closure over refs
-  }, [subscribeChartClick, addDrawing, chartReady]);
+  }, [subscribeChartClick, handleDrawingClick, chartReady]);
 
   // Reset the pending anchor whenever the tool leaves a two-click mode
   // (e.g. user picks cursor mid-placement) so a stale half-shape doesn't
@@ -601,19 +644,11 @@ export const Chart = observer(() => {
             (chart eats some clicks for pan/zoom), so we route the drawing
             placement through a real DOM event instead. */}
         {tool !== 'none' && historyCandles && (
-          <div
-            className='absolute inset-0 z-[5] cursor-crosshair'
-            onClick={e => {
-              const container = containerRef.current;
-              if (!container) return;
-              const rect = container.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const y = e.clientY - rect.top;
-              const price = priceAtY(y);
-              const time = timeAtX(x);
-              if (price === undefined) return;
-              handleDrawingClick({ x, y }, price, time);
-            }}
+          <ClickCaptureOverlay
+            priceAtY={priceAtY}
+            timeAtX={timeAtX}
+            containerRef={containerRef}
+            onResolve={handleDrawingClick}
           />
         )}
         {error && <BlockchainError direction='column' />}
