@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -70,6 +71,41 @@ const formatPrice = (p: number): string => {
   if (p >= 0.0001) return p.toFixed(6);
   return p.toPrecision(4);
 };
+
+// One memo'd button per timeframe in the chart's top toolbar. The chart
+// re-renders every block via marketPrice, and the previous map-with-
+// inline-arrow pattern allocated 7 fresh `() => setDuration(w)` closures
+// per render — defeated any prop-identity check downstream. With a
+// stable onSelect handler from the parent, memo skips the 6 buttons
+// whose active state didn't change on each user click; on block-tick
+// re-renders, all 7 skip.
+const DurationButton = memo(
+  ({
+    value,
+    active,
+    onSelect,
+  }: {
+    value: DurationWindow;
+    active: boolean;
+    onSelect: (d: DurationWindow) => void;
+  }) => {
+    const onClick = useCallback(() => onSelect(value), [onSelect, value]);
+    return (
+      <button
+        type='button'
+        className={cn(
+          'flex items-center rounded px-1.5 py-3 transition-colors hover:bg-action-hover-overlay hover:text-text-primary',
+          active ? 'bg-action-active-overlay text-text-primary' : 'text-text-secondary',
+        )}
+        onClick={onClick}
+      >
+        <Text detail>{value}</Text>
+      </button>
+    );
+  },
+);
+
+DurationButton.displayName = 'DurationButton';
 
 export const Chart = observer(() => {
   // Start at '1d' on SSR / first client render to keep hydration stable, then
@@ -530,19 +566,12 @@ export const Chart = observer(() => {
       <div className='flex items-center justify-between border-b border-b-other-solid-stroke px-3'>
         <div className='flex'>
           {durationWindows.map(w => (
-            <button
+            <DurationButton
               key={w}
-              type='button'
-              className={cn(
-                'flex items-center rounded px-1.5 py-3 transition-colors hover:bg-action-hover-overlay hover:text-text-primary',
-                w === duration
-                  ? 'bg-action-active-overlay text-text-primary'
-                  : 'text-text-secondary',
-              )}
-              onClick={() => setDuration(w)}
-            >
-              <Text detail>{w}</Text>
-            </button>
+              value={w}
+              active={w === duration}
+              onSelect={setDuration}
+            />
           ))}
         </div>
         <div className='flex items-center gap-1'>
