@@ -33,14 +33,14 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
     hint: 'Horizontal lines for each open LP price you own.',
   },
   {
+    key: 'ownTrades',
+    label: 'My recent fills',
+    hint: 'Arrow markers on the chart for each swap you submitted on this pair.',
+  },
+  {
     key: 'openOrders',
     label: 'My open limit orders',
     hint: 'Resting limit orders, with × to cancel inline. Coming soon.',
-  },
-  {
-    key: 'ownTrades',
-    label: 'My recent fills',
-    hint: 'Markers for swaps you submitted on this pair. Coming soon.',
   },
 ];
 
@@ -64,14 +64,13 @@ export const ChartSettingsMenu = ({ prefs, onToggle, walletConnected }: Props) =
     };
   }, [open]);
 
-  // openOrders + ownTrades are not implemented yet (next passes wire the
-  // overlays); show them in the menu so the affordance is there but mark
-  // them as locked.
+  // openOrders is not implemented yet — placeholder. Wallet-gated overlays
+  // grey out until the user connects so the menu doesn't lie.
   const specs: ToggleSpec[] = SPECS.map(s => ({
     ...s,
     disabled:
-      (s.key === 'openOrders' || s.key === 'ownTrades') ||
-      (s.key === 'ownPositions' && !walletConnected),
+      s.key === 'openOrders' ||
+      ((s.key === 'ownPositions' || s.key === 'ownTrades') && !walletConnected),
   }));
 
   return (

@@ -5,6 +5,7 @@ import {
   IPriceLine,
   LineStyle,
   type CreatePriceLineOptions,
+  type UTCTimestamp,
 } from 'lightweight-charts';
 import { theme } from '@penumbra-zone/ui/theme';
 import { CandleWithVolume } from '@/shared/api/server/candles/utils';
@@ -14,6 +15,15 @@ export interface OwnPositionLine {
   price: number;
   direction: 'buy' | 'sell' | '';
   label?: string;
+}
+
+export interface OwnFillMarker {
+  /** UNIX seconds — lightweight-charts UTCTimestamp. */
+  time: number;
+  price: number;
+  direction: 'buy' | 'sell';
+  /** Hover text (e.g. amount + symbol). */
+  label: string;
 }
 
 // if `high` / `open` ratio is greater than this value, the chart will limit `high` to `open * RATIO`
@@ -88,6 +98,41 @@ export const useChartConfig = (
         }
         ownLinesRef.current.delete(id);
       }
+    }
+  }, []);
+
+  /**
+   * Replace the chart's marker overlay with the given fill set. Markers are
+   * rendered by lightweight-charts on top of candles (arrow-shaped, anchored
+   * by time + price). Empty array clears them.
+   */
+  const setOwnFillMarkers = useCallback((fills: OwnFillMarker[]) => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (!fills.length) {
+      try {
+        series.setMarkers([]);
+      } catch {
+        // chart torn down
+      }
+      return;
+    }
+    // lightweight-charts wants markers sorted by time ascending.
+    const markers = [...fills]
+      .filter(f => Number.isFinite(f.time) && Number.isFinite(f.price) && f.price > 0)
+      .sort((a, b) => a.time - b.time)
+      .map(f => ({
+        time: f.time as UTCTimestamp,
+        position: f.direction === 'buy' ? ('belowBar' as const) : ('aboveBar' as const),
+        color:
+          f.direction === 'buy' ? theme.color.success.light : theme.color.destructive.light,
+        shape: f.direction === 'buy' ? ('arrowUp' as const) : ('arrowDown' as const),
+        text: f.label,
+      }));
+    try {
+      series.setMarkers(markers);
+    } catch {
+      // chart torn down
     }
   }, []);
 
@@ -393,6 +438,7 @@ export const useChartConfig = (
     xAtTime,
     timeAtX,
     setOwnPositionLines,
+    setOwnFillMarkers,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,

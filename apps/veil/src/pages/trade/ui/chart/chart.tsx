@@ -18,6 +18,7 @@ import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
+import { useOwnFillMarkers } from './use-own-fill-markers';
 import { usePathSymbols } from '../../model/use-path';
 import { useDrawings } from './drawings/use-drawings';
 import { DrawingToolbar } from './drawings/toolbar';
@@ -68,6 +69,7 @@ export const Chart = observer(() => {
     yAtPrice,
     xAtTime,
     setOwnPositionLines,
+    setOwnFillMarkers,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
@@ -75,11 +77,12 @@ export const Chart = observer(() => {
 
   const { prefs, toggle } = useChartPrefs();
 
-  // Gate the position-lines feed behind the user's preference. The hook
-  // still mounts (so the queries it owns can settle), but we hand it a
-  // no-op when disabled so no lines are pushed to the chart.
+  // Gate per-overlay data feeds behind the user's preference. The hooks
+  // still mount (so the queries they own can settle), but we hand each a
+  // no-op setter when disabled so nothing is pushed to the chart.
   const noopSetter = (_: unknown) => {};
   useOwnPositionLines(prefs.ownPositions ? setOwnPositionLines : (noopSetter as typeof setOwnPositionLines));
+  useOwnFillMarkers(prefs.ownTrades ? setOwnFillMarkers : (noopSetter as typeof setOwnFillMarkers));
 
   const { baseSymbol, quoteSymbol } = usePathSymbols();
   const { marketPrice } = useMarketPrice();
