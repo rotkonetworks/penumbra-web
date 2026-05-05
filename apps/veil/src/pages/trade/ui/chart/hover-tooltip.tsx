@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useMarketPrice } from '../../model/useMarketPrice';
 
 interface HoverInfo {
   time: number;
@@ -40,6 +41,11 @@ const formatTime = (s: number): string => {
 
 export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps) => {
   const [info, setInfo] = useState<HoverInfo | null>(null);
+  // Live chain mid — used to annotate the hovered candle's close with how
+  // far it sat from where the book is right now. Useful when scrubbing
+  // back through history: the trader can see at a glance which candles
+  // closed at prices significantly different from the current touch.
+  const { marketPrice } = useMarketPrice();
 
   // lightweight-charts' subscribeCrosshairMove fires on every pointer move
   // over the canvas — that's 30-60 events/s while the user is hovering.
@@ -82,6 +88,14 @@ export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps)
   // per-trade data which the candle endpoint doesn't carry.
   const directionLabel = isUp ? 'Buy-bias' : 'Sell-bias';
 
+  // Distance of the hovered close from the live chain mid. Suppress when
+  // mid isn't available (loading) or the move is sub-bp (visual noise).
+  const closeDeltaPct =
+    marketPrice && marketPrice > 0 && Number.isFinite(info.candle.close)
+      ? ((info.candle.close - marketPrice) / marketPrice) * 100
+      : null;
+  const showDelta = closeDeltaPct !== null && Math.abs(closeDeltaPct) >= 0.05;
+
   return (
     <div
       className='pointer-events-none absolute top-12 left-3 z-30 min-w-[200px] rounded-sm border border-other-tonal-stroke bg-base-black/85 p-2.5 text-xs shadow-md backdrop-blur'
@@ -104,6 +118,15 @@ export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps)
             </span>
             <span className='text-text-secondary'>Bias</span>
             <span className={directionColor}>{directionLabel}</span>
+          </>
+        )}
+        {showDelta && (
+          <>
+            <span className='text-text-secondary'>vs Mid</span>
+            <span className='text-text-secondary'>
+              {closeDeltaPct! > 0 ? '+' : ''}
+              {closeDeltaPct!.toFixed(2)}%
+            </span>
           </>
         )}
       </div>
