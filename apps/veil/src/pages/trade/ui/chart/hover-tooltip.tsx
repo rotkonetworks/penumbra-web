@@ -41,8 +41,37 @@ const formatTime = (s: number): string => {
 export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps) => {
   const [info, setInfo] = useState<HoverInfo | null>(null);
 
+  // lightweight-charts' subscribeCrosshairMove fires on every pointer move
+  // over the canvas — that's 30-60 events/s while the user is hovering.
+  // Coalesce to one setState per animation frame so React reconciles the
+  // tooltip at most once per paint, instead of dozens of times per second.
   useEffect(() => {
-    return subscribeHover(setInfo);
+    const pendingRef = { current: null as HoverInfo | null };
+    let rafId = 0;
+    const flush = () => {
+      rafId = 0;
+      setInfo(pendingRef.current);
+    };
+    const off = subscribeHover(next => {
+      pendingRef.current = next;
+      // Render the leave (null) immediately so the tooltip doesn't linger
+      // a frame after the cursor exits the chart — a stale tooltip on
+      // an empty area looks broken.
+      if (next === null) {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+        setInfo(null);
+        return;
+      }
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
+    });
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      off();
+    };
   }, [subscribeHover]);
 
   if (!info) return null;
