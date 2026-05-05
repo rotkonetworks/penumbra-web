@@ -28,6 +28,10 @@ import { HoverTooltip } from './hover-tooltip';
 import { useChartPrefs } from './use-chart-prefs';
 import { ChartSettingsMenu } from './chart-settings-menu';
 import { connectionStore } from '@/shared/model/connection';
+import { useMarketPrice } from '../../model/useMarketPrice';
+import { usePriceAlerts } from './alerts/use-price-alerts';
+import { useAlertWatcher } from './alerts/use-alert-watcher';
+import { AlertsMenu } from './alerts/alerts-menu';
 
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
 
@@ -78,6 +82,15 @@ export const Chart = observer(() => {
   useOwnPositionLines(prefs.ownPositions ? setOwnPositionLines : (noopSetter as typeof setOwnPositionLines));
 
   const { baseSymbol, quoteSymbol } = usePathSymbols();
+  const { marketPrice } = useMarketPrice();
+  const pairKey = `${baseSymbol}/${quoteSymbol}`;
+  const {
+    alerts: pairAlerts,
+    add: addAlert,
+    remove: removeAlert,
+    markTriggered: markAlertTriggered,
+  } = usePriceAlerts(pairKey);
+  useAlertWatcher({ marketPrice, alerts: pairAlerts, onFire: markAlertTriggered });
   const {
     drawings,
     add: addDrawing,
@@ -278,12 +291,47 @@ export const Chart = observer(() => {
           : tradeFormStore.simpleLPForm.setUpperPriceInput;
       setter(price);
     };
-    return [
-      { label: 'Buy at this price', tone: 'buy', onSelect: applyLimit('buy') },
-      { label: 'Sell at this price', tone: 'sell', onSelect: applyLimit('sell') },
+    const setAlertHere = () => {
+      addAlert({
+        pair: pairKey,
+        targetPrice: price,
+        direction:
+          marketPrice == null ? 'above' : price >= marketPrice ? 'above' : 'below',
+        browser:
+          typeof window !== 'undefined' &&
+          'Notification' in window &&
+          Notification.permission === 'granted',
+        ntfyTopic: '',
+      });
+    };
+
+    // Buy makes sense only below the current mid (you'd be paying above
+    // mid to buy, which is a market order — caller should use the chart
+    // body for that, not a contextual click). Sell similarly only above.
+    // If we don't yet know the mid, show both (legacy behaviour).
+    const showBuy = marketPrice == null || price < marketPrice;
+    const showSell = marketPrice == null || price > marketPrice;
+
+    const items: PriceMenuItem[] = [];
+    if (showBuy) {
+      items.push({ label: 'Buy at this price', tone: 'buy', onSelect: applyLimit('buy') });
+    }
+    if (showSell) {
+      items.push({ label: 'Sell at this price', tone: 'sell', onSelect: applyLimit('sell') });
+    }
+    items.push(
       { label: 'Set as LP lower bound', tone: 'neutral', onSelect: applyLPBound('lower') },
       { label: 'Set as LP upper bound', tone: 'neutral', onSelect: applyLPBound('upper') },
-    ];
+      {
+        label:
+          marketPrice != null && price >= marketPrice
+            ? 'Alert when price goes above'
+            : 'Alert when price drops below',
+        tone: 'neutral',
+        onSelect: setAlertHere,
+      },
+    );
+    return items;
   };
 
   return (
@@ -306,11 +354,20 @@ export const Chart = observer(() => {
             </button>
           ))}
         </div>
-        <ChartSettingsMenu
-          prefs={prefs}
-          onToggle={toggle}
-          walletConnected={connectionStore.connected}
-        />
+        <div className='flex items-center gap-1'>
+          <AlertsMenu
+            pair={pairKey}
+            marketPrice={marketPrice}
+            alerts={pairAlerts}
+            onAdd={addAlert}
+            onRemove={removeAlert}
+          />
+          <ChartSettingsMenu
+            prefs={prefs}
+            onToggle={toggle}
+            walletConnected={connectionStore.connected}
+          />
+        </div>
       </div>
 
       <div
