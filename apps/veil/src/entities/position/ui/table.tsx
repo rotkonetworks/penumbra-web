@@ -290,7 +290,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                       {fullyWithdrawn(position.position) ? (
                         <Dash />
                       ) : (
-                        <PositionsCurrentValue order={order} />
+                        <PositionsCurrentValue order={order} marketPrice={marketPrice} />
                       )}
                     </TableCell>
 

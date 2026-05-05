@@ -1,12 +1,21 @@
-import { useMarketPrice } from '@/pages/trade/model/useMarketPrice';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
 import { DisplayPosition } from '../model/types';
 
-export const PositionsCurrentValue = ({ order }: { order: DisplayPosition['orders'][number] }) => {
+export const PositionsCurrentValue = ({
+  order,
+  marketPrice,
+}: {
+  order: DisplayPosition['orders'][number];
+  /** Live mid lifted from the parent table (which is already pair-scoped).
+   *  The previous form called useMarketPrice() per row — on a 50-row
+   *  positions table that mounted 50 hook stacks and 50 useBook
+   *  subscriptions every render, even though React Query deduped the
+   *  network call. One hook in the parent now serves every row. */
+  marketPrice: number | undefined;
+}) => {
   const { baseAsset, quoteAsset } = order;
-  const { marketPrice } = useMarketPrice(baseAsset.asset.symbol, quoteAsset.asset.symbol);
 
   if (!marketPrice) {
     return (
