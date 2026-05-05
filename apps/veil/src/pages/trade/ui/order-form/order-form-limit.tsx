@@ -90,12 +90,10 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
             denominator={store.quoteAsset?.symbol}
           />
         </div>
-        <SelectGroup
+        <SelectGroup<BuyLimitOrderOptions | SellLimitOrderOptions>
           options={isBuy ? BUY_PRICE_OPTIONS : SELL_PRICE_OPTIONS}
           value={store.priceInputOption}
-          onChange={option =>
-            store.setPriceInputOption(option as BuyLimitOrderOptions | SellLimitOrderOptions)
-          }
+          onChange={store.setPriceInputOption}
         />
       </div>
       <div className='mb-4'>
