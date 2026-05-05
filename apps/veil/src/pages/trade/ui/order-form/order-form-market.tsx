@@ -1,9 +1,12 @@
 import { observer } from 'mobx-react-lite';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
+import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { Slider as PenumbraSlider } from '@penumbra-zone/ui/Slider';
+import { round } from '@penumbra-zone/types/round';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
+import { useMarketPrice } from '../../model/useMarketPrice';
 import { OrderInput } from './order-input';
 import { SegmentedControl } from './segmented-control';
 import { InfoRowGasFee } from './info-row-gas-fee';
@@ -56,12 +59,51 @@ const Slider = observer(
 export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFormStore }) => {
   const { connected } = connectionStore;
   const { defaultDecimals, marketForm: store } = parentStore;
+  // For a market order the trade clears at the touch on the relevant side
+  // (buy → ask, sell → bid), not at the mid. Showing both the touch and
+  // the chain mid lets the trader see, before they enter any size, exactly
+  // how much spread they're paying — matches the way Hyperliquid /
+  // Drift / Bybit pre-fill the price preview.
+  const { bestBid, bestAsk, marketPrice } = useMarketPrice();
 
   const isBuy = store.direction === 'buy';
+  const touchPrice = isBuy ? bestAsk : bestBid;
+  const touchLabel = isBuy ? 'Ask' : 'Bid';
+  const spreadPct =
+    touchPrice != null && marketPrice != null && marketPrice > 0
+      ? ((touchPrice - marketPrice) / marketPrice) * 100
+      : null;
 
   return (
     <div className='p-4'>
       <SegmentedControl direction={store.direction} setDirection={store.setDirection} />
+      {/* Pre-fill reference: the touch price the order will actually clear
+          at, with how far that is from the chain's calculated mid. Reads
+          green when buying off the ask is *cheaper* than mid (rare; book
+          flipped), red when crossing the spread costs more than usual. */}
+      {touchPrice != null && (
+        <Tooltip
+          message={`The current ${touchLabel.toLowerCase()} on the on-chain route book — where a ${isBuy ? 'buy' : 'sell'} market order's first lot would clear. The percentage shows how far that is from the calculated chain mid.`}
+        >
+          <div className='-mt-2 mb-3 flex items-center justify-end gap-1 text-xs tabular-nums'>
+            <Text detail color='text.secondary'>
+              Clears at {touchLabel}:
+            </Text>
+            <Text detail color='text.primary'>
+              {round({ value: touchPrice, decimals: 6 })}
+            </Text>
+            {spreadPct != null && (
+              <Text
+                detail
+                color={Math.abs(spreadPct) > 0.5 ? 'destructive.light' : 'text.secondary'}
+              >
+                ({spreadPct > 0 ? '+' : ''}
+                {spreadPct.toFixed(2)}%)
+              </Text>
+            )}
+          </div>
+        </Tooltip>
+      )}
       <div className='mb-4'>
         <OrderInput
           round
