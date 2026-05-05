@@ -25,15 +25,23 @@ export const usePathToMetadata = () => {
   const { data } = useAssets();
   const { baseSymbol, quoteSymbol } = usePathSymbols();
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    // Hoist the per-asset toLowerCase outside the find callbacks so
+    // we don't re-lowercase the search key once for every entry — on
+    // a registry with several hundred assets the old form ran
+    // toLowerCase ~4×N times per memo recompute, this runs it 2 +
+    // (worst-case) N times. Two passes also lets us short-circuit if
+    // both assets land in the same scan, but the registry is small
+    // enough that two .find() calls is fine.
+    const baseLc = baseSymbol.toLowerCase();
+    const quoteLc = quoteSymbol.toLowerCase();
+    return {
       baseSymbol,
       quoteSymbol,
-      baseAsset: data.find(m => m.symbol.toLowerCase() === baseSymbol.toLowerCase()),
-      quoteAsset: data.find(a => a.symbol.toLowerCase() === quoteSymbol.toLowerCase()),
-    }),
-    [data, baseSymbol, quoteSymbol],
-  );
+      baseAsset: data.find(m => m.symbol.toLowerCase() === baseLc),
+      quoteAsset: data.find(a => a.symbol.toLowerCase() === quoteLc),
+    };
+  }, [data, baseSymbol, quoteSymbol]);
 };
 
 export const usePathQuery = (): PathQueryParams => {

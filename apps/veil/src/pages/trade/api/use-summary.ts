@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { DurationWindow } from '@/shared/utils/duration.ts';
@@ -21,8 +22,16 @@ export const useSummary = (
   const quoteSymbol = quoteSymbolProp ?? quoteSymbolFromPath;
 
   const { data: assets } = useAssets();
-  const start = assets.find(x => x.symbol === baseSymbol);
-  const end = assets.find(x => x.symbol === quoteSymbol);
+  // Memoize the asset lookup — Summary re-renders on every mid-price tick
+  // (book updates), but the asset.find pair only changes when the trading
+  // pair (or registry) does. Keep the queryKey-relevant references stable.
+  const { start, end } = useMemo(
+    () => ({
+      start: assets.find(x => x.symbol === baseSymbol),
+      end: assets.find(x => x.symbol === quoteSymbol),
+    }),
+    [assets, baseSymbol, quoteSymbol],
+  );
   const startAsset = start?.penumbraAssetId;
   const endAsset = end?.penumbraAssetId;
 
