@@ -48,9 +48,32 @@ export const useSubaccounts = () => {
   // Query account balances from view service
   const { data: balances, isLoading: balanceLoading } = useBalances();
 
+  // Derive a cheap, stable cache key from the *set* of account indices
+  // present in balances. The previous form put the whole balances array
+  // (proto objects) in the queryKey, which made React Query stringify-
+  // hash it on every render — useSubaccounts is called from
+  // useOrderFormStore which re-renders every block via useMarketPrice,
+  // so the cost was per-tick. The fetchQuery only cares about which
+  // account indices are present, not the full balance details, so this
+  // is the meaningful cache dimension.
+  const accountKey = balances
+    ? Array.from(
+        new Set(
+          balances
+            .map(b =>
+              b.accountAddress?.addressView.case === 'decoded'
+                ? b.accountAddress.addressView.value.index?.account
+                : undefined,
+            )
+            .filter((n): n is number => typeof n === 'number'),
+        ),
+      )
+        .sort((a, b) => a - b)
+        .join(',')
+    : '';
+
   const query = useQuery({
-    // 'balances' cache query to enable refecthing balances
-    queryKey: ['view-service-accounts', balances],
+    queryKey: ['view-service-accounts', accountKey],
     queryFn: () => {
       if (!balances) {
         return [];
