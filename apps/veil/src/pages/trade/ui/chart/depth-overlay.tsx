@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { theme } from '@penumbra-zone/ui/theme';
@@ -55,6 +55,50 @@ const prefill = (price: number, side: 'bid' | 'ask') => {
   tradeFormStore.limitForm.setPriceInput(formatted);
 };
 
+// One memoized bar per book level. The depth overlay re-renders every
+// block via useBook; without memo each of 30+ bars would re-allocate
+// its inline style + onClick closure per tick. memo() with primitive
+// props (top, width, color, price, side) lets React skip every bar
+// whose level data hasn't moved between blocks. The internal style
+// memo + useCallback keep the bar's own DOM listener / style identity
+// stable, the same idiom we use on OrderInput and LiquidityShape.
+const DepthBar = memo(
+  ({
+    top,
+    width,
+    color,
+    price,
+    side,
+  }: {
+    top: number;
+    width: number;
+    color: string;
+    price: number;
+    side: 'bid' | 'ask';
+  }) => {
+    const style = useMemo(
+      () => ({
+        top,
+        height: 2,
+        width,
+        background: color,
+        opacity: 0.7,
+      }),
+      [top, width, color],
+    );
+    const onClick = useCallback(() => prefill(price, side), [price, side]);
+    return (
+      <div
+        className='pointer-events-auto absolute right-0 cursor-pointer'
+        style={style}
+        onClick={onClick}
+      />
+    );
+  },
+);
+
+DepthBar.displayName = 'DepthBar';
+
 export const DepthOverlay = observer(
   ({ yAtPrice, subscribeRedraw, width = 64 }: DepthOverlayProps) => {
     const { data } = useBook();
@@ -108,17 +152,13 @@ export const DepthOverlay = observer(
         title='Click a depth bar to set the limit price'
       >
         {bars.map(b => (
-          <div
+          <DepthBar
             key={b.id}
-            className='pointer-events-auto absolute right-0 cursor-pointer'
-            style={{
-              top: b.y - 1,
-              height: 2,
-              width: b.width,
-              background: b.color,
-              opacity: 0.7,
-            }}
-            onClick={() => prefill(b.price, b.side)}
+            top={b.y - 1}
+            width={b.width}
+            color={b.color}
+            price={b.price}
+            side={b.side}
           />
         ))}
       </div>
