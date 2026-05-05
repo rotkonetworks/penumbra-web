@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
-import { theme } from '@penumbra-zone/ui/theme';
 import type { Drawing } from './types';
 
 interface DrawingsOverlayProps {
@@ -220,7 +219,7 @@ export const DrawingsOverlay = ({
             <text
               x='4'
               y={line.y + 4}
-              fill={theme.color.base.black}
+              fill='#0d0d0d'
               fontSize='10'
               fontFamily='monospace'
               style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -325,7 +324,7 @@ export const DrawingsOverlay = ({
               <text
                 x={t.x + padX}
                 y={t.y + padY}
-                fill={theme.color.base.black}
+                fill='#0d0d0d'
                 fontSize='11'
                 fontFamily='system-ui, sans-serif'
                 style={{ pointerEvents: 'none', userSelect: 'none' }}

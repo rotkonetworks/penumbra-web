@@ -17,6 +17,7 @@ import { useChartConfig } from './use-chart-config';
 import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
+import { MidPriceOverlay } from './mid-price-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
 import { useOwnFillMarkers } from './use-own-fill-markers';
 import { usePathSymbols } from '../../model/use-path';
@@ -24,7 +25,11 @@ import { useDrawings } from './drawings/use-drawings';
 import { DrawingToolbar } from './drawings/toolbar';
 import { DrawingsOverlay } from './drawings/drawings-overlay';
 import type { ToolMode } from './drawings/types';
-import { theme } from '@penumbra-zone/ui/theme';
+
+// theme.ts exports a typing stub, so theme.color.primary.main resolves to ''
+// at runtime. Use the actual hex from theme.css for SVG strokes/fills that
+// need a real color value.
+const DRAWING_COLOR = '#f49c43';
 import { HoverTooltip } from './hover-tooltip';
 import { useChartPrefs } from './use-chart-prefs';
 import { ChartSettingsMenu } from './chart-settings-menu';
@@ -239,7 +244,7 @@ export const Chart = observer(() => {
         id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         kind: 'horizontal-line',
         price,
-        color: theme.color.primary.main,
+        color: DRAWING_COLOR,
         createdAt: Date.now(),
       });
       setTool('none');
@@ -261,7 +266,7 @@ export const Chart = observer(() => {
         price1: a.price,
         time2: time,
         price2: price,
-        color: theme.color.primary.main,
+        color: DRAWING_COLOR,
         createdAt: Date.now(),
       });
       pendingAnchorRef.current = null;
@@ -298,7 +303,7 @@ export const Chart = observer(() => {
         time: pendingText.time,
         price: pendingText.price,
         text: value,
-        color: theme.color.primary.main,
+        color: DRAWING_COLOR,
         createdAt: Date.now(),
       });
     }
@@ -447,6 +452,12 @@ export const Chart = observer(() => {
           <>
             <div className='h-full w-full' ref={chartRef} />
             {prefs.depth && <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />}
+            <MidPriceOverlay
+              marketPrice={marketPrice}
+              yAtPrice={yAtPrice}
+              subscribeRedraw={subscribeRedraw}
+              quoteSymbol={quoteSymbol}
+            />
             <DrawingsOverlay
               drawings={drawings}
               yAtPrice={yAtPrice}
