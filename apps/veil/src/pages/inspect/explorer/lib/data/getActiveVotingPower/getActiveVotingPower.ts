@@ -2,17 +2,20 @@ import createGraphqlClient from '@/pages/inspect/explorer/lib/graphql/createGrap
 import {
     ActiveVotingPowerQuery,
     ActiveVotingPowerQueryVariables,
+    ValidatorStateFilter,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { activeVotingPowerQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
 
-const getActiveVotingPower = async (): Promise<number | undefined> => {
+const getActiveVotingPower = async (
+    state?: ValidatorStateFilter,
+): Promise<number | undefined> => {
     const graphqlClient = createGraphqlClient()
 
     const result = await graphqlClient
-        .query<
-            ActiveVotingPowerQuery,
-            ActiveVotingPowerQueryVariables
-        >(activeVotingPowerQuery, {})
+        .query<ActiveVotingPowerQuery, ActiveVotingPowerQueryVariables>(
+            activeVotingPowerQuery,
+            state ? { filter: { state } } : {},
+        )
         .toPromise()
 
     if (result.error) {

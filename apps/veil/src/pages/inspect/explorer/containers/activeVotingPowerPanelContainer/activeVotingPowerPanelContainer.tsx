@@ -2,11 +2,19 @@
 import Image from 'next/image'
 import { FC, Suspense } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
+import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { penumbraImage } from '@/pages/inspect/explorer/lib/images'
 import ActiveVotingPowerPanelLoader from './activeVotingPowerPanelLoader'
 
 export interface Props {
     className?: string
+    state?: ValidatorStateFilter
+}
+
+const titleFor = (state?: ValidatorStateFilter): string => {
+    if (state === ValidatorStateFilter.Inactive) return 'Inactive bonded stake'
+    if (state === ValidatorStateFilter.Active) return 'Active bonded stake'
+    return 'Bonded stake'
 }
 
 const ActiveVotingPowerPanelContainer: FC<Props> = props => (
@@ -25,7 +33,7 @@ const ActiveVotingPowerPanelContainer: FC<Props> = props => (
                     />
                 }
                 numberSuffix="UM"
-                title="Bonded stake"
+                title={titleFor(props.state)}
             />
         }
     >

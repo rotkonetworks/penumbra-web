@@ -963,7 +963,9 @@ export type ActiveValidatorsQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type ActiveValidatorsQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', activeValidatorCount: number, activeValidatorLimit: number } } };
 
-export type ActiveVotingPowerQueryVariables = Exact<{ [key: string]: never; }>;
+export type ActiveVotingPowerQueryVariables = Exact<{
+  filter?: InputMaybe<ValidatorFilter>;
+}>;
 
 
 export type ActiveVotingPowerQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', totalStaked: number } } };
@@ -1325,8 +1327,8 @@ export const ActiveValidatorsDocument = gql`
 }
     `;
 export const ActiveVotingPowerDocument = gql`
-    query ActiveVotingPower {
-  validatorsHomepage {
+    query ActiveVotingPower($filter: ValidatorFilter) {
+  validatorsHomepage(filter: $filter) {
     stakingParameters {
       totalStaked
     }

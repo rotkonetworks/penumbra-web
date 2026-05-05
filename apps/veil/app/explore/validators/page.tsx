@@ -15,6 +15,7 @@ import {
   ValidatorTableContainer,
 } from '@/pages/inspect/explorer/containers';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
+import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 
 interface Props {
   searchParams: Promise<{ all?: string; dir?: string; filter?: string; sort?: string }>;
@@ -27,6 +28,10 @@ const ValidatorsPage: FC<Props> = async props => {
   // inflates the response by ~4x for content nobody reads before
   // scrolling. `?all=1` opts back into the full list.
   const validatorLimit = searchParams.all === '1' ? undefined : 50;
+  const stateFilter =
+    searchParams.filter === 'inactive'
+      ? ValidatorStateFilter.Inactive
+      : ValidatorStateFilter.Active;
 
   return (
     <Container>
@@ -35,7 +40,10 @@ const ValidatorsPage: FC<Props> = async props => {
         <Breadcrumb>Validators</Breadcrumb>
       </Breadcrumbs>
       <div className='grid grid-cols-12 gap-4 lg:items-start'>
-        <ActiveVotingPowerPanelContainer className='col-span-full md:col-span-4' />
+        <ActiveVotingPowerPanelContainer
+          className='col-span-full md:col-span-4'
+          state={stateFilter}
+        />
         <ActiveValidatorsPanelContainer
           className={classNames('col-span-full sm:col-span-6 md:col-span-4')}
         />

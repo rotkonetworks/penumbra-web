@@ -80,8 +80,8 @@ export function useActiveValidatorsQuery(options?: Omit<Urql.UseQueryArgs<Types.
   return Urql.useQuery<Types.ActiveValidatorsQuery, Types.ActiveValidatorsQueryVariables>({ query: Types.ActiveValidatorsDocument, ...options });
 };
 export const ActiveVotingPowerDocument = gql`
-    query ActiveVotingPower {
-  validatorsHomepage {
+    query ActiveVotingPower($filter: ValidatorFilter) {
+  validatorsHomepage(filter: $filter) {
     stakingParameters {
       totalStaked
     }
