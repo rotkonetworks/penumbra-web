@@ -174,14 +174,28 @@ export const useRegistry = () => {
 
 export const useRegistryAssets = () => {
   const { registry } = useRegistryWithGlobals();
-  const data = registry
-    .getAllAssets()
-    .sort((a, b) => Number(b.priorityScore) - Number(a.priorityScore));
-  return { data, isLoading: false };
+  // Memoize on registry identity — getAllAssets().sort() walks every asset
+  // and allocates a fresh sorted array. Without this it ran on every
+  // render of every consumer (useAssets / usePathToMetadata / Summary /
+  // pair selector / ...) and gave each of them a fresh reference, which
+  // silently busted any downstream useMemo that listed `assets` as a dep.
+  // Registry is set once per session via the provider, so this memo
+  // basically caches forever in practice.
+  const data = useMemo(
+    () =>
+      registry
+        .getAllAssets()
+        .sort((a, b) => Number(b.priorityScore) - Number(a.priorityScore)),
+    [registry],
+  );
+  return useMemo(() => ({ data, isLoading: false }), [data]);
 };
 
 export const useStakingTokenMetadata = () => {
   const { stakingAssetId, registry } = useRegistryWithGlobals();
-  const data = registry.getMetadata(stakingAssetId);
-  return { data, isLoading: false };
+  const data = useMemo(
+    () => registry.getMetadata(stakingAssetId),
+    [registry, stakingAssetId],
+  );
+  return useMemo(() => ({ data, isLoading: false }), [data]);
 };
