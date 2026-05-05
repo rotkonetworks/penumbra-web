@@ -247,6 +247,27 @@ export const SimpleLiquidityOrderForm = observer(
           />
         </div>
         <div className='mb-4'>
+          {/* Range width as a +/- % of mid — narrow ranges concentrate
+              fee earnings but go out-of-range faster on a quiet pair,
+              wide ranges earn less per unit of capital but stay live
+              longer. Surface the trade-off inline so the trader can
+              read it before submit. */}
+          {(() => {
+            const mid = store.marketPrice;
+            const lo = priceRanges[0];
+            const hi = priceRanges[1];
+            if (!mid || mid <= 0 || lo === undefined || hi === undefined) {
+              return null;
+            }
+            const lowerPct = ((mid - lo) / mid) * 100;
+            const upperPct = ((hi - mid) / mid) * 100;
+            // Show a single ±X.X% if symmetric, otherwise show both legs.
+            const symmetric = Math.abs(lowerPct - upperPct) < 0.05;
+            const value = symmetric
+              ? `±${Math.abs(lowerPct).toFixed(2)}%`
+              : `-${lowerPct.toFixed(2)}% / +${upperPct.toFixed(2)}%`;
+            return <InfoRow label='Range width' value={value} />;
+          })()}
           {LQT_ENABLED && (
             <InfoRow
               label='LQT Rewards'
