@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block.ts';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { DurationWindow } from '@/shared/utils/duration.ts';
@@ -9,12 +9,19 @@ const CANDLES_LIMIT = 5;
 
 /**
  * 5 latest candles updated on each new block.
+ *
+ * placeholderData: keepPreviousData pairs with useInfiniteCandles so a
+ * timeframe switch doesn't leave the chart undefined for the loading
+ * window — both queries keep the previous timeframe's data until the new
+ * one lands, and chart.tsx's seeding effect re-runs once new data
+ * actually arrives.
  */
 export const useLatestCandles = (durationWindow: DurationWindow) => {
   const { baseSymbol, quoteSymbol } = usePathSymbols();
 
   const query = useQuery<CandleWithVolume[]>({
     queryKey: ['latest-candles', baseSymbol, quoteSymbol, durationWindow],
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<CandleWithVolume[]> => {
       return apiFetch<CandleWithVolume[]>('/api/candles', {
         baseAsset: baseSymbol,

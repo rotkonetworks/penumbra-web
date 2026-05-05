@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { DurationWindow } from '@/shared/utils/duration.ts';
 import { CandleWithVolume } from '@/shared/api/server/candles/utils.ts';
@@ -8,6 +8,12 @@ const CANDLES_LIMIT = 100;
 
 /**
  * Paginated candles query – requests 100 candles per page and wait for users to scroll the chart.
+ *
+ * placeholderData: keepPreviousData keeps the previous timeframe's candles
+ * on screen while a new timeframe loads. Without this, the chart container
+ * unmounts during the loading window (chart.tsx gates render on
+ * !isLoading && historyCandles), tearing down the entire lightweight-charts
+ * instance and forcing a full series rebuild on every timeframe switch.
  */
 export const useInfiniteCandles = (durationWindow: DurationWindow) => {
   const { baseSymbol, quoteSymbol } = usePathSymbols();
@@ -15,6 +21,7 @@ export const useInfiniteCandles = (durationWindow: DurationWindow) => {
   return useInfiniteQuery<CandleWithVolume[]>({
     queryKey: ['infinite-candles', baseSymbol, quoteSymbol, durationWindow],
     initialPageParam: 1,
+    placeholderData: keepPreviousData,
     getNextPageParam: (lastPage, _, lastPageParam) => {
       return lastPage.length ? (lastPageParam as number) + 1 : undefined;
     },
