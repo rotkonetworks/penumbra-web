@@ -72,6 +72,7 @@ export const Chart = observer(() => {
     setOwnFillMarkers,
     chartReady,
     resetView,
+    timeAtX,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
@@ -218,52 +219,62 @@ export const Chart = observer(() => {
   } | null>(null);
   const [pendingTextValue, setPendingTextValue] = useState('');
 
+  // Single click-handling routine used by both the lightweight-charts native
+  // subscribeClick (when it fires) and the DOM click-capture overlay above
+  // (which is the reliable path while a tool is selected).
+  const handleDrawingClick = (
+    point: { x: number; y: number },
+    price: number,
+    time: number | undefined,
+  ) => {
+    const t = toolRef.current;
+    if (t === 'text') {
+      if (time === undefined) return;
+      setPendingText({ x: point.x, y: point.y, time, price });
+      setPendingTextValue('');
+      return;
+    }
+    if (t === 'horizontal-line') {
+      addDrawing({
+        id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        kind: 'horizontal-line',
+        price,
+        color: theme.color.primary.main,
+        createdAt: Date.now(),
+      });
+      setTool('none');
+      return;
+    }
+    if (t === 'trend-line' || t === 'rectangle') {
+      if (time === undefined) return;
+      if (pendingAnchorRef.current === null) {
+        pendingAnchorRef.current = { time, price };
+        return;
+      }
+      const a = pendingAnchorRef.current;
+      addDrawing({
+        id: `${t === 'trend-line' ? 'tl' : 'rc'}-${Date.now()}-${Math.floor(
+          Math.random() * 1000,
+        )}`,
+        kind: t,
+        time1: a.time,
+        price1: a.price,
+        time2: time,
+        price2: price,
+        color: theme.color.primary.main,
+        createdAt: Date.now(),
+      });
+      pendingAnchorRef.current = null;
+      setTool('none');
+    }
+  };
+
   useEffect(() => {
-    return subscribeChartClick((point, price, time) => {
-      const t = toolRef.current;
-      if (t === 'text') {
-        if (time === undefined) return;
-        setPendingText({ x: point.x, y: point.y, time, price });
-        setPendingTextValue('');
-        return;
-      }
-      if (t === 'horizontal-line') {
-        addDrawing({
-          id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          kind: 'horizontal-line',
-          price,
-          color: theme.color.primary.main,
-          createdAt: Date.now(),
-        });
-        setTool('none');
-        return;
-      }
-      if (t === 'trend-line' || t === 'rectangle') {
-        if (time === undefined) return;
-        if (pendingAnchorRef.current === null) {
-          pendingAnchorRef.current = { time, price };
-          return;
-        }
-        const a = pendingAnchorRef.current;
-        addDrawing({
-          id: `${t === 'trend-line' ? 'tl' : 'rc'}-${Date.now()}-${Math.floor(
-            Math.random() * 1000,
-          )}`,
-          kind: t,
-          time1: a.time,
-          price1: a.price,
-          time2: time,
-          price2: price,
-          color: theme.color.primary.main,
-          createdAt: Date.now(),
-        });
-        pendingAnchorRef.current = null;
-        setTool('none');
-      }
-    });
+    return subscribeChartClick(handleDrawingClick);
     // chartReady listed so the effect re-runs once createChart has actually
     // mounted — first run at mount sees an empty chart and the inner subscribe
     // would short-circuit otherwise.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleDrawingClick is a stable closure over refs
   }, [subscribeChartClick, addDrawing, chartReady]);
 
   // Reset the pending anchor whenever the tool leaves a two-click mode
@@ -410,6 +421,26 @@ export const Chart = observer(() => {
         onContextMenu={onContextMenu}
         style={tool !== 'none' ? { cursor: 'crosshair' } : undefined}
       >
+        {/* Click-capture overlay shown only while a drawing tool is active.
+            lightweight-charts' own subscribeClick has been unreliable here
+            (chart eats some clicks for pan/zoom), so we route the drawing
+            placement through a real DOM event instead. */}
+        {tool !== 'none' && historyCandles && (
+          <div
+            className='absolute inset-0 z-[5] cursor-crosshair'
+            onClick={e => {
+              const container = containerRef.current;
+              if (!container) return;
+              const rect = container.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              const price = priceAtY(y);
+              const time = timeAtX(x);
+              if (price === undefined) return;
+              handleDrawingClick({ x, y }, price, time);
+            }}
+          />
+        )}
         {error && <BlockchainError direction='column' />}
         {!error && isLoading && <ChartLoadingState />}
         {!error && !isLoading && historyCandles && (

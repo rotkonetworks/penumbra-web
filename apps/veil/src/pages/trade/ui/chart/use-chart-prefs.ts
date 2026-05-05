@@ -20,7 +20,11 @@ export interface ChartPrefs {
 }
 
 const DEFAULTS: ChartPrefs = {
-  depth: true,
+  // Chart-edge depth heat overlay is OFF by default — the route-book panel
+  // beside the chart already shows route depth per-row as red/green bars
+  // (MEXC/Binance-style). Users who want the heat shape can opt in via the
+  // settings menu.
+  depth: false,
   ownPositions: true,
   ownTrades: false,
   openOrders: false,
