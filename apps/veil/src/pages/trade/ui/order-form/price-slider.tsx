@@ -6,6 +6,7 @@ import { Density } from '@penumbra-zone/ui/Density';
 import { round } from '@penumbra-zone/types/round';
 import { useWidth } from '@/shared/utils/use-width';
 import { AssetInfo } from '../../model/AssetInfo';
+import { useTickDirection } from '../../model/use-tick-direction';
 import DepthChart from './price-slider-depth-chart';
 
 // Usually, `round` from `@penumbra-zone/types/round` is sufficient, but here we need number to be returned, not formatted string.
@@ -335,14 +336,33 @@ export const PriceSlider = ({
   const midpointX =
     scaleLoaded && scale && marketPrice ? Math.max(0, scale(marketPrice)) : undefined;
 
+  // Tick-direction off the marketPrice so the slider's mid header
+  // flashes the same colour as the chart label, summary 'Mid price'
+  // card and document-title ticker. Same idiom across the app.
+  const midDirection = useTickDirection(marketPrice ?? undefined);
+  const midPriceText =
+    marketPrice != null && Number.isFinite(marketPrice)
+      ? round({ value: marketPrice, decimals: quoteExponent })
+      : null;
+
   return (
     <div>
       <div className='flex w-full justify-center gap-1'>
         <Text detail color='text.secondary'>
           1 {baseAsset?.symbol} =
         </Text>
-        <Text detail color='text.primary'>
-          {marketPrice} {quoteAsset?.symbol}
+        <Text
+          detail
+          color={
+            midDirection === 'up'
+              ? 'success.light'
+              : midDirection === 'down'
+                ? 'destructive.light'
+                : 'text.primary'
+          }
+        >
+          {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+          {midPriceText ?? marketPrice} {quoteAsset?.symbol}
         </Text>
       </div>
       <div ref={ref} className='relative z-0 h-[98px] w-full overflow-hidden'>
