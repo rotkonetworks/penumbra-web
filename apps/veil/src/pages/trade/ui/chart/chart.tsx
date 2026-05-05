@@ -48,6 +48,20 @@ const readStoredVolumeRatio = (): number => {
   return Number.isFinite(n) && n >= 0.05 && n <= 0.6 ? n : 0.2;
 };
 
+// Stable no-op setter shared across renders. Hoisted so we don't allocate a
+// fresh function (and bust hook deps inside useOwnPositionLines /
+// useOwnFillMarkers) every Chart render.
+const NOOP_SETTER = (_: unknown) => {};
+
+// Module-scoped formatter — pure, no closure deps, so there's no reason to
+// allocate it inside the Chart render closure.
+const formatPrice = (p: number): string => {
+  if (p >= 1) return p.toFixed(4);
+  if (p >= 0.01) return p.toFixed(5);
+  if (p >= 0.0001) return p.toFixed(6);
+  return p.toPrecision(4);
+};
+
 export const Chart = observer(() => {
   const [duration, setDuration] = useState<DurationWindow>('1d');
   const [volumeRatio, setVolumeRatioState] = useState(0.2);
@@ -89,10 +103,14 @@ export const Chart = observer(() => {
 
   // Gate per-overlay data feeds behind the user's preference. The hooks
   // still mount (so the queries they own can settle), but we hand each a
-  // no-op setter when disabled so nothing is pushed to the chart.
-  const noopSetter = (_: unknown) => {};
-  useOwnPositionLines(prefs.ownPositions ? setOwnPositionLines : (noopSetter as typeof setOwnPositionLines));
-  useOwnFillMarkers(prefs.ownTrades ? setOwnFillMarkers : (noopSetter as typeof setOwnFillMarkers));
+  // module-scoped no-op setter when disabled so nothing is pushed to the
+  // chart and the function reference is stable across renders.
+  useOwnPositionLines(
+    prefs.ownPositions ? setOwnPositionLines : (NOOP_SETTER as typeof setOwnPositionLines),
+  );
+  useOwnFillMarkers(
+    prefs.ownTrades ? setOwnFillMarkers : (NOOP_SETTER as typeof setOwnFillMarkers),
+  );
 
   const { baseSymbol, quoteSymbol } = usePathSymbols();
   const { marketPrice } = useMarketPrice();
@@ -346,13 +364,6 @@ export const Chart = observer(() => {
     setPendingText(null);
     setPendingTextValue('');
     setTool('none');
-  };
-
-  const formatPrice = (p: number): string => {
-    if (p >= 1) return p.toFixed(4);
-    if (p >= 0.01) return p.toFixed(5);
-    if (p >= 0.0001) return p.toFixed(6);
-    return p.toPrecision(4);
   };
 
   const buildMenuItems = (price: number): PriceMenuItem[] => {

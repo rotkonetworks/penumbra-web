@@ -2,6 +2,7 @@
 
 import cn from 'clsx';
 import { useViewport } from '@/shared/utils/use-viewport';
+import { useLivePriceTitle } from '../model/use-live-price-title';
 import { ResizableSplit } from '@/shared/ui/resizable-split';
 import { PairInfo } from './pair-info';
 import { Chart } from './chart/chart';
@@ -210,6 +211,10 @@ const MobileLayout = () => {
 
 export const TradePage = () => {
   const viewport = useViewport();
+  // Tab title shows the live mid-price + pair so multi-tab traders can read
+  // prices off the tab bar. Mounted once at the page root so the layout
+  // re-mount on viewport change doesn't churn it.
+  useLivePriceTitle();
 
   return {
     mobile: <MobileLayout />,
