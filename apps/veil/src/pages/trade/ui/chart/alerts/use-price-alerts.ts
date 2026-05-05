@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export type AlertDirection = 'above' | 'below';
 
@@ -91,8 +91,15 @@ export const usePriceAlerts = (pair?: string) => {
 
   // Subset filter for the active pair when caller provides one — handy
   // for the chart toolbar which only cares about the current pair's
-  // alerts in the menu.
-  const visible = pair ? alerts.filter(a => a.pair === pair) : alerts;
+  // alerts in the menu. Memoize on [alerts, pair] so consumers (e.g.
+  // useAlertWatcher) get a stable array reference when nothing changed
+  // — without this, the previous form returned a fresh filter() result
+  // every render and any useEffect dep on `alerts` re-fired on every
+  // block-tick re-render of the chart.
+  const visible = useMemo(
+    () => (pair ? alerts.filter(a => a.pair === pair) : alerts),
+    [alerts, pair],
+  );
 
   return { alerts: visible, allAlerts: alerts, add, remove, markTriggered };
 };
