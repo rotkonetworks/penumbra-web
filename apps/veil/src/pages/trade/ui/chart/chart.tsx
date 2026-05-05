@@ -120,7 +120,7 @@ export const Chart = observer(() => {
   );
 
   const { baseSymbol, quoteSymbol } = usePathSymbols();
-  const { marketPrice } = useMarketPrice();
+  const { marketPrice, spreadPercentage } = useMarketPrice();
   const pairKey = `${baseSymbol}/${quoteSymbol}`;
   const {
     alerts: pairAlerts,
@@ -525,6 +525,7 @@ export const Chart = observer(() => {
             {prefs.midPrice && (
               <MidPriceOverlay
                 marketPrice={marketPrice}
+                spreadPercentage={spreadPercentage}
                 yAtPrice={yAtPrice}
                 subscribeRedraw={subscribeRedraw}
                 quoteSymbol={quoteSymbol}

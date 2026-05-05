@@ -11,6 +11,9 @@ const DOWN_COLOR = '#f17878'; // destructive.light — last tick was down
 interface MidPriceOverlayProps {
   /** Mid-price from the order book; undefined while the book is loading. */
   marketPrice: number | undefined;
+  /** Spread as a percentage of mid; surfaced inline next to the price so the
+   *  trader sees liquidity tightness with one glance. */
+  spreadPercentage: number | undefined;
   yAtPrice: (price: number) => number | undefined;
   subscribeRedraw: (cb: () => void) => () => void;
   quoteSymbol: string;
@@ -38,6 +41,7 @@ const formatPrice = (p: number): string => {
  */
 export const MidPriceOverlay = ({
   marketPrice,
+  spreadPercentage,
   yAtPrice,
   subscribeRedraw,
   quoteSymbol,
@@ -75,6 +79,15 @@ export const MidPriceOverlay = ({
     tradeFormStore.limitForm.setPriceInput(priceStr);
   };
 
+  // Tight spreads (<1%) read better with two decimals; wider books would
+  // round to "0%" otherwise — keep one decimal for those.
+  const spreadStr =
+    spreadPercentage !== undefined && Number.isFinite(spreadPercentage)
+      ? spreadPercentage < 1
+        ? `${spreadPercentage.toFixed(2)}%`
+        : `${spreadPercentage.toFixed(1)}%`
+      : null;
+
   return (
     <div
       aria-label='Mid price'
@@ -97,7 +110,11 @@ export const MidPriceOverlay = ({
       <button
         type='button'
         onClick={useMidAsLimit}
-        title={`Click to set limit price to mid (${priceStr})`}
+        title={
+          spreadStr
+            ? `Click to set limit price to mid (${priceStr}) · spread ${spreadStr}`
+            : `Click to set limit price to mid (${priceStr})`
+        }
         className='pointer-events-auto absolute -translate-y-1/2 cursor-pointer rounded-sm px-1 py-px text-[10px] leading-tight transition-opacity hover:opacity-90'
         style={{
           right: 0,
@@ -107,6 +124,11 @@ export const MidPriceOverlay = ({
         }}
       >
         {arrow} {priceStr} {quoteSymbol}
+        {spreadStr && (
+          <span className='ml-1 opacity-75' style={{ fontVariantNumeric: 'tabular-nums' }}>
+            · {spreadStr}
+          </span>
+        )}
       </button>
     </div>
   );
