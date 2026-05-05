@@ -53,13 +53,35 @@ export const ResizableSplit = ({
     if (!container) return;
     const rect = container.getBoundingClientRect();
 
-    const onMove = (ev: PointerEvent) => {
-      const next = isHorizontal ? rect.right - ev.clientX : rect.bottom - ev.clientY;
+    // pointermove fires 60-100×/s during a drag. Each setSize triggers a
+    // flex-layout recalc of the whole panel + every child (chart, form,
+    // tables — none of which can usefully redraw faster than once per
+    // paint). rAF-coalesce so we reconcile at most once per frame, same
+    // pattern as the chart's volume divider and the LP price slider.
+    let pendingNext: number | null = null;
+    let rafId = 0;
+    const flush = () => {
+      rafId = 0;
+      if (pendingNext === null) return;
+      const next = pendingNext;
+      pendingNext = null;
       setSize(Math.min(max, Math.max(min, next)));
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      pendingNext = isHorizontal ? rect.right - ev.clientX : rect.bottom - ev.clientY;
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      // Drain any pending rAF so the persisted size matches the cursor's
+      // final position rather than landing a frame behind.
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        flush();
+      }
       // Persist the latest size by reading from the React state via setter.
       setSize(current => {
         try {
