@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import cn from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { WalletMinimal, InfoIcon, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -245,6 +246,53 @@ export const SimpleLiquidityOrderForm = observer(
             quoteAsset={store.quoteAsset}
             baseAsset={store.baseAsset}
           />
+          {/* Quick-snap range presets — saves the trader from dragging the
+              slider every time they want a textbook ±X% bracket. Range LP
+              has equivalent buttons; SimpleLP previously only had zoom +
+              reset, so 'I want a 5% range' meant manual drag. Highlight
+              the active preset (±0.1% tolerance) so the form's current
+              range reads at a glance. */}
+          {store.marketPrice && (
+            <div className='mt-2 flex items-center gap-1'>
+              <Text detail color='text.secondary'>
+                Quick range
+              </Text>
+              {[0.01, 0.025, 0.05, 0.1, 0.25, 0.5].map(pct => {
+                const mid = store.marketPrice as number;
+                const exponent = store.quoteAsset?.exponent ?? defaultDecimals;
+                const lo = roundToDecimals(mid * (1 - pct), exponent);
+                const hi = roundToDecimals(mid * (1 + pct), exponent);
+                const isActive =
+                  priceRanges[0] !== undefined &&
+                  priceRanges[1] !== undefined &&
+                  Math.abs(priceRanges[0] - lo) / mid < 0.001 &&
+                  Math.abs(priceRanges[1] - hi) / mid < 0.001;
+                return (
+                  <button
+                    key={pct}
+                    type='button'
+                    onClick={() => {
+                      setPriceRanges([lo, hi]);
+                      // Auto-zoom out so the slider can actually reach
+                      // wide presets that exceed the current zoom range.
+                      const needed = pct + 0.05;
+                      setZoomAdjustment(prev =>
+                        needed > priceRange + prev ? needed - priceRange : prev,
+                      );
+                    }}
+                    className={cn(
+                      'rounded-sm border px-2 py-0.5 text-xs tabular-nums transition-colors',
+                      isActive
+                        ? 'border-primary-main bg-other-tonal-fill5 text-text-primary'
+                        : 'border-other-tonal-stroke text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary',
+                    )}
+                  >
+                    ±{(pct * 100).toFixed(pct < 0.01 ? 1 : 0)}%
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className='mb-4'>
           {/* Range width as a +/- % of mid — narrow ranges concentrate
