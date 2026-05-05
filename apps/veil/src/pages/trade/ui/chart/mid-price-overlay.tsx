@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
+import { useTickDirection } from '../../model/use-tick-direction';
 
 // theme.ts is a typing stub — most fields resolve to ''.
 // Use the actual hex values from theme.css so the line and label render.
@@ -47,22 +48,16 @@ export const MidPriceOverlay = ({
   quoteSymbol,
 }: MidPriceOverlayProps) => {
   const [y, setY] = useState<number | undefined>(undefined);
-  const [direction, setDirection] = useState<'up' | 'down' | 'flat'>('flat');
-  const prevPriceRef = useRef<number | undefined>(undefined);
+  // Direction logic now lives in useTickDirection so this overlay, the
+  // Summary 'Mid price' card and the document-title ticker all share one
+  // implementation.
+  const direction = useTickDirection(marketPrice);
 
   useEffect(() => {
     if (marketPrice === undefined || !Number.isFinite(marketPrice) || marketPrice <= 0) {
       setY(undefined);
       return;
     }
-    // Track tick direction off the last seen price. Use a ref so the
-    // comparison reads the truly previous value, not stale closure state.
-    const prev = prevPriceRef.current;
-    if (prev !== undefined && prev !== marketPrice) {
-      setDirection(marketPrice > prev ? 'up' : 'down');
-    }
-    prevPriceRef.current = marketPrice;
-
     const recompute = () => setY(yAtPrice(marketPrice));
     return subscribeRedraw(recompute);
   }, [marketPrice, yAtPrice, subscribeRedraw]);

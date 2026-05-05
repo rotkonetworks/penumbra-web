@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { theme } from '@penumbra-zone/ui/theme';
 import { useDebounce } from '@/shared/utils/use-debounce';
 
@@ -12,18 +12,30 @@ export const useViewport = (): Viewport => {
   const [width, setWidth] = useState<number>(breakpoints.lg);
   const debouncedWidth = useDebounce(width, 250);
 
-  const resize = useCallback(() => {
-    setWidth(document.body.clientWidth);
-  }, []);
-
   useEffect(() => {
-    window.addEventListener('resize', resize);
-    resize();
-
-    return () => {
-      window.removeEventListener('resize', resize);
+    // Window 'resize' fires 60+ times per second while the user is dragging
+    // the window edge. Each one was hitting setWidth → re-render of every
+    // useViewport caller (and re-firing the useDebounce timeout below).
+    // Coalesce to one setState per animation frame so we read clientWidth
+    // at most once per paint; useDebounce still smooths the final break
+    // across the 250ms threshold as before.
+    let rafId = 0;
+    const flush = () => {
+      rafId = 0;
+      setWidth(document.body.clientWidth);
     };
-  }, [resize]);
+    const onResize = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
+    };
+    flush();
+
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   return useMemo(() => {
     if (debouncedWidth < breakpoints.tablet) {
