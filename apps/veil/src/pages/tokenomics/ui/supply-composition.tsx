@@ -81,7 +81,7 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
         </Text>
       </div>
 
-      <div className='grid grid-cols-2 gap-3 desktop:grid-cols-4'>
+      <div className='grid grid-cols-2 gap-3 desktop:grid-cols-5'>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
             Bonded
@@ -91,6 +91,26 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
           </Text>
           <Text small color='text.secondary'>
             {fmtUM(metrics.bondedSupply)} UM delegated
+          </Text>
+        </div>
+        {/* Active set — the subset of bonded UM that's actually counted
+            toward voting power right now. Excludes delegations to
+            jailed/disabled/tombstoned/defined validators (which still
+            hold UM but don't secure the chain). The validators page
+            uses this number prominently; surfacing it here too keeps
+            the two pages in sync, and traders see at a glance how much
+            of bonded supply is *productively* staked. */}
+        <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
+          <Text detail color='text.secondary'>
+            Active set
+          </Text>
+          <Text large color='text.primary'>
+            <span className='font-mono text-teal-300'>
+              {metrics.activeStakedPct.toFixed(1)}%
+            </span>
+          </Text>
+          <Text small color='text.secondary'>
+            {fmtUM(metrics.activeStakedSupply)} UM securing chain
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
