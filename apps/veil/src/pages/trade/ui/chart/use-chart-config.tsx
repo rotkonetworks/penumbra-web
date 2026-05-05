@@ -57,6 +57,7 @@ export const useChartConfig = (
   const volumeSeriesRef = useRef<ReturnType<IChartApi['addHistogramSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+  const midPriceLineRef = useRef<IPriceLine | undefined>(undefined);
 
   // Click subscribers registered before the chart finishes mounting are
   // queued here and replayed after createChart() runs.
@@ -107,6 +108,40 @@ export const useChartConfig = (
         }
         ownLinesRef.current.delete(id);
       }
+    }
+  }, []);
+
+  /**
+   * Render or update a single price line at the live mid-price. Pass
+   * undefined to remove. Distinct from setOwnPositionLines so the mid
+   * is never accidentally cleared by a position-list update.
+   */
+  const setMidPriceLine = useCallback((price: number | undefined) => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (price === undefined || !Number.isFinite(price) || price <= 0) {
+      if (midPriceLineRef.current) {
+        try {
+          series.removePriceLine(midPriceLineRef.current);
+        } catch {
+          // chart torn down
+        }
+        midPriceLineRef.current = undefined;
+      }
+      return;
+    }
+    const opts: CreatePriceLineOptions = {
+      price,
+      color: theme.color.primary.main,
+      lineStyle: LineStyle.Dotted,
+      lineWidth: 1,
+      axisLabelVisible: true,
+      title: 'mid',
+    };
+    if (midPriceLineRef.current) {
+      midPriceLineRef.current.applyOptions(opts);
+    } else {
+      midPriceLineRef.current = series.createPriceLine(opts);
     }
   }, []);
 
@@ -496,6 +531,7 @@ export const useChartConfig = (
     timeAtX,
     setOwnPositionLines,
     setOwnFillMarkers,
+    setMidPriceLine,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
