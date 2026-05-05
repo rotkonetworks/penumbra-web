@@ -227,6 +227,13 @@ export class MarketOrderFormStore {
     return `${percent}%`;
   }
 
+  /** Raw numeric price impact (e.g. 0.012 = 1.2% slippage). Exposed so the
+   *  market form can colour the row by severity instead of always-neutral. */
+  get priceImpactPercent(): undefined | number {
+    if (this._priceImpact === undefined) return undefined;
+    return Math.abs(this._priceImpact) * 100;
+  }
+
   get plan(): undefined | MarketOrderPlan {
     // necessary for clearing the gas fee when the input for market orders is cleared
     if (!this._baseAsset || !this._quoteAsset) {

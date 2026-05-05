@@ -103,14 +103,29 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           <InfoRow
             label='Price impact'
             value={store.priceImpact}
-            toolTip='This percentage represents the effect of your trade on the token’s price.'
+            // Red when slippage is meaningful (>1%) — by then it's no
+            // longer 'small market move noise' but a chunk of the
+            // trader's expected fill they'll lose. Mirrors how every
+            // pro DEX warns at the same threshold.
+            valueColor={
+              (store.priceImpactPercent ?? 0) > 1 ? 'error' : undefined
+            }
+            toolTip={
+              (store.priceImpactPercent ?? 0) > 1
+                ? 'High price impact — your trade is large enough relative to the book that the executed price will move noticeably from the current mid. Consider splitting the order or using Limit form.'
+                : 'This percentage represents the effect of your trade on the token’s price.'
+            }
           />
         )}
         {store.unfilled && (
           <InfoRow
             label='Unfilled amount'
             value={store.unfilled}
-            toolTip='The portion of your trade that cannot be completed due to insufficient liquidity.'
+            // Any unfilled amount means the route book ran out of
+            // liquidity before completing the trade — always a warning,
+            // not a neutral fact.
+            valueColor='error'
+            toolTip='The portion of your trade that cannot be completed due to insufficient liquidity. Reduce the trade size or wait for more liquidity to appear.'
           />
         )}
       </div>
