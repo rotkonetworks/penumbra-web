@@ -73,10 +73,15 @@ const OrderInputImpl = ({
   };
 
   useEffect(() => {
-    requestAnimationFrame(() => {
-      // useComponentSize doesnt set width correctly on updates
+    // useComponentSize doesnt set width correctly on updates, so we
+    // measure on the next frame. Cancel any in-flight rAF on cleanup so
+    // rapid keystrokes don't pile up multiple pending measurements that
+    // all settle to the same value (React bails out the duplicate
+    // setStates, but the rAF callbacks themselves are pure overhead).
+    const id = requestAnimationFrame(() => {
       setTextWidth(textRef.current?.offsetWidth ?? 0);
     });
+    return () => cancelAnimationFrame(id);
   }, [roundedValue]);
 
   return (
