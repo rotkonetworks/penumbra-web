@@ -36,7 +36,12 @@ export const useSummary = (
   const endAsset = end?.penumbraAssetId;
 
   const query = useQuery({
-    queryKey: ['summary', baseSymbol, quoteSymbol],
+    // window is part of the cache key — without it, a tab toggle from
+    // 1H to 24H would silently reuse the previous window's cached data
+    // (queryFn closure captures the new window, but React Query runs
+    // off queryKey, not closure identity). With window in the key, each
+    // window caches independently and toggling between them is instant.
+    queryKey: ['summary', baseSymbol, quoteSymbol, window],
     retry: 1,
     enabled: startAsset !== undefined && endAsset !== undefined,
     // 24h aggregates (high/low/volume/change) genuinely shift on a minute-
