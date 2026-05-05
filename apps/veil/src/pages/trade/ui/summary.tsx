@@ -8,6 +8,7 @@ import { useSummary } from '../api/use-summary';
 import { useMarketPrice } from '../model/useMarketPrice';
 import { useTickDirection } from '../model/use-tick-direction';
 import { DurationWindow, isDurationWindow } from '@/shared/utils/duration';
+import { tradeFormStore } from './order-form/store/OrderFormStore';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { round } from '@penumbra-zone/types/round';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -149,22 +150,49 @@ export const Summary = () => {
       </SummaryCard>
       {/* Best bid + best ask side-by-side. Mid is the average of these
           two; surfacing them explicitly tells the trader the actual prices
-          they could trade at right now (versus the synthetic mid). The
-          spread between them is shown in the chart's mid label and in
-          the SpreadRow — this card is the absolute reference. */}
+          they could trade at right now (versus the synthetic mid). Each
+          number is clickable: bid → set up a sell limit at that price,
+          ask → buy limit at that price. Same gesture as clicking a row
+          in the route-book table. */}
       <SummaryCard title='Bid / Ask' loading={isLoading && bestBid == null}>
         {bestBid != null && bestAsk != null ? (
-          <Tooltip message='Highest active buy price (bid) and lowest active sell price (ask) on the route book. A market buy clears at the ask; a market sell clears at the bid.'>
+          <Tooltip message='Highest active buy price (bid) and lowest active sell price (ask). Click bid to set up a sell limit at that price, ask for a buy limit. A market buy clears at the ask; a market sell clears at the bid.'>
             <div className='flex items-center gap-1 font-mono text-xs tabular-nums'>
-              <Text detail color='success.light'>
-                {round({ value: bestBid, decimals: 6 })}
-              </Text>
+              <button
+                type='button'
+                onClick={() => {
+                  tradeFormStore.setWhichForm('Limit');
+                  tradeFormStore.limitForm.setDirection('sell');
+                  tradeFormStore.limitForm.setPriceInput(
+                    round({ value: bestBid, decimals: 6 }),
+                  );
+                }}
+                title='Click to set a sell limit at the bid'
+                className='cursor-pointer hover:underline'
+              >
+                <Text detail color='success.light'>
+                  {round({ value: bestBid, decimals: 6 })}
+                </Text>
+              </button>
               <Text detail color='text.secondary'>
                 /
               </Text>
-              <Text detail color='destructive.light'>
-                {round({ value: bestAsk, decimals: 6 })}
-              </Text>
+              <button
+                type='button'
+                onClick={() => {
+                  tradeFormStore.setWhichForm('Limit');
+                  tradeFormStore.limitForm.setDirection('buy');
+                  tradeFormStore.limitForm.setPriceInput(
+                    round({ value: bestAsk, decimals: 6 }),
+                  );
+                }}
+                title='Click to set a buy limit at the ask'
+                className='cursor-pointer hover:underline'
+              >
+                <Text detail color='destructive.light'>
+                  {round({ value: bestAsk, decimals: 6 })}
+                </Text>
+              </button>
             </div>
           </Tooltip>
         ) : (
