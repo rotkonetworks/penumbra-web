@@ -25,6 +25,9 @@ import { DrawingsOverlay } from './drawings/drawings-overlay';
 import type { ToolMode } from './drawings/types';
 import { theme } from '@penumbra-zone/ui/theme';
 import { HoverTooltip } from './hover-tooltip';
+import { useChartPrefs } from './use-chart-prefs';
+import { ChartSettingsMenu } from './chart-settings-menu';
+import { connectionStore } from '@/shared/model/connection';
 
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
 
@@ -66,7 +69,13 @@ export const Chart = observer(() => {
     subscribeChartClick,
   } = useChartConfig(fetchNext, isFetching);
 
-  useOwnPositionLines(setOwnPositionLines);
+  const { prefs, toggle } = useChartPrefs();
+
+  // Gate the position-lines feed behind the user's preference. The hook
+  // still mounts (so the queries it owns can settle), but we hand it a
+  // no-op when disabled so no lines are pushed to the chart.
+  const noopSetter = (_: unknown) => {};
+  useOwnPositionLines(prefs.ownPositions ? setOwnPositionLines : (noopSetter as typeof setOwnPositionLines));
 
   const { baseSymbol, quoteSymbol } = usePathSymbols();
   const {
@@ -279,20 +288,29 @@ export const Chart = observer(() => {
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
-      <div className='flex border-b border-b-other-solid-stroke px-3'>
-        {durationWindows.map(w => (
-          <button
-            key={w}
-            type='button'
-            className={cn(
-              'flex items-center rounded px-1.5 py-3 transition-colors hover:bg-action-hover-overlay hover:text-text-primary',
-              w === duration ? 'bg-action-active-overlay text-text-primary' : 'text-text-secondary',
-            )}
-            onClick={() => setDuration(w)}
-          >
-            <Text detail>{w}</Text>
-          </button>
-        ))}
+      <div className='flex items-center justify-between border-b border-b-other-solid-stroke px-3'>
+        <div className='flex'>
+          {durationWindows.map(w => (
+            <button
+              key={w}
+              type='button'
+              className={cn(
+                'flex items-center rounded px-1.5 py-3 transition-colors hover:bg-action-hover-overlay hover:text-text-primary',
+                w === duration
+                  ? 'bg-action-active-overlay text-text-primary'
+                  : 'text-text-secondary',
+              )}
+              onClick={() => setDuration(w)}
+            >
+              <Text detail>{w}</Text>
+            </button>
+          ))}
+        </div>
+        <ChartSettingsMenu
+          prefs={prefs}
+          onToggle={toggle}
+          walletConnected={connectionStore.connected}
+        />
       </div>
 
       <div
@@ -306,7 +324,7 @@ export const Chart = observer(() => {
         {!error && !isLoading && historyCandles && (
           <>
             <div className='h-full w-full' ref={chartRef} />
-            <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+            {prefs.depth && <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />}
             <DrawingsOverlay
               drawings={drawings}
               yAtPrice={yAtPrice}
