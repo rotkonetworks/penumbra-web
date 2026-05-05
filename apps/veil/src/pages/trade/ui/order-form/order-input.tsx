@@ -1,4 +1,4 @@
-import { useId, useEffect, useState, useRef, KeyboardEvent } from 'react';
+import { memo, useId, useEffect, useState, useRef, KeyboardEvent } from 'react';
 import { useComponentSize } from 'react-use-size';
 import { round } from '@penumbra-zone/types/round';
 import { Icon } from '@penumbra-zone/ui/Icon';
@@ -25,8 +25,13 @@ export interface OrderInputProps {
 
 /**
  * The order form input field.
+ *
+ * Wrapped in memo so when one input on a multi-input form (limit, simple-LP)
+ * receives a keystroke, the others — whose props haven't changed — skip
+ * re-render entirely. Effective only when callers pass a stable onChange
+ * (the bound MobX setter, not a fresh inline wrapper).
  */
-export const OrderInput = ({
+const OrderInputImpl = ({
   ref,
   id: idProp,
   label,
@@ -156,4 +161,6 @@ export const OrderInput = ({
   );
 };
 
-OrderInput.displayName = 'OrderInput';
+OrderInputImpl.displayName = 'OrderInput';
+
+export const OrderInput = memo(OrderInputImpl);

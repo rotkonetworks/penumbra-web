@@ -28,7 +28,15 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
             label={`When ${store.baseAsset?.symbol} is`}
             value={store.priceInput}
             decimals={store.quoteAsset?.exponent ?? defaultDecimals}
-            onChange={price => store.setPriceInput(price)}
+            // Pass the bound MobX setter directly, not an inline wrapper —
+            // OrderInput is memo'd, so a fresh onChange identity each render
+            // would defeat the memo on the *other* inputs in this form (the
+            // ones whose value didn't change). The cast widens the setter
+            // signature (which has an optional `fromOption` second arg) to
+            // OrderInput's onChange contract; only the first arg is ever
+            // passed at runtime, so `fromOption` defaults to false — same
+            // behaviour the old `price => setPriceInput(price)` wrapper had.
+            onChange={store.setPriceInput as (amount: string, ...args: unknown[]) => void}
             denominator={store.quoteAsset?.symbol}
           />
         </div>
