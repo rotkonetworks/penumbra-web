@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -73,11 +74,17 @@ export const Chart = observer(() => {
   const { data: historyCandles, isLoading, error, fetchNextPage } = useInfiniteCandles(duration);
 
   const isFetching = useRef(false);
-  const fetchNext = async () => {
+  // Stabilize across renders. useChartConfig's setChartRef wires this into a
+  // subscribeVisibleLogicalRangeChange callback exactly once at chart create
+  // time, so any per-render fresh wrapper would silently capture stale
+  // closures (it works today only because React Query's fetchNextPage
+  // identity is itself stable). Pin the wrapper too so the contract is
+  // explicit and not load-bearing on a library detail.
+  const fetchNext = useCallback(async () => {
     isFetching.current = true;
     await fetchNextPage();
     isFetching.current = false;
-  };
+  }, [fetchNextPage]);
 
   const {
     chartRef,
@@ -215,16 +222,38 @@ export const Chart = observer(() => {
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
+    let pendingRatio: number | null = null;
+    let rafId = 0;
+
+    // Pointer moves can fire 60-100×/s during a drag — without coalescing
+    // we'd hit setState + lightweight-charts applyOptions on every event.
+    // Pin the latest ratio in a closure-local cell, flush at most once per
+    // animation frame.
+    const flush = () => {
+      rafId = 0;
+      if (pendingRatio === null) return;
+      const ratio = pendingRatio;
+      pendingRatio = null;
+      setVolumeRatioState(ratio);
+      setVolumeRatio(ratio);
+    };
+
     const onMove = (ev: PointerEvent) => {
       const offset = ev.clientY - rect.top;
       // ratio = volume's share = portion below cursor
-      const ratio = Math.min(0.6, Math.max(0.05, 1 - offset / rect.height));
-      setVolumeRatioState(ratio);
-      setVolumeRatio(ratio);
+      pendingRatio = Math.min(0.6, Math.max(0.05, 1 - offset / rect.height));
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      // Drain any pending rAF so the persisted value matches the final
+      // pointer position, not a frame behind.
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        flush();
+      }
       // Persist the final value by reading via the state setter (avoids a
       // dual-source-of-truth ref/state pair).
       setVolumeRatioState(current => {
