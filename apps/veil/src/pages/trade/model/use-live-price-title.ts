@@ -14,7 +14,9 @@ const formatPrice = (p: number): string => {
 /**
  * Stamp the current pair's live mid-price into document.title so a trader
  * with several tabs open can read prices off the tab bar without switching
- * — the small QoL Binance/Coinbase/Hyperliquid have had forever.
+ * — the small QoL Binance/Coinbase/Hyperliquid have had forever. Prefix
+ * with ▲ / ▼ when the tick direction is known so the tab bar surfaces not
+ * just where the price is, but which way it just moved.
  *
  * Restores whatever title the page had on mount when the trade route is
  * left, so the user doesn't end up with a stale price string in their tab
@@ -36,9 +38,33 @@ export const useLivePriceTitle = () => {
     };
   }, []);
 
+  // Track the direction of the latest tick via refs — we never want this
+  // to cause its own render, just feed the title-update effect.
+  const prevPriceRef = useRef<number | undefined>(undefined);
+  const directionRef = useRef<'up' | 'down' | 'flat'>('flat');
+
   useEffect(() => {
     const pair = `${baseSymbol}/${quoteSymbol}`;
-    const priceStr = marketPrice != null ? formatPrice(marketPrice) : '—';
-    document.title = `${priceStr} ${pair} · Veil`;
+    if (marketPrice == null) {
+      document.title = `— ${pair} · Veil`;
+      return;
+    }
+
+    const prev = prevPriceRef.current;
+    if (prev !== undefined && prev !== marketPrice) {
+      directionRef.current = marketPrice > prev ? 'up' : 'down';
+    }
+    prevPriceRef.current = marketPrice;
+
+    const arrow =
+      directionRef.current === 'up' ? '▲ ' : directionRef.current === 'down' ? '▼ ' : '';
+    document.title = `${arrow}${formatPrice(marketPrice)} ${pair} · Veil`;
   }, [baseSymbol, quoteSymbol, marketPrice]);
+
+  // Reset direction memory when the pair changes — a 1.23 UM/USDC followed
+  // by a 0.0007 OSMO/UM tick isn't a 'down' move, it's a different market.
+  useEffect(() => {
+    prevPriceRef.current = undefined;
+    directionRef.current = 'flat';
+  }, [baseSymbol, quoteSymbol]);
 };
