@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useEffect, useState } from 'react'
+import { FC } from 'react'
 import { useTicker } from '@/pages/inspect/explorer/lib/hooks'
 
 interface Props {
@@ -8,15 +8,14 @@ interface Props {
     timestamp: number
 }
 
-const TimeAgo: FC<Props> = props => {
+// Pure derivation from props + ticker — no state, no effect, just compute
+// the formatted string each render. The previous form held timeAgo in
+// useState and recomputed via useEffect on every tick (every second), which
+// for a 10-row block table meant 10 setStates per second and 10 effect
+// re-runs even though the rendered string usually doesn't change.
+const TimeAgo: FC<Props> = ({ timestamp }) => {
     const lastTick = useTicker()
-    const [timeAgo, setTimeAgo] = useState<string>()
-
-    useEffect(() => {
-        setTimeAgo(lastTick.to(props.timestamp))
-    }, [lastTick, props.timestamp])
-
-    return timeAgo
+    return lastTick.to(timestamp)
 }
 
 export default TimeAgo
