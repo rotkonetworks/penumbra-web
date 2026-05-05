@@ -6,6 +6,7 @@ import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useSummary } from '../api/use-summary';
 import { useMarketPrice } from '../model/useMarketPrice';
+import { useTickDirection } from '../model/use-tick-direction';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { round } from '@penumbra-zone/types/round';
 import { Density } from '@penumbra-zone/ui/Density';
@@ -52,6 +53,7 @@ export const Summary = () => {
   const { data, isPending: isLoading, error } = useSummary('1d');
   const getMetadata = useGetMetadata();
   const { marketPrice } = useMarketPrice();
+  const midDirection = useTickDirection(marketPrice);
 
   if (error) {
     return (
@@ -69,9 +71,21 @@ export const Summary = () => {
           price' which can be hours stale on quiet pairs. */}
       <SummaryCard title='Mid price' loading={isLoading && marketPrice == null}>
         <Tooltip message='Average of the best bid and best ask on the on-chain route book — the price the DEX would clear a marginal swap at right now.'>
-          <Text detail color='text.primary'>
-            {marketPrice != null ? round({ value: marketPrice, decimals: 6 }) : '-'}
-          </Text>
+          <div className='flex items-center gap-1'>
+            <Text
+              detail
+              color={
+                midDirection === 'up'
+                  ? 'success.light'
+                  : midDirection === 'down'
+                    ? 'destructive.light'
+                    : 'text.primary'
+              }
+            >
+              {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+              {marketPrice != null ? round({ value: marketPrice, decimals: 6 }) : '-'}
+            </Text>
+          </div>
         </Tooltip>
       </SummaryCard>
       <SummaryCard title='Last price' loading={isLoading}>
