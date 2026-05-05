@@ -2,12 +2,14 @@ import Image from 'next/image';
 import cn from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { WalletMinimal, InfoIcon, ZoomIn, ZoomOut } from 'lucide-react';
+import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
+import { useTickDirection } from '../../model/use-tick-direction';
 import { InfoRow } from './info-row';
 import { InfoRowGasFee } from './info-row-gas-fee';
 import { OrderFormStore } from './store/OrderFormStore';
@@ -30,6 +32,10 @@ export const SimpleLiquidityOrderForm = observer(
     const { connected } = connectionStore;
     const { simpleLPForm: store, defaultDecimals } = parentStore;
     const isLQTEligible = useIsLqtEligible(store.baseAsset?.metadata, store.quoteAsset?.metadata);
+    // Tick-direction off the parent's marketPrice — same idiom the limit
+    // form's mid-chip uses, so the colour flashes in lock step with the
+    // chart label, summary 'Mid price' card and document-title ticker.
+    const midDirection = useTickDirection(parentStore.marketPrice);
 
     const priceSpread = DEFAULT_PRICE_SPREAD;
     const priceRange = DEFAULT_PRICE_RANGE;
@@ -79,6 +85,34 @@ export const SimpleLiquidityOrderForm = observer(
 
     return (
       <div className='p-4'>
+        {/* Live mid-price banner — anchors the form to the chain's
+            current best-bid/best-ask average so the trader has the
+            reference price they're centring liquidity around right at
+            the top, without scanning to the chart label or summary
+            card. Tick-direction-coloured to match. */}
+        {parentStore.marketPrice != null && (
+          <div className='mb-3 flex items-center justify-between rounded-sm border border-other-tonal-stroke px-2 py-1.5'>
+            <Text detail color='text.secondary'>
+              Live mid
+            </Text>
+            <Tooltip message='Average of best bid + best ask on the on-chain route book — the price you are centring liquidity around.'>
+              <span
+                className={cn(
+                  'tabular-nums',
+                  midDirection === 'up'
+                    ? 'text-success-light'
+                    : midDirection === 'down'
+                      ? 'text-destructive-light'
+                      : 'text-text-primary',
+                )}
+              >
+                {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+                {round({ value: parentStore.marketPrice, decimals: 6 })}{' '}
+                <span className='text-text-secondary'>{store.quoteAsset?.symbol ?? ''}</span>
+              </span>
+            </Tooltip>
+          </div>
+        )}
         <div className='mb-4'>
           <div className='mb-2 flex items-center gap-1 leading-6'>
             <Text small color='text.secondary'>
