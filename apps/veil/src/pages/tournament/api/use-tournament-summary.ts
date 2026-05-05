@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
 import { TournamentSummaryRequest, TournamentSummaryApiResponse } from '../server/summary';
 import { apiPostFetch } from '@/shared/utils/api-fetch';
 import { useMemo } from 'react';
@@ -19,7 +18,14 @@ export const useTournamentSummary = (
   const query = useQuery({
     queryKey: ['tournament-summary', params?.limit, params?.page, epochsKey],
     enabled: !disabled,
-    staleTime: Infinity,
+    // Tournament summaries shift on epoch boundaries (~daily on Penumbra)
+    // and incrementally as epochs progress. The previous form fired on
+    // every block via useRefetchOnNewBlock — ~720× more aggressive than
+    // the data actually changes. 60s polling tracks the actual update
+    // rate, paused while the tab is backgrounded.
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const requestParams = {
         limit: params?.limit ?? BASE_LIMIT,
@@ -35,8 +41,6 @@ export const useTournamentSummary = (
       return response.data;
     },
   });
-
-  useRefetchOnNewBlock('tournament-summary', query, disabled);
 
   return query;
 };

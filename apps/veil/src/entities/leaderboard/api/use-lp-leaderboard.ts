@@ -6,7 +6,6 @@ import {
   LpLeaderboardSortKey,
   LpLeaderboardSortDirection,
 } from './utils';
-import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
 
 export const BASE_LIMIT = 10;
 export const BASE_PAGE = 1;
@@ -31,7 +30,14 @@ export const useLpLeaderboard = ({
   const queryKey = ['lp-leaderboard', epoch, page, limit, sortKey, sortDirection, assetId];
   const query = useQuery({
     queryKey,
-    staleTime: Infinity,
+    // Leaderboard re-ranks as fills accumulate within an epoch —
+    // minute-scale at best, not block-scale. The previous form fired
+    // on every block (~5s) for an aggregate that doesn't move that
+    // fast. 30s polling tracks the actual cadence, paused while the
+    // tab is backgrounded so an idle page stops hammering the API.
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       return apiPostFetch<LpLeaderboardResponse>('/api/tournament/lp-leaderboard', {
         epoch,
@@ -44,7 +50,6 @@ export const useLpLeaderboard = ({
     },
     enabled: typeof epoch === 'number' && isActive,
   });
-  useRefetchOnNewBlock('lp-leaderboard', query);
 
   return query;
 };
