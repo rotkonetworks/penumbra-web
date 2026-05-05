@@ -262,69 +262,80 @@ export const Chart = observer(() => {
     fullySeededRef.current = true;
   }, [historyCandles, setCandlesData, setVolumeData]);
 
-  const onDragStart = (e: ReactPointerEvent) => {
-    e.preventDefault();
-    const container = containerRef.current;
-    if (!container) return;
+  // Stable across renders. Chart re-renders every block-tick via
+  // marketPrice; without useCallback the volume divider <div> and the
+  // chart container <div> would have their event listeners swapped each
+  // tick. setVolumeRatio comes from useChartConfig (already useCallback);
+  // priceAtY is also useCallback'd inside the same hook.
+  const onDragStart = useCallback(
+    (e: ReactPointerEvent) => {
+      e.preventDefault();
+      const container = containerRef.current;
+      if (!container) return;
 
-    const rect = container.getBoundingClientRect();
-    let pendingRatio: number | null = null;
-    let rafId = 0;
+      const rect = container.getBoundingClientRect();
+      let pendingRatio: number | null = null;
+      let rafId = 0;
 
-    // Pointer moves can fire 60-100×/s during a drag — without coalescing
-    // we'd hit setState + lightweight-charts applyOptions on every event.
-    // Pin the latest ratio in a closure-local cell, flush at most once per
-    // animation frame.
-    const flush = () => {
-      rafId = 0;
-      if (pendingRatio === null) return;
-      const ratio = pendingRatio;
-      pendingRatio = null;
-      setVolumeRatioState(ratio);
-      setVolumeRatio(ratio);
-    };
+      // Pointer moves can fire 60-100×/s during a drag — without coalescing
+      // we'd hit setState + lightweight-charts applyOptions on every event.
+      // Pin the latest ratio in a closure-local cell, flush at most once
+      // per animation frame.
+      const flush = () => {
+        rafId = 0;
+        if (pendingRatio === null) return;
+        const ratio = pendingRatio;
+        pendingRatio = null;
+        setVolumeRatioState(ratio);
+        setVolumeRatio(ratio);
+      };
 
-    const onMove = (ev: PointerEvent) => {
-      const offset = ev.clientY - rect.top;
-      // ratio = volume's share = portion below cursor
-      pendingRatio = Math.min(0.6, Math.max(0.05, 1 - offset / rect.height));
-      if (rafId) return;
-      rafId = requestAnimationFrame(flush);
-    };
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      // Drain any pending rAF so the persisted value matches the final
-      // pointer position, not a frame behind.
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        flush();
-      }
-      // Persist the final value by reading via the state setter (avoids a
-      // dual-source-of-truth ref/state pair).
-      setVolumeRatioState(current => {
-        try {
-          window.localStorage.setItem(VOLUME_RATIO_KEY, String(current));
-        } catch {
-          // ignore storage errors
+      const onMove = (ev: PointerEvent) => {
+        const offset = ev.clientY - rect.top;
+        // ratio = volume's share = portion below cursor
+        pendingRatio = Math.min(0.6, Math.max(0.05, 1 - offset / rect.height));
+        if (rafId) return;
+        rafId = requestAnimationFrame(flush);
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        // Drain any pending rAF so the persisted value matches the final
+        // pointer position, not a frame behind.
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          flush();
         }
-        return current;
-      });
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
+        // Persist the final value by reading via the state setter (avoids
+        // a dual-source-of-truth ref/state pair).
+        setVolumeRatioState(current => {
+          try {
+            window.localStorage.setItem(VOLUME_RATIO_KEY, String(current));
+          } catch {
+            // ignore storage errors
+          }
+          return current;
+        });
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    },
+    [setVolumeRatio],
+  );
 
-  const onContextMenu = (e: ReactMouseEvent) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const price = priceAtY(y);
-    if (price === undefined) return;
-    e.preventDefault();
-    setMenu({ x: e.clientX - rect.left, y, price });
-  };
+  const onContextMenu = useCallback(
+    (e: ReactMouseEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const price = priceAtY(y);
+      if (price === undefined) return;
+      e.preventDefault();
+      setMenu({ x: e.clientX - rect.left, y, price });
+    },
+    [priceAtY],
+  );
 
   // Drawings click handling. lightweight-charts intercepts pointer events on
   // its canvas, so DOM onClick on the container doesn't fire reliably; route
