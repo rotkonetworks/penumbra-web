@@ -2,60 +2,79 @@ import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
-import { Toggle } from '@penumbra-zone/ui/Toggle';
 import { Text } from '@penumbra-zone/ui/Text';
 import { PositionsTable } from '@/entities/position';
-import { LiquidityTable } from '@/entities/liquidity';
 import { usePathToMetadata } from '../model/use-path';
 import { PositionState_PositionStateEnum as State } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 
 enum PositionsTabsType {
-  MY_POSITIONS = 'MY_POSITIONS',
-  MANAGE_LIQUIDITY = 'MANAGE_LIQUIDITY',
+  /** OPENED positions — actively quoting on-chain. */
+  OPEN_POSITIONS = 'OPEN_POSITIONS',
+  /** CLOSED positions — done quoting, reserves still locked. Bulk-withdraw target. */
+  CLOSED_POSITIONS = 'CLOSED_POSITIONS',
+  /** WITHDRAWN positions — terminal state, kept for record. */
+  POSITION_HISTORY = 'POSITION_HISTORY',
+  /** Swap fills the user actually executed (separate from LP positions). */
+  TRADE_HISTORY = 'TRADE_HISTORY',
 }
 
+/**
+ * Bottom panel tabs — split out from a single 'My Positions' view that
+ * mixed open and closed by default and hid withdrawn behind a toggle.
+ *
+ *   - 'Open positions' shows what you have quoting right now.
+ *   - 'Closed' shows what's been closed and is waiting on a withdraw to
+ *     return reserves; PositionsTable's bulk-withdraw button picks these
+ *     up automatically (tab is the right place to surface it).
+ *   - 'Position history' is the terminal-state log of withdrawn positions.
+ *   - 'Trade history' lists the user's swap fills (separate from LPs).
+ *     Pending the dex-tx query — placeholder for now.
+ */
 export const HistoryTabs = () => {
   const [parent] = useAutoAnimate();
-  const [tab, setTab] = useState<PositionsTabsType>(PositionsTabsType.MY_POSITIONS);
-  const [showInactive, setshowInactive] = useState(false);
+  const [tab, setTab] = useState<PositionsTabsType>(PositionsTabsType.OPEN_POSITIONS);
   const { baseAsset, quoteAsset } = usePathToMetadata();
 
   return (
     <div ref={parent} className='flex w-screen flex-col desktop:w-auto'>
-      <div className='flex justify-between gap-2 border-b border-b-other-solid-stroke px-4'>
+      <div className='flex items-center justify-between gap-2 border-b border-b-other-solid-stroke px-4'>
         <Density compact>
           <Tabs
             value={tab}
             actionType='accent'
             onChange={value => setTab(value as PositionsTabsType)}
             options={[
-              { value: PositionsTabsType.MY_POSITIONS, label: 'My Positions' },
-              /* TODO: uncomment manage liquidity tab */
-              // { value: PositionsTabsType.MANAGE_LIQUIDITY, label: 'Manage Liquidity' },
+              { value: PositionsTabsType.OPEN_POSITIONS, label: 'Open positions' },
+              { value: PositionsTabsType.CLOSED_POSITIONS, label: 'Closed (withdrawable)' },
+              { value: PositionsTabsType.POSITION_HISTORY, label: 'Position history' },
+              { value: PositionsTabsType.TRADE_HISTORY, label: 'Trade history' },
             ]}
           />
         </Density>
-
-        <label className='flex h-[42px] cursor-pointer items-center gap-2 py-2 text-text-secondary'>
-          <Text small>Show Inactive</Text>
-          <Toggle label='Show Inactive' value={showInactive} onChange={setshowInactive} />
-        </label>
       </div>
 
       <div className='p-4'>
-        {tab === PositionsTabsType.MY_POSITIONS && (
-          <PositionsTable
-            base={baseAsset}
-            quote={quoteAsset}
-            stateFilter={
-              showInactive
-                ? [State.OPENED, State.CLOSED, State.WITHDRAWN]
-                : [State.OPENED, State.CLOSED]
-            }
-          />
+        {tab === PositionsTabsType.OPEN_POSITIONS && (
+          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.OPENED]} />
         )}
-        {tab === PositionsTabsType.MANAGE_LIQUIDITY && <LiquidityTable />}
+        {tab === PositionsTabsType.CLOSED_POSITIONS && (
+          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.CLOSED]} />
+        )}
+        {tab === PositionsTabsType.POSITION_HISTORY && (
+          <PositionsTable base={baseAsset} quote={quoteAsset} stateFilter={[State.WITHDRAWN]} />
+        )}
+        {tab === PositionsTabsType.TRADE_HISTORY && <TradeHistoryPlaceholder />}
       </div>
     </div>
   );
 };
+
+const TradeHistoryPlaceholder = () => (
+  <div className='flex flex-col items-center justify-center gap-2 py-12'>
+    <Text color='text.secondary'>Trade history coming soon.</Text>
+    <Text small color='text.secondary'>
+      Tracks swap fills you executed on this pair. Open positions show as &quot;Open
+      positions&quot; above.
+    </Text>
+  </div>
+);
