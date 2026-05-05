@@ -1,4 +1,5 @@
 import { observer } from 'mobx-react-lite';
+import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
@@ -36,6 +37,14 @@ export const RangeLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
     const { connected } = connectionStore;
     const { defaultDecimals, rangeForm: store } = parentStore;
+    // Display-rounded mid string for the price-input placeholders. Empty
+    // upper/lower fields show the live mid as ghost text — same minor
+    // affordance the limit form's price input already has, so the trader
+    // sees the chain's current mid right at the field they're filling.
+    const midText =
+      parentStore.marketPrice != null
+        ? round({ value: parentStore.marketPrice, decimals: 6 })
+        : undefined;
 
     return (
       <div className='p-4'>
@@ -84,6 +93,7 @@ export const RangeLiquidityOrderForm = observer(
               round
               label='Upper Price Bound'
               value={store.upperPriceInput}
+              placeholder={midText}
               decimals={store.quoteAsset?.exponent ?? defaultDecimals}
               // Bound MobX setter directly — OrderInput is memo'd and a
               // fresh inline wrapper would defeat the memo on the *other*
@@ -110,6 +120,7 @@ export const RangeLiquidityOrderForm = observer(
               round
               label='Lower Price Bound'
               value={store.lowerPriceInput}
+              placeholder={midText}
               decimals={store.quoteAsset?.exponent ?? defaultDecimals}
               onChange={
                 store.setLowerPriceInput as (amount: string, ...args: unknown[]) => void
