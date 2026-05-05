@@ -18,7 +18,7 @@ const ActiveVotingPowerPanelLoader: FC<Props> = async props => {
                 <Image alt="UM" height={32} src={penumbraImage} width={32} />
             }
             numberSuffix="UM"
-            title="Active voting power"
+            title="Bonded stake"
         />
     )
 }

@@ -25,7 +25,7 @@ const ActiveVotingPowerPanelContainer: FC<Props> = props => (
                     />
                 }
                 numberSuffix="UM"
-                title="Active voting power"
+                title="Bonded stake"
             />
         }
     >
