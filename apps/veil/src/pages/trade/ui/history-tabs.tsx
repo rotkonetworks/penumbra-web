@@ -45,7 +45,7 @@ export const HistoryTabs = () => {
             onChange={value => setTab(value as PositionsTabsType)}
             options={[
               { value: PositionsTabsType.OPEN_POSITIONS, label: 'Open positions' },
-              { value: PositionsTabsType.CLOSED_POSITIONS, label: 'Closed (withdrawable)' },
+              { value: PositionsTabsType.CLOSED_POSITIONS, label: 'Closed' },
               { value: PositionsTabsType.POSITION_HISTORY, label: 'Position history' },
               { value: PositionsTabsType.TRADE_HISTORY, label: 'Trade history' },
             ]}
