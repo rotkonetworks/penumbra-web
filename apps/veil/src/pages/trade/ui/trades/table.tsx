@@ -7,6 +7,7 @@ import { Density } from '@penumbra-zone/ui/Density';
 import { Text } from '@penumbra-zone/ui/Text';
 import { pluralize } from '@/shared/utils/pluralize';
 import type { RecentExecution } from '@/shared/api/server/recent-executions';
+import { useMarketPrice } from '../../model/useMarketPrice';
 import { EmptyTrades } from './empty';
 
 const ErrorState = ({ error }: { error: Error }) => {
@@ -31,6 +32,11 @@ export interface TradesTableProps {
 
 export const TradesTable = ({ error, data, isLoading }: TradesTableProps) => {
   const [parent] = useAutoAnimate();
+  // Current chain mid — used to annotate each historical fill with how far
+  // it sits from where the book is right now. A trader scanning the tape
+  // can immediately tell which prints were above/below the live mid
+  // without doing the arithmetic themselves.
+  const { marketPrice } = useMarketPrice();
 
   const rows = data ?? (new Array(10).fill({ hops: [] }) as RecentExecution[]);
 
@@ -68,6 +74,27 @@ export const TradesTable = ({ error, data, isLoading }: TradesTableProps) => {
               >
                 {trade.price}
               </span>
+              {(() => {
+                if (!marketPrice || marketPrice <= 0 || !trade.price) return null;
+                const tradePrice = parseFloat(trade.price);
+                if (!Number.isFinite(tradePrice) || tradePrice <= 0) return null;
+                const deltaPct = ((tradePrice - marketPrice) / marketPrice) * 100;
+                // Don't surface a badge when the fill is essentially at
+                // mid (sub-bp) — visual noise that adds nothing.
+                if (Math.abs(deltaPct) < 0.05) return null;
+                return (
+                  <span
+                    className={cn(
+                      'ml-1 text-xs tabular-nums',
+                      Math.abs(deltaPct) > 1 ? 'text-text-secondary' : 'text-text-secondary/70',
+                    )}
+                    title={`${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}% from current chain mid`}
+                  >
+                    {deltaPct > 0 ? '+' : ''}
+                    {deltaPct.toFixed(2)}%
+                  </span>
+                );
+              })()}
             </TableCell>
             <TableCell
               variant={index !== rows.length - 1 ? 'cell' : 'lastCell'}
