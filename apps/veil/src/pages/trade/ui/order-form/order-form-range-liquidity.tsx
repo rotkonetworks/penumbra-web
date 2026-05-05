@@ -154,10 +154,27 @@ export const RangeLiquidityOrderForm = observer(
           />
         </div>
         <div className='mb-4'>
+          {/* Same 'what's being planted' summary as SimpleLP — anchor mid
+              and an endpoints-combined view of the order count, so the
+              trader doesn't have to mentally re-stitch upper / lower /
+              positions to picture the rung structure. */}
+          {parentStore.marketPrice && (
+            <InfoRow
+              label='Anchor mid'
+              value={`${parentStore.marketPrice.toFixed(store.quoteAsset?.exponent ?? defaultDecimals)} ${store.quoteAsset?.symbol ?? ''}`}
+              toolTip='The on-chain mid the form is centred on. The shape selector above weights liquidity around this point.'
+            />
+          )}
           <InfoRow
-            label='Number of positions'
-            value={store.positionCount}
-            toolTip='Each position will have an equal amount of liquidity allocated to it, as the price varies.'
+            label='Orders'
+            value={
+              store.positionCount !== undefined &&
+              store.lowerPrice !== undefined &&
+              store.upperPrice !== undefined
+                ? `${store.positionCount} between ${store.lowerPrice} → ${store.upperPrice}`
+                : (store.positionCount ?? '—')
+            }
+            toolTip='Each position is a single concentrated-liquidity slot the chain matches against. The shape selector above sets per-position weights — Linear is equal across all rungs, Concentrated stacks near mid, Volatile pushes to the edges.'
           />
           <InfoRow
             label='Base asset amount'

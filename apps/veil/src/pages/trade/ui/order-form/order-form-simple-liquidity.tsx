@@ -268,6 +268,34 @@ export const SimpleLiquidityOrderForm = observer(
               : `-${lowerPct.toFixed(2)}% / +${upperPct.toFixed(2)}%`;
             return <InfoRow label='Range width' value={value} />;
           })()}
+          {/* Preview of what's about to be planted: anchor mid the form is
+              centred on, total order count, and price endpoints. The chart
+              overlay (LpPreviewOverlay) already renders the rungs visually
+              — these rows give the same info numerically for traders who
+              want exact numbers, not a band. */}
+          {(() => {
+            const mid = store.marketPrice;
+            if (!mid) return null;
+            const lo = priceRanges[0];
+            const hi = priceRanges[1];
+            const decimals = store.quoteAsset?.exponent ?? defaultDecimals;
+            return (
+              <>
+                <InfoRow
+                  label='Anchor mid'
+                  value={`${roundToDecimals(mid, decimals)} ${store.quoteAsset?.symbol ?? ''}`}
+                  toolTip='The on-chain mid the form uses to split liquidity above vs. below. Comes from the live route book.'
+                />
+                {lo !== undefined && hi !== undefined && (
+                  <InfoRow
+                    label='Orders'
+                    value={`${store.positions} between ${roundToDecimals(lo, decimals)} → ${roundToDecimals(hi, decimals)}`}
+                    toolTip='How many positions will be opened across the range, and the price endpoints. Each position is a single concentrated-liquidity slot the chain matches against.'
+                  />
+                )}
+              </>
+            );
+          })()}
           {LQT_ENABLED && (
             <InfoRow
               label='LQT Rewards'
