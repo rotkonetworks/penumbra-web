@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, memo } from 'react';
 import { Star, CandlestickChart } from 'lucide-react';
 import cn from 'clsx';
 import { subDays } from 'date-fns';
@@ -42,7 +42,11 @@ export interface PairCardProps {
   summary: SummaryWithPrices;
 }
 
-export const PairCard = ({ summary }: PairCardProps) => {
+// Wrapped in memo so a parent re-render (e.g. typing into the explore-page
+// filter) only re-renders cards whose summary actually changed.
+// SummaryWithPrices objects are structurally-shared by React Query so
+// identity equality is the right comparison here.
+export const PairCard = memo(({ summary }: PairCardProps) => {
   const today = new Date();
   const yesterday = subDays(new Date(), 1);
 
@@ -145,4 +149,6 @@ export const PairCard = ({ summary }: PairCardProps) => {
       </div>
     </Link>
   );
-};
+});
+
+PairCard.displayName = 'PairCard';
