@@ -90,7 +90,7 @@ export const Summary = () => {
 
   const { data, isPending: isLoading, error } = useSummary(window);
   const getMetadata = useGetMetadata();
-  const { marketPrice } = useMarketPrice();
+  const { marketPrice, bestBid, bestAsk } = useMarketPrice();
   const midDirection = useTickDirection(marketPrice);
 
   if (error) {
@@ -146,6 +146,32 @@ export const Summary = () => {
             </Text>
           </div>
         </Tooltip>
+      </SummaryCard>
+      {/* Best bid + best ask side-by-side. Mid is the average of these
+          two; surfacing them explicitly tells the trader the actual prices
+          they could trade at right now (versus the synthetic mid). The
+          spread between them is shown in the chart's mid label and in
+          the SpreadRow — this card is the absolute reference. */}
+      <SummaryCard title='Bid / Ask' loading={isLoading && bestBid == null}>
+        {bestBid != null && bestAsk != null ? (
+          <Tooltip message='Highest active buy price (bid) and lowest active sell price (ask) on the route book. A market buy clears at the ask; a market sell clears at the bid.'>
+            <div className='flex items-center gap-1 font-mono text-xs tabular-nums'>
+              <Text detail color='success.light'>
+                {round({ value: bestBid, decimals: 6 })}
+              </Text>
+              <Text detail color='text.secondary'>
+                /
+              </Text>
+              <Text detail color='destructive.light'>
+                {round({ value: bestAsk, decimals: 6 })}
+              </Text>
+            </div>
+          </Tooltip>
+        ) : (
+          <Text detail color='text.primary'>
+            -
+          </Text>
+        )}
       </SummaryCard>
       <SummaryCard title='Last price' loading={isLoading}>
         <Tooltip message='Most recent fill on this pair. Lags the mid price on quiet pairs.'>

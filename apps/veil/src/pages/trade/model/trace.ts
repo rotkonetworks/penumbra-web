@@ -24,5 +24,9 @@ export const calculateSpread = (sellOrders: Trace[], buyOrders: Trace[]) => {
     amount: round({ value: spread, decimals: 8 }),
     percentage: round({ value: spreadPercentage, decimals: 2 }),
     midPrice: round({ value: midPrice, decimals: 8 }),
+    /** Highest buy price — best bid in the book. */
+    bestBid: round({ value: buyPrice, decimals: 8 }),
+    /** Lowest sell price — best ask. */
+    bestAsk: round({ value: sellPrice, decimals: 8 }),
   };
 };

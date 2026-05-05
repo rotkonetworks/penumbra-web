@@ -11,6 +11,10 @@ export const useMarketPrice = (
   /** Spread as a percentage of mid (e.g. 0.05 means 0.05%). Undefined while
    *  the book is loading. Useful to surface book tightness next to the mid. */
   spreadPercentage: number | undefined;
+  /** Highest buy in the book (best bid). */
+  bestBid: number | undefined;
+  /** Lowest sell in the book (best ask). */
+  bestAsk: number | undefined;
   symbols: { base: string; quote: string };
 } => {
   const pathSymbols = usePathSymbols();
@@ -28,6 +32,8 @@ export const useMarketPrice = (
     return {
       marketPrice: undefined,
       spreadPercentage: undefined,
+      bestBid: undefined,
+      bestAsk: undefined,
       symbols,
     };
   }
@@ -40,10 +46,14 @@ export const useMarketPrice = (
   // Return the midprice from spread calculation
   const marketPrice = spreadInfo ? parseFloat(spreadInfo.midPrice) : undefined;
   const spreadPercentage = spreadInfo ? parseFloat(spreadInfo.percentage) : undefined;
+  const bestBid = spreadInfo ? parseFloat(spreadInfo.bestBid) : undefined;
+  const bestAsk = spreadInfo ? parseFloat(spreadInfo.bestAsk) : undefined;
 
   return {
     marketPrice,
     spreadPercentage,
+    bestBid,
+    bestAsk,
     symbols,
   };
 };
