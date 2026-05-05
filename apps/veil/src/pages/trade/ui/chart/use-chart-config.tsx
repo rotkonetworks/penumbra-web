@@ -197,6 +197,53 @@ export const useChartConfig = (
     );
   };
 
+  /**
+   * Push the latest few candles into the existing series via series.update()
+   * — the lightweight-charts incremental API. Used by the per-block latest-
+   * candles refresh so we stop full-replacing 100+ history candles with the
+   * 5 latest ones every block (which used to wipe pagination state and
+   * trigger a full chart re-layout per tick).
+   *
+   * series.update() throws when the bar's time is older than the series'
+   * current last bar — wrap in try/catch so a stale tick (e.g. arriving
+   * after a duration switch but before the new history) doesn't crash the
+   * chart, just skips that bar.
+   */
+  const updateLatestCandles = useCallback((candles: CandleWithVolume[] = []) => {
+    const series = seriesRef.current;
+    if (!series || !candles.length) return;
+    for (const candle of candles) {
+      const high =
+        candle.ohlc.high / candle.ohlc.open > SUPER_CANDLE_RATIO
+          ? candle.ohlc.open * SUPER_CANDLE_RATIO
+          : candle.ohlc.high;
+      try {
+        series.update({ ...candle.ohlc, high });
+      } catch {
+        // Bar is older than the series' last known time. Safe to skip.
+      }
+    }
+  }, []);
+
+  const updateLatestVolumes = useCallback((candles: CandleWithVolume[] = []) => {
+    const vol = volumeSeriesRef.current;
+    if (!vol || !candles.length) return;
+    for (const candle of candles) {
+      try {
+        vol.update({
+          time: candle.ohlc.time,
+          value: candle.volume,
+          color:
+            candle.ohlc.close >= candle.ohlc.open
+              ? theme.color.success.light + '80'
+              : theme.color.destructive.light + '80',
+        });
+      } catch {
+        // Same as updateLatestCandles: skip stale bars.
+      }
+    }
+  }, []);
+
   const setChartRef = useCallback((node: HTMLDivElement | null) => {
     // unmount when node is null
     if (!node) {
@@ -463,6 +510,8 @@ export const useChartConfig = (
     chartRef: setChartRef,
     setVolumeData,
     setCandlesData,
+    updateLatestCandles,
+    updateLatestVolumes,
     setVolumeRatio,
     priceAtY,
     yAtPrice,

@@ -69,6 +69,8 @@ export const Chart = observer(() => {
     chartRef,
     setVolumeData,
     setCandlesData,
+    updateLatestCandles,
+    updateLatestVolumes,
     setVolumeRatio,
     priceAtY,
     yAtPrice,
@@ -143,12 +145,39 @@ export const Chart = observer(() => {
     setVolumeRatio(initial);
   }, [setVolumeRatio]);
 
+  // Tracks whether history has fully painted the chart at least once.
+  // Until then, latestCandles does the initial paint (history is heavier
+  // and slower). Once history arrives, latestCandles switches to incremental
+  // series.update() so each block tick stops wiping pagination.
+  const fullySeededRef = useRef(false);
+
+  // Reset on duration change — the chart container unmounts/remounts via the
+  // isLoading gate, so the ref must reset alongside that lifecycle.
+  useEffect(() => {
+    fullySeededRef.current = false;
+  }, [duration]);
+
   useEffect(() => {
     if (!latestCandles?.length) {
       return;
     }
-    setCandlesData(latestCandles);
-  }, [latestCandles, setCandlesData]);
+    if (!fullySeededRef.current) {
+      // First paint: history hasn't arrived yet, seed with the latest few.
+      setCandlesData(latestCandles);
+      setVolumeData(latestCandles);
+      return;
+    }
+    // History is already on screen. Push only the rightmost ticks so the
+    // 100+ candle series isn't full-replaced on every block.
+    updateLatestCandles(latestCandles);
+    updateLatestVolumes(latestCandles);
+  }, [
+    latestCandles,
+    setCandlesData,
+    setVolumeData,
+    updateLatestCandles,
+    updateLatestVolumes,
+  ]);
 
   useEffect(() => {
     if (!historyCandles?.pages.length) {
@@ -159,6 +188,7 @@ export const Chart = observer(() => {
     const candles = historyCandles.pages.toReversed().flat();
     setCandlesData(candles);
     setVolumeData(candles);
+    fullySeededRef.current = true;
   }, [historyCandles, setCandlesData, setVolumeData]);
 
   const onDragStart = (e: ReactPointerEvent) => {
