@@ -31,6 +31,10 @@ const SearchResultOverlay: FC<Props> = props => (
             transition: { duration: 0.2, ease: 'easeOut' },
         }}
         initial={{ opacity: 0 }}
+        // mousedown fires *before* blur, so cancelling its default keeps
+        // focus on the input — the subsequent click on a Link still
+        // navigates because click happens after.
+        onMouseDown={e => e.preventDefault()}
     >
         {props.title && (
             <h3 className="text-text-secondary px-2 py-1 text-sm">

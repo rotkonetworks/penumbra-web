@@ -155,10 +155,18 @@ const SearchContainer: FC<Props> = props => {
             const cleanedValue = value.trim().replaceAll(',', '')
 
             if (cleanedValue) {
-                executeSearchQuery(cleanedValue).then(result => {
-                    setSearchResult(result)
-                    setQueryExecuted(true)
-                })
+                // Catch so queryExecuted flips even if the GraphQL endpoint
+                // errors. Without this, a transient network blip would leave
+                // queryExecuted=false and the dropdown would never render.
+                executeSearchQuery(cleanedValue)
+                    .then(result => {
+                        setSearchResult(result)
+                        setQueryExecuted(true)
+                    })
+                    .catch(() => {
+                        setSearchResult(undefined)
+                        setQueryExecuted(true)
+                    })
             } else {
                 cancelSearchQuery()
                 setQueryExecuted(false)
@@ -254,8 +262,12 @@ const SearchContainer: FC<Props> = props => {
                 type="text"
                 value={inputQuery}
             />
+            {/* Render the dropdown when focused OR when the user has typed
+                something — typing alone is enough intent to show results
+                even if the input briefly loses focus to an autocomplete or
+                a parent click handler. */}
             <AnimatePresence initial={false}>
-                {focused && searchResults}
+                {(focused || inputQuery) && searchResults}
             </AnimatePresence>
         </div>
     )

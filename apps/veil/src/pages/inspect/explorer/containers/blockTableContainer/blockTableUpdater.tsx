@@ -130,8 +130,16 @@ const BlockTableUpdater: FC<Props> = ({
         }
         document.addEventListener('visibilitychange', onVisible)
 
+        // Hard-poll every 15s as a safety net in case the websocket subscription
+        // silently dies (mid-host network blip, ws server restart, etc).
+        // The query is a single 10-row read; cheap.
+        const pollId = window.setInterval(() => {
+            void refillVisibleWindow()
+        }, 15_000)
+
         return () => {
             unsubscribe()
+            window.clearInterval(pollId)
             document.removeEventListener('visibilitychange', onVisible)
         }
     }, [client, subscription])
