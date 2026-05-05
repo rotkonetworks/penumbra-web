@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Settings2, Check } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import type { ChartPrefs } from './use-chart-prefs';
@@ -49,7 +49,13 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
   },
 ];
 
-export const ChartSettingsMenu = ({ prefs, onToggle, walletConnected }: Props) => {
+// memo'd because the chart re-renders on every block-tick via marketPrice,
+// but this menu's three props (`prefs` state, `onToggle` useCallback,
+// `walletConnected` boolean) are stable across those renders. Without
+// memo the SPECS.map() below would re-allocate five fresh ToggleSpec
+// objects every block — cheap individually but pure waste on a closed
+// menu the user only opens once a session.
+export const ChartSettingsMenu = memo(({ prefs, onToggle, walletConnected }: Props) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -69,21 +75,29 @@ export const ChartSettingsMenu = ({ prefs, onToggle, walletConnected }: Props) =
     };
   }, [open]);
 
+  const toggleOpen = useCallback(() => setOpen(o => !o), []);
+
   // openOrders is not implemented yet — placeholder. Wallet-gated overlays
-  // grey out until the user connects so the menu doesn't lie.
-  const specs: ToggleSpec[] = SPECS.map(s => ({
-    ...s,
-    disabled:
-      s.key === 'openOrders' ||
-      ((s.key === 'ownPositions' || s.key === 'ownTrades') && !walletConnected),
-  }));
+  // grey out until the user connects so the menu doesn't lie. Memoize on
+  // [walletConnected] so the disabled-flag computation runs once per
+  // connection-state change, not on every parent re-render.
+  const specs = useMemo<ToggleSpec[]>(
+    () =>
+      SPECS.map(s => ({
+        ...s,
+        disabled:
+          s.key === 'openOrders' ||
+          ((s.key === 'ownPositions' || s.key === 'ownTrades') && !walletConnected),
+      })),
+    [walletConnected],
+  );
 
   return (
     <div ref={ref} className='relative'>
       <button
         type='button'
         aria-label='Chart overlays'
-        onClick={() => setOpen(o => !o)}
+        onClick={toggleOpen}
         className='flex h-7 w-7 items-center justify-center rounded text-text-secondary transition-colors hover:bg-action-hover-overlay hover:text-text-primary'
       >
         <Settings2 className='h-4 w-4' />
@@ -139,4 +153,6 @@ export const ChartSettingsMenu = ({ prefs, onToggle, walletConnected }: Props) =
       )}
     </div>
   );
-};
+});
+
+ChartSettingsMenu.displayName = 'ChartSettingsMenu';
