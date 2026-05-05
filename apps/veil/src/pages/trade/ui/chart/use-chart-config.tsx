@@ -58,15 +58,6 @@ export const useChartConfig = (
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
 
-  // Click subscribers registered before the chart finishes mounting are
-  // queued here and replayed after createChart() runs.
-  type ClickCallback = (
-    point: { x: number; y: number },
-    price: number,
-    time: number | undefined,
-  ) => void;
-  const pendingClickSubscribersRef = useRef<Set<ClickCallback>>(new Set());
-
   const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
     const series = seriesRef.current;
     if (!series) return;
@@ -279,26 +270,6 @@ export const useChartConfig = (
           void loadMore();
         }
       });
-
-      // Replay any click subscribers that were registered before the chart
-      // was ready. Anything in the pending set arrived from a useEffect
-      // that ran during initial mount, before this ref-callback fired.
-      const pending = pendingClickSubscribersRef.current;
-      if (pending.size && seriesRef.current) {
-        const chart = chartRef.current;
-        const series = seriesRef.current;
-        for (const cb of pending) {
-          const handler = (param: { point?: { x: number; y: number }; time?: unknown }) => {
-            if (!param.point) return;
-            const price = series.coordinateToPrice(param.point.y);
-            if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return;
-            const time = typeof param.time === 'number' ? param.time : undefined;
-            cb(param.point, price, time);
-          };
-          chart.subscribeClick(handler);
-        }
-        pending.clear();
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dependent data is called from the function using current data
   }, []);
@@ -341,57 +312,29 @@ export const useChartConfig = (
   /**
    * Subscribe to native chart clicks. lightweight-charts captures pointer
    * events on its canvas and exposes them via subscribeClick — using DOM
-   * onClick on the container does not fire reliably.
-   *
-   * The wrinkle: this is called from a useEffect that runs at mount time,
-   * but chartRef.current isn't populated until the ref-callback in
-   * setChartRef fires after the DOM node mounts. Without buffering, the
-   * subscription would short-circuit and never attach (the bug that made
-   * drawing tools silently no-op).
-   *
-   * Track pending subscribers and replay them onto the chart at creation.
+   * onClick on the container does not fire reliably. Caller receives
+   * pixel point, price at the click, and the chart time at the click.
    */
-  const wireClickHandler = useCallback((cb: ClickCallback): (() => void) => {
-    const chart = chartRef.current;
-    const series = seriesRef.current;
-    if (!chart || !series) return () => undefined;
-    const handler = (param: { point?: { x: number; y: number }; time?: unknown }) => {
-      if (!param.point) return;
-      const price = series.coordinateToPrice(param.point.y);
-      if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return;
-      const time = typeof param.time === 'number' ? param.time : undefined;
-      cb(param.point, price, time);
-    };
-    chart.subscribeClick(handler);
-    return () => chart.unsubscribeClick(handler);
-  }, []);
-
   const subscribeChartClick = useCallback(
-    (cb: ClickCallback): (() => void) => {
-      // If the chart is already up, attach now and return the real
-      // unsubscribe.
-      if (chartRef.current && seriesRef.current) {
-        return wireClickHandler(cb);
-      }
-      // Otherwise queue and return an unsubscribe that either removes
-      // from the queue (if still pending) or detaches the wired handler.
-      pendingClickSubscribersRef.current.add(cb);
-      let wiredUnsub: (() => void) | null = null;
-      const off = () => {
-        pendingClickSubscribersRef.current.delete(cb);
-        wiredUnsub?.();
-      };
-      // Stash a hook so flushPendingClickSubscribers can record the
-      // wired unsub against this caller.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (off as any).__wire = (u: () => void) => {
-        wiredUnsub = u;
-      };
-      return off;
-    },
-    [wireClickHandler],
-  );
+    (
+      cb: (point: { x: number; y: number }, price: number, time: number | undefined) => void,
+    ): (() => void) => {
+      const chart = chartRef.current;
+      const series = seriesRef.current;
+      if (!chart || !series) return () => undefined;
 
+      const handler = (param: { point?: { x: number; y: number }; time?: unknown }) => {
+        if (!param.point) return;
+        const price = series.coordinateToPrice(param.point.y);
+        if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return;
+        const time = typeof param.time === 'number' ? param.time : undefined;
+        cb(param.point, price, time);
+      };
+      chart.subscribeClick(handler);
+      return () => chart.unsubscribeClick(handler);
+    },
+    [],
+  );
 
   /**
    * Subscribe to crosshair-hover changes. Caller receives the candle
