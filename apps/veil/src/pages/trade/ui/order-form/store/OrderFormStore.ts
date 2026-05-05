@@ -63,8 +63,26 @@ export class OrderFormStore {
   constructor() {
     makeAutoObservable(this);
 
+    // Watch a structural fingerprint, not `this.plan`'s reference. The
+    // plan getter rebuilds a fresh array on every mid-price tick (because
+    // the per-position price split shifts when mid moves) but the
+    // wire-level gas cost is ~ proportional to the *number* of
+    // positions and the active form, not where each rung sits. The old
+    // form fired planTransaction every block on a populated LP form
+    // for an estimate that almost never changed; the new fingerprint
+    // fires only when the shape of the transaction actually shifts.
     reaction(
-      () => this.plan,
+      () => {
+        const p = this.plan;
+        if (!p) return `none|${this._whichForm}`;
+        // positionOpens is the LP path, swaps is the Market path,
+        // swapClaims/positionCloses for the close/withdraw flows. Sum
+        // gives a stable structural count that doesn't shift on per-
+        // tick price re-allocation.
+        const opens = p.positionOpens?.length ?? 0;
+        const swaps = p.swaps?.length ?? 0;
+        return `${opens}/${swaps}|${this._whichForm}`;
+      },
       debounce(() => void this.estimateGasFee(), GAS_DEBOUNCE_MS),
     );
   }
