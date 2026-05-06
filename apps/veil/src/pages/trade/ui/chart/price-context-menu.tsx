@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { ComponentType, useEffect, useRef } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
+import type { LucideProps } from 'lucide-react';
 
 export interface PriceMenuItem {
   label: string;
   hint?: string;
   tone?: 'buy' | 'sell' | 'neutral';
+  /** Optional leading icon — usually a lucide icon component. */
+  icon?: ComponentType<LucideProps>;
   onSelect: () => void;
 }
 
@@ -67,27 +70,31 @@ export const PriceContextMenu = ({
           )}
         </div>
       </div>
-      {items.map((item, idx) => (
-        <button
-          key={idx}
-          type='button'
-          role='menuitem'
-          onClick={() => {
-            item.onSelect();
-            onClose();
-          }}
-          className='flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-action-hover-overlay'
-        >
-          <span className={toneClass[item.tone ?? 'neutral']}>
-            <Text detail>{item.label}</Text>
-          </span>
-          {item.hint && (
-            <Text detail color='text.secondary'>
-              {item.hint}
-            </Text>
-          )}
-        </button>
-      ))}
+      {items.map((item, idx) => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={idx}
+            type='button'
+            role='menuitem'
+            onClick={() => {
+              item.onSelect();
+              onClose();
+            }}
+            className='flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-action-hover-overlay'
+          >
+            <span className={`flex items-center gap-2 ${toneClass[item.tone ?? 'neutral']}`}>
+              {Icon && <Icon size={14} className='shrink-0' />}
+              <Text detail>{item.label}</Text>
+            </span>
+            {item.hint && (
+              <Text detail color='text.secondary'>
+                {item.hint}
+              </Text>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };

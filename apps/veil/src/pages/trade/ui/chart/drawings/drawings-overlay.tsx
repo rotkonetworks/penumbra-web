@@ -196,70 +196,10 @@ export const DrawingsOverlay = ({
     setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, id, label });
   };
 
-  // Drag-or-click handler for horizontal lines. Pointer-down starts
-  // tracking; if the user moves the cursor more than DRAG_THRESHOLD
-  // pixels we enter drag mode and feed live updates to onUpdate; if
-  // they release without moving past the threshold, treat as a plain
-  // click and open the manage menu. rAF-coalesced like the volume
-  // divider drag so dragging is smooth on deep books.
-  const DRAG_THRESHOLD = 4;
-  const startHLineDrag = (id: string, label: string) => (e: React.PointerEvent) => {
-    // Only react to primary (left) button; right-click falls through to
-    // onContextMenu as before.
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const svg = containerRef.current;
-    if (!svg) return;
-    const startY = e.clientY;
-    const startClientX = e.clientX;
-    const startClientY = e.clientY;
-    let dragging = false;
-    let pendingPrice: number | null = null;
-    let rafId = 0;
-    const flush = () => {
-      rafId = 0;
-      if (pendingPrice === null) return;
-      const next = pendingPrice;
-      pendingPrice = null;
-      onUpdate(id, { price: next });
-    };
-    const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - startClientX;
-      const dy = ev.clientY - startClientY;
-      if (!dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-      dragging = true;
-      const rect = svg.getBoundingClientRect();
-      const y = ev.clientY - rect.top;
-      const p = priceAtY(y);
-      if (p === undefined || !Number.isFinite(p) || p <= 0) return;
-      pendingPrice = p;
-      if (rafId) return;
-      rafId = requestAnimationFrame(flush);
-    };
-    const onUp = (ev: PointerEvent) => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        flush();
-      }
-      // Click path: no drag took place → open the manage menu at the
-      // pointer-up location, same behaviour as the previous onClick.
-      if (!dragging) {
-        const rect = svg.getBoundingClientRect();
-        setMenu({
-          x: ev.clientX - rect.left,
-          y: ev.clientY - rect.top,
-          id,
-          label,
-        });
-      }
-      void startY; // keep TS happy if startY ever goes unused
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
+  // Suppress unused warnings — wired through for future drag-to-move /
+  // endpoint-handle editing on horizontal / trend / rectangle drawings.
+  void priceAtY;
+  void onUpdate;
 
   return (
     <>
@@ -291,10 +231,8 @@ export const DrawingsOverlay = ({
                 strokeWidth='1'
                 strokeDasharray='4 3'
               />
-              {/* Wider invisible hit area. Pointer-down to drag-or-
-                  click: a release without movement opens the manage
-                  menu (delete), a drag of >= 4px moves the line. Right-
-                  click also opens the menu. */}
+              {/* Wider invisible hit area. Click or right-click both
+                  open the manage menu (Delete). */}
               <line
                 x1='0'
                 x2='100%'
@@ -302,12 +240,12 @@ export const DrawingsOverlay = ({
                 y2={line.y}
                 stroke='transparent'
                 strokeWidth='8'
-                style={{ cursor: 'ns-resize' }}
-                onPointerDown={startHLineDrag(line.id, formatPrice(line.price))}
+                style={{ cursor: 'pointer' }}
+                onClick={openMenu(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
               >
                 <title>
-                  Drag to move · click to delete · {formatPrice(line.price)}
+                  Click to delete · {formatPrice(line.price)}
                   {deltaText ? ` (${deltaText} from mid)` : ''}
                 </title>
               </line>
@@ -318,8 +256,8 @@ export const DrawingsOverlay = ({
                 height='14'
                 fill={line.color}
                 opacity='0.85'
-                style={{ cursor: 'ns-resize' }}
-                onPointerDown={startHLineDrag(line.id, formatPrice(line.price))}
+                style={{ cursor: 'pointer' }}
+                onClick={openMenu(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
               />
               <text

@@ -10,6 +10,15 @@ import {
   useState,
 } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
+import {
+  RotateCcw,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  Bell,
+  Minus as MinusIcon,
+  ShoppingCart,
+  Tag,
+} from 'lucide-react';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { useInfiniteCandles } from '../../api/infinite-candles';
@@ -578,13 +587,6 @@ export const Chart = observer(() => {
     const showBuy = marketPrice == null || price < marketPrice;
     const showSell = marketPrice == null || price > marketPrice;
 
-    const items: PriceMenuItem[] = [];
-    if (showBuy) {
-      items.push({ label: 'Buy at this price', tone: 'buy', onSelect: applyLimit('buy') });
-    }
-    if (showSell) {
-      items.push({ label: 'Sell at this price', tone: 'sell', onSelect: applyLimit('sell') });
-    }
     const drawHorizontalLine = () => {
       addDrawing({
         id: `hl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -594,23 +596,60 @@ export const Chart = observer(() => {
         createdAt: Date.now(),
       });
     };
+    // Reset goes first — it's the 'I'm lost, take me back' affordance
+    // and the trader hits it most often. Other items are price-action
+    // (buy/sell), LP bounds, alerts, and chart annotations.
+    const items: PriceMenuItem[] = [
+      { label: 'Reset chart view', tone: 'neutral', icon: RotateCcw, onSelect: resetView },
+    ];
+    if (showBuy) {
+      items.push({
+        label: 'Buy at this price',
+        tone: 'buy',
+        icon: ShoppingCart,
+        onSelect: applyLimit('buy'),
+      });
+    }
+    if (showSell) {
+      items.push({
+        label: 'Sell at this price',
+        tone: 'sell',
+        icon: Tag,
+        onSelect: applyLimit('sell'),
+      });
+    }
     items.push(
-      { label: 'Set as LP lower bound', tone: 'neutral', onSelect: applyLPBound('lower') },
-      { label: 'Set as LP upper bound', tone: 'neutral', onSelect: applyLPBound('upper') },
+      {
+        label: 'Set as LP lower bound',
+        tone: 'neutral',
+        icon: ArrowDownToLine,
+        onSelect: applyLPBound('lower'),
+      },
+      {
+        label: 'Set as LP upper bound',
+        tone: 'neutral',
+        icon: ArrowUpToLine,
+        onSelect: applyLPBound('upper'),
+      },
       {
         label:
           marketPrice != null && price >= marketPrice
             ? 'Alert when price goes above'
             : 'Alert when price drops below',
         tone: 'neutral',
+        icon: Bell,
         onSelect: setAlertHere,
       },
       // Drop a horizontal line on the chart at this price level — same
       // result as switching to the line-drawing tool and clicking, just
       // one click instead of two. Useful for marking S/R levels off a
       // glance at the candle.
-      { label: 'Mark this price (horizontal line)', tone: 'neutral', onSelect: drawHorizontalLine },
-      { label: 'Reset chart view', tone: 'neutral', onSelect: resetView },
+      {
+        label: 'Mark this price (horizontal line)',
+        tone: 'neutral',
+        icon: MinusIcon,
+        onSelect: drawHorizontalLine,
+      },
     );
     return items;
   };
