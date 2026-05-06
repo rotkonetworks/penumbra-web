@@ -1,3 +1,4 @@
+import { useCallback, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -22,12 +23,8 @@ import {
   FeeTierOptions,
 } from './store/RangeOrderFormStore';
 import { LiquidityDistributionShape } from '@/shared/math/position';
+import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
 
-// Module-scoped — Object.values() of an enum allocates a fresh array on
-// every call, and these three SelectGroups otherwise re-allocate three
-// 4-or-5-element arrays per parent re-render (which fires every block-tick
-// via marketPrice). Same idiom as the form-tabs / history-tabs / limit-form
-// option hoists.
 const UPPER_BOUND_OPTIONS = Object.values(UpperBoundOptions);
 const LOWER_BOUND_OPTIONS = Object.values(LowerBoundOptions);
 const FEE_TIER_OPTIONS = Object.values(FeeTierOptions);
@@ -37,14 +34,103 @@ export const RangeLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
     const { connected } = connectionStore;
     const { defaultDecimals, rangeForm: store } = parentStore;
-    // Display-rounded mid string for the price-input placeholders. Empty
-    // upper/lower fields show the live mid as ghost text — same minor
-    // affordance the limit form's price input already has, so the trader
-    // sees the chain's current mid right at the field they're filling.
-    const midText =
-      parentStore.marketPrice != null
-        ? round({ value: parentStore.marketPrice, decimals: 6 })
-        : undefined;
+    const [confirmOpen, setConfirmOpen] = useState(false);
+
+    const baseSym = store.baseAsset?.symbol ?? '';
+    const quoteSym = store.quoteAsset?.symbol ?? '';
+    const decimals = store.quoteAsset?.exponent ?? defaultDecimals;
+    const lo = store.lowerPrice;
+    const hi = store.upperPrice;
+    const mid = parentStore.marketPrice;
+    const midText = mid != null ? round({ value: mid, decimals: 6 }) : undefined;
+    const rangeCoversMid = mid != null && lo != null && hi != null && mid >= lo && mid <= hi;
+    const positionCount = store.positionCount;
+
+    const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
+      const rows: ConfirmInfoRow[] = [];
+      if (mid != null) {
+        rows.push({
+          label: 'Mid price',
+          value: `${round({ value: mid, decimals: 6 })} ${quoteSym}`,
+        });
+      }
+      if (lo != null && hi != null) {
+        rows.push({
+          label: 'Range',
+          value: `${round({ value: lo, decimals })} → ${round({ value: hi, decimals })} ${quoteSym}`,
+        });
+        if (mid != null && mid > 0) {
+          const lowerPct = ((mid - lo) / mid) * 100;
+          const upperPct = ((hi - mid) / mid) * 100;
+          const symmetric = Math.abs(lowerPct - upperPct) < 0.05;
+          rows.push({
+            label: 'Range width',
+            value: symmetric
+              ? `±${Math.abs(lowerPct).toFixed(2)}%`
+              : `-${lowerPct.toFixed(2)}% / +${upperPct.toFixed(2)}%`,
+          });
+        }
+      }
+      rows.push({
+        label: 'Positions',
+        value: positionCount !== undefined ? String(positionCount) : '—',
+      });
+      rows.push({ label: 'Fee tier', value: `${store.feeTierPercentInput}%` });
+      if (store.baseAssetAmount) {
+        rows.push({ label: `${baseSym || 'Base'} amount`, value: store.baseAssetAmount });
+      }
+      if (store.quoteAssetAmount) {
+        rows.push({ label: `${quoteSym || 'Quote'} amount`, value: store.quoteAssetAmount });
+      }
+      rows.push({
+        label: 'Gas fee',
+        value: `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
+      });
+      return rows;
+    }, [
+      mid,
+      lo,
+      hi,
+      decimals,
+      baseSym,
+      quoteSym,
+      positionCount,
+      store.feeTierPercentInput,
+      store.baseAssetAmount,
+      store.quoteAssetAmount,
+      parentStore.gasFee.display,
+      parentStore.gasFee.symbol,
+    ]);
+
+    const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
+      if (mid == null || lo == null || hi == null) return [];
+      if (rangeCoversMid) return [];
+      const aboveMid = mid > hi;
+      return [
+        {
+          key: 'range-warning',
+          message: aboveMid
+            ? "Mid above range — fully ASK side, won't fill bids until price drops in"
+            : "Mid below range — fully BID side, won't fill asks until price rises in",
+        },
+      ];
+    }, [mid, lo, hi, rangeCoversMid]);
+
+    const actionLabel = useMemo(() => {
+      const count = positionCount ?? 'Several';
+      if (lo == null || hi == null) return `Open ${count} LP positions`;
+      return `Open ${count} LP positions between ${round({
+        value: lo,
+        decimals,
+      })} and ${round({ value: hi, decimals })} ${quoteSym}`;
+    }, [lo, hi, decimals, quoteSym, positionCount]);
+
+    const openConfirm = useCallback(() => setConfirmOpen(true), []);
+    const closeConfirm = useCallback(() => setConfirmOpen(false), []);
+    const handleConfirm = useCallback(() => {
+      setConfirmOpen(false);
+      void parentStore.submit();
+    }, [parentStore]);
 
     return (
       <div className='p-4'>
@@ -261,7 +347,7 @@ export const RangeLiquidityOrderForm = observer(
             <Button
               actionType='accent'
               disabled={!parentStore.canSubmit}
-              onClick={() => void parentStore.submit()}
+              onClick={openConfirm}
             >
               Open {store.positionCount ?? 'Several'} Positions
             </Button>
@@ -269,6 +355,16 @@ export const RangeLiquidityOrderForm = observer(
             <ConnectButton actionType='default' />
           )}
         </div>
+        <ConfirmOrderModal
+          isOpen={confirmOpen}
+          actionLabel={actionLabel}
+          rows={confirmRows}
+          warnings={confirmWarnings}
+          confirmDisabled={!parentStore.canSubmit}
+          confirmLabel={`Open ${positionCount ?? 'Several'} Positions`}
+          onConfirm={handleConfirm}
+          onCancel={closeConfirm}
+        />
         {parentStore.marketPrice && (
           <div className='flex justify-center p-1'>
             <Text small color='text.secondary'>
