@@ -191,7 +191,24 @@ export const DrawingsOverlay = ({
       setMenu(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenu(null);
+      // Esc closes the menu; Delete / Backspace deletes the drawing
+      // it's pointing at — same affordance Bybit / TradingView ship.
+      // Skip when focus is in an input/textarea so the user's typing
+      // isn't hijacked.
+      const tag = (document.activeElement as HTMLElement | null)?.tagName?.toLowerCase();
+      const inEditable =
+        tag === 'input' ||
+        tag === 'textarea' ||
+        (document.activeElement as HTMLElement | null)?.isContentEditable;
+      if (e.key === 'Escape') {
+        setMenu(null);
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !inEditable) {
+        e.preventDefault();
+        onDelete(menu.id);
+        setMenu(null);
+      }
     };
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
@@ -199,7 +216,7 @@ export const DrawingsOverlay = ({
       document.removeEventListener('click', onClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, [menu]);
+  }, [menu, onDelete]);
 
   if (drawings.length === 0) return null;
 
