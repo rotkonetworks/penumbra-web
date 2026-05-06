@@ -744,21 +744,20 @@ export const Chart = observer(() => {
 
       <div className='flex min-h-0 grow'>
         {/* Drawing toolbar in its own narrow column to the left of the
-            chart canvas. Keeps the canvas clean for the hover-tooltip
-            and the click-capture overlay (which is now bounded by the
-            canvas width, not the full chart width). */}
-        {!error && !isLoading && historyCandles && (
-          <DrawingToolbar
-            tool={tool}
-            onToolChange={setTool}
-            onClearAll={clearDrawings}
-            hasDrawings={drawings.length > 0}
-            onUndo={undoDrawing}
-            onRedo={redoDrawing}
-            canUndo={canUndo}
-            canRedo={canRedo}
-          />
-        )}
+            chart canvas. Always mounted (regardless of loading state)
+            so the column is reserved upfront and the chart canvas
+            never starts at the panel's left edge — keeps hover-
+            tooltip + drawing-toolbar in clearly separate lanes. */}
+        <DrawingToolbar
+          tool={tool}
+          onToolChange={setTool}
+          onClearAll={clearDrawings}
+          hasDrawings={drawings.length > 0}
+          onUndo={undoDrawing}
+          onRedo={redoDrawing}
+          canUndo={canUndo}
+          canRedo={canRedo}
+        />
         <div
           className='relative flex min-h-0 grow items-center justify-center'
           ref={containerRef}

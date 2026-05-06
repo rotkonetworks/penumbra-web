@@ -29,6 +29,10 @@ interface PositionedTrendLine {
   y1: number;
   x2: number;
   y2: number;
+  /** Original time/price coords kept here so the drag handler can
+   *  translate the line without round-tripping through xAtTime/yAtPrice. */
+  time1: number;
+  time2: number;
   price1: number;
   price2: number;
   color: string;
@@ -40,6 +44,8 @@ interface PositionedRectangle {
   y: number;
   width: number;
   height: number;
+  time1: number;
+  time2: number;
   price1: number;
   price2: number;
   color: string;
@@ -129,6 +135,8 @@ export const DrawingsOverlay = ({
             y1,
             x2,
             y2,
+            time1: d.time1,
+            time2: d.time2,
             price1: d.price1,
             price2: d.price2,
             color: d.color,
@@ -147,6 +155,8 @@ export const DrawingsOverlay = ({
             y: Math.min(y1, y2),
             width: Math.abs(x2 - x1),
             height: Math.abs(y2 - y1),
+            time1: d.time1,
+            time2: d.time2,
             price1: d.price1,
             price2: d.price2,
             color: d.color,
@@ -204,6 +214,101 @@ export const DrawingsOverlay = ({
   // The line stays painted during drag because each onUpdate triggers a
   // re-render with the new y from yAtPrice(price).
   const DRAG_THRESHOLD = 4;
+
+  // Generic drag-or-click handler factory for two-point shapes (trend-
+  // line, rectangle). Drag translates the whole shape by the cursor's
+  // price/time delta from pointer-down. No movement → open manage menu.
+  type TwoPointPatch = {
+    time1: number;
+    price1: number;
+    time2: number;
+    price2: number;
+  };
+  const startTwoPointDrag =
+    (
+      id: string,
+      label: string,
+      initial: TwoPointPatch,
+    ) =>
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      const svg = containerRef.current;
+      if (!svg) return;
+      const startClientX = e.clientX;
+      const startClientY = e.clientY;
+      const rect0 = svg.getBoundingClientRect();
+      const startPrice = priceAtY(startClientY - rect0.top);
+      const startTime = timeAtX(startClientX - rect0.left);
+      let dragging = false;
+      let pendingPatch: Partial<TwoPointPatch> | null = null;
+      let rafId = 0;
+      const flush = () => {
+        rafId = 0;
+        if (!pendingPatch) return;
+        const p = pendingPatch;
+        pendingPatch = null;
+        onUpdate(id, p as Partial<Drawing>);
+      };
+      const onMove = (ev: PointerEvent) => {
+        if (!dragging) {
+          if (
+            Math.hypot(ev.clientX - startClientX, ev.clientY - startClientY) <
+            DRAG_THRESHOLD
+          ) {
+            return;
+          }
+          dragging = true;
+        }
+        if (
+          startPrice === undefined ||
+          startTime === undefined ||
+          !Number.isFinite(startPrice) ||
+          !Number.isFinite(startTime)
+        ) {
+          return;
+        }
+        const rect = svg.getBoundingClientRect();
+        const curPrice = priceAtY(ev.clientY - rect.top);
+        const curTime = timeAtX(ev.clientX - rect.left);
+        if (
+          curPrice === undefined ||
+          curTime === undefined ||
+          !Number.isFinite(curPrice) ||
+          !Number.isFinite(curTime)
+        ) {
+          return;
+        }
+        const dPrice = curPrice - startPrice;
+        const dTime = curTime - startTime;
+        pendingPatch = {
+          time1: initial.time1 + dTime,
+          price1: initial.price1 + dPrice,
+          time2: initial.time2 + dTime,
+          price2: initial.price2 + dPrice,
+        };
+        if (rafId) return;
+        rafId = requestAnimationFrame(flush);
+      };
+      const onUp = (ev: PointerEvent) => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          flush();
+        }
+        if (!dragging) {
+          const rect = svg.getBoundingClientRect();
+          setMenu({
+            x: ev.clientX - rect.left,
+            y: ev.clientY - rect.top,
+            id,
+            label,
+          });
+        }
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
   const startHLineDrag = (id: string, label: string) => (e: React.PointerEvent) => {
     if (e.button !== 0) return; // primary click only; right-click → onContextMenu
     const svg = containerRef.current;
@@ -296,6 +401,11 @@ export const DrawingsOverlay = ({
                 y2={line.y}
                 stroke='transparent'
                 strokeWidth='8'
+                // SVG quirk: with stroke=transparent the default
+                // visiblePainted hit-test ignores the line. `stroke`
+                // forces the entire stroke geometry to capture
+                // pointer events regardless of fill/stroke colour.
+                pointerEvents='stroke'
                 style={{ cursor: 'ns-resize' }}
                 onPointerDown={startHLineDrag(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
@@ -363,8 +473,10 @@ export const DrawingsOverlay = ({
                 stroke={line.color}
                 strokeWidth='1.5'
               />
-              {/* Wider invisible hit area. Left or right click opens the
-                  manage menu. */}
+              {/* Wider invisible hit area. Pointer-down enters drag-or-
+                  click mode: <4px = click → manage menu; drag = move
+                  the whole line by translating both endpoints in
+                  price/time. */}
               <line
                 x1={line.x1}
                 y1={line.y1}
@@ -372,11 +484,17 @@ export const DrawingsOverlay = ({
                 y2={line.y2}
                 stroke='transparent'
                 strokeWidth='10'
-                style={{ cursor: 'pointer' }}
-                onClick={openMenu(line.id, slope)}
+                pointerEvents='stroke'
+                style={{ cursor: 'move' }}
+                onPointerDown={startTwoPointDrag(line.id, slope, {
+                  time1: line.time1,
+                  time2: line.time2,
+                  price1: line.price1,
+                  price2: line.price2,
+                })}
                 onContextMenu={openMenu(line.id, slope)}
               >
-                <title>Click to delete · {slope}</title>
+                <title>Drag to move · click for menu · {slope}</title>
               </line>
               <circle cx={line.x1} cy={line.y1} r={3} fill={line.color} />
               <circle cx={line.x2} cy={line.y2} r={3} fill={line.color} />
@@ -400,11 +518,16 @@ export const DrawingsOverlay = ({
                 stroke={rect.color}
                 strokeWidth='1'
                 strokeDasharray='4 3'
-                style={{ cursor: 'pointer' }}
-                onClick={openMenu(rect.id, label)}
+                style={{ cursor: 'move' }}
+                onPointerDown={startTwoPointDrag(rect.id, label, {
+                  time1: rect.time1,
+                  time2: rect.time2,
+                  price1: rect.price1,
+                  price2: rect.price2,
+                })}
                 onContextMenu={openMenu(rect.id, label)}
               >
-                <title>Click to delete · {label}</title>
+                <title>Drag to move · click for menu · {label}</title>
               </rect>
               {/* Anchor dots at each picked corner so user sees their clicks */}
               <circle cx={rect.x} cy={rect.y} r={2.5} fill={rect.color} pointerEvents='none' />
