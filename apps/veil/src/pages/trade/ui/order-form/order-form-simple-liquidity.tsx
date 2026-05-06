@@ -12,12 +12,13 @@ import { InfoRowGasFee } from './info-row-gas-fee';
 import { OrderFormStore } from './store/OrderFormStore';
 import { DEFAULT_PRICE_RANGE, DEFAULT_PRICE_SPREAD } from './store/SimpleLPFormStore';
 import { PriceSlider, roundToDecimals } from './price-slider';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@penumbra-zone/ui/Icon';
 import { Density } from '@penumbra-zone/ui/Density';
 import { useIsLqtEligible } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { LiquidityShape } from './liquidity-shape';
+import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
 
 export const SimpleLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
@@ -70,6 +71,107 @@ export const SimpleLiquidityOrderForm = observer(
         store.setUpperPriceInput(priceRanges[1]);
       }
     }, [store, priceRanges]);
+
+    const [confirmOpen, setConfirmOpen] = useState(false);
+
+    const baseSym = store.baseAsset?.symbol ?? '';
+    const quoteSym = store.quoteAsset?.symbol ?? '';
+    const decimals = store.quoteAsset?.exponent ?? defaultDecimals;
+    const lo = priceRanges[0];
+    const hi = priceRanges[1];
+    const mid = store.marketPrice;
+    const rangeCoversMid =
+      mid != null && lo !== undefined && hi !== undefined && mid >= lo && mid <= hi;
+
+    const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
+      const rows: ConfirmInfoRow[] = [];
+      if (mid != null) {
+        rows.push({
+          label: 'Anchor mid',
+          value: `${roundToDecimals(mid, decimals)} ${quoteSym}`,
+        });
+      }
+      if (lo !== undefined && hi !== undefined) {
+        rows.push({
+          label: 'Range',
+          value: `${roundToDecimals(lo, decimals)} → ${roundToDecimals(hi, decimals)} ${quoteSym}`,
+        });
+        if (mid != null && mid > 0) {
+          const lowerPct = ((mid - lo) / mid) * 100;
+          const upperPct = ((hi - mid) / mid) * 100;
+          const symmetric = Math.abs(lowerPct - upperPct) < 0.05;
+          rows.push({
+            label: 'Range width',
+            value: symmetric
+              ? `±${Math.abs(lowerPct).toFixed(2)}%`
+              : `-${lowerPct.toFixed(2)}% / +${upperPct.toFixed(2)}%`,
+          });
+        }
+      }
+      rows.push({ label: 'Positions', value: String(store.positions) });
+      rows.push({
+        label: `${baseSym || 'Base'} amount`,
+        value: store.baseInput || '—',
+      });
+      rows.push({
+        label: `${quoteSym || 'Quote'} amount`,
+        value: store.quoteInput || '—',
+      });
+      rows.push({
+        label: 'LQT rewards',
+        value: isLQTEligible ? 'Eligible' : 'Not eligible',
+        valueColor: isLQTEligible ? 'success' : undefined,
+      });
+      rows.push({
+        label: 'Gas fee',
+        value: `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
+      });
+      return rows;
+    }, [
+      mid,
+      lo,
+      hi,
+      decimals,
+      baseSym,
+      quoteSym,
+      store.positions,
+      store.baseInput,
+      store.quoteInput,
+      isLQTEligible,
+      parentStore.gasFee.display,
+      parentStore.gasFee.symbol,
+    ]);
+
+    const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
+      if (mid == null || lo === undefined || hi === undefined) return [];
+      if (rangeCoversMid) return [];
+      const aboveMid = mid > hi;
+      return [
+        {
+          key: 'range-warning',
+          message: aboveMid
+            ? "Mid above range — fully ASK side, won't fill bids until price drops in"
+            : "Mid below range — fully BID side, won't fill asks until price rises in",
+        },
+      ];
+    }, [mid, lo, hi, rangeCoversMid]);
+
+    const actionLabel = useMemo(() => {
+      if (lo === undefined || hi === undefined) {
+        return `Open ${store.positions} LP positions`;
+      }
+      return `Open ${store.positions} LP positions between ${roundToDecimals(
+        lo,
+        decimals,
+      )} and ${roundToDecimals(hi, decimals)} ${quoteSym}`;
+    }, [lo, hi, decimals, quoteSym, store.positions]);
+
+    const openConfirm = useCallback(() => setConfirmOpen(true), []);
+    const closeConfirm = useCallback(() => setConfirmOpen(false), []);
+    const handleConfirm = useCallback(() => {
+      setConfirmOpen(false);
+      void parentStore.submit();
+    }, [parentStore]);
 
     return (
       <div className='p-4'>
@@ -281,7 +383,7 @@ export const SimpleLiquidityOrderForm = observer(
             <Button
               actionType='accent'
               disabled={!parentStore.canSubmit}
-              onClick={() => void parentStore.submit()}
+              onClick={openConfirm}
             >
               Add Liquidity
             </Button>
@@ -289,6 +391,16 @@ export const SimpleLiquidityOrderForm = observer(
             <ConnectButton actionType='default' />
           )}
         </div>
+        <ConfirmOrderModal
+          isOpen={confirmOpen}
+          actionLabel={actionLabel}
+          rows={confirmRows}
+          warnings={confirmWarnings}
+          confirmDisabled={!parentStore.canSubmit}
+          confirmLabel='Add Liquidity'
+          onConfirm={handleConfirm}
+          onCancel={closeConfirm}
+        />
         {parentStore.marketPrice && (
           <div className='flex justify-center p-1'>
             <Text small color='text.secondary'>
