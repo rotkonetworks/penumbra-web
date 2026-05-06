@@ -249,6 +249,7 @@ export const Chart = observer(() => {
     drawings,
     add: addDrawing,
     remove: removeDrawing,
+    update: updateDrawing,
     clearAll: clearDrawings,
     undo: undoDrawing,
     redo: redoDrawing,
@@ -683,8 +684,11 @@ export const Chart = observer(() => {
               drawings={drawings}
               yAtPrice={yAtPrice}
               xAtTime={xAtTime}
+              priceAtY={priceAtY}
+              timeAtX={timeAtX}
               subscribeRedraw={subscribeRedraw}
               onDelete={removeDrawing}
+              onUpdate={updateDrawing}
             />
             <DrawingToolbar
               tool={tool}

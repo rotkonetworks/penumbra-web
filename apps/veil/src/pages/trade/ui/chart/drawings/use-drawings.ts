@@ -80,6 +80,18 @@ export const useDrawings = (pairKey: string) => {
     [mutate],
   );
 
+  // Patch a single drawing in place. Used for drag-to-move on
+  // horizontal-line / trend-line / rectangle. Patch shape is a partial
+  // of the same Drawing kind, so callers can update price / time fields
+  // without recreating the whole shape.
+  const update = useCallback(
+    (id: string, patch: Partial<Drawing>) =>
+      mutate(curr =>
+        curr.map(d => (d.id === id ? ({ ...d, ...patch } as Drawing) : d)),
+      ),
+    [mutate],
+  );
+
   const clearAll = useCallback(() => mutate(() => []), [mutate]);
 
   const undo = useCallback(() => {
@@ -107,5 +119,5 @@ export const useDrawings = (pairKey: string) => {
   const canUndo = pastRef.current.length > 0;
   const canRedo = futureRef.current.length > 0;
 
-  return { drawings, add, remove, clearAll, undo, redo, canUndo, canRedo };
+  return { drawings, add, remove, update, clearAll, undo, redo, canUndo, canRedo };
 };
