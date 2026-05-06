@@ -375,11 +375,30 @@ export const DrawingsOverlay = ({
         }
         const dPrice = curPrice - startPrice;
         const dTime = curTime - startTime;
+        const newTime1 = initial.time1 + dTime;
+        const newTime2 = initial.time2 + dTime;
+        const newPrice1 = initial.price1 + dPrice;
+        const newPrice2 = initial.price2 + dPrice;
+        // Validate: both new endpoints must positionable on the chart.
+        // If a translated endpoint would land outside the chart's
+        // visible time range, xAtTime/yAtPrice return undefined and
+        // recompute would drop the whole shape — the line/rect would
+        // visually disappear during the drag. Skip frames that can't
+        // commit so the shape stays at its last valid position; the
+        // next in-range frame resumes the drag.
+        if (
+          xAtTime(newTime1) === undefined ||
+          xAtTime(newTime2) === undefined ||
+          yAtPrice(newPrice1) === undefined ||
+          yAtPrice(newPrice2) === undefined
+        ) {
+          return;
+        }
         pendingPatch = {
-          time1: initial.time1 + dTime,
-          price1: initial.price1 + dPrice,
-          time2: initial.time2 + dTime,
-          price2: initial.price2 + dPrice,
+          time1: newTime1,
+          price1: newPrice1,
+          time2: newTime2,
+          price2: newPrice2,
         };
         if (rafId) return;
         rafId = requestAnimationFrame(flush);
@@ -834,13 +853,13 @@ export const DrawingsOverlay = ({
   );
 };
 
-// Color presets matching the rest of veil's chart palette: orange
-// (default), green/red (buy/sell hint), neutral light, plus a cool
-// blue for trend lines. Stored on each Drawing as a hex string.
+// Color presets matching veil's brand palette. Penumbra teal first
+// (the new default), orange (former default — primary.light, still
+// useful for accent), green/red (buy/sell hints), neutral.
 const DRAWING_COLOR_PRESETS = [
-  '#f49c43', // primary.light — default
+  '#53aea8', // secondary.light — Penumbra teal, default
+  '#f49c43', // primary.light — orange accent
   '#55d383', // success.light — green
   '#f17878', // destructive.light — red
-  '#7baaf7', // cool blue — for support/resistance trend lines
   '#d4d4d4', // neutral light — subtle marker
 ];

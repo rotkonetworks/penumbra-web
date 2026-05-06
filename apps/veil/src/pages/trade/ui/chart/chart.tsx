@@ -42,7 +42,11 @@ import type { ToolMode } from './drawings/types';
 // theme.ts exports a typing stub, so theme.color.primary.main resolves to ''
 // at runtime. Use the actual hex from theme.css for SVG strokes/fills that
 // need a real color value.
-const DRAWING_COLOR = '#f49c43';
+// Penumbra secondary.light — the teal that shows up everywhere in the
+// brand (Veil header, /tokenomics, About cards). Reads cleanly on the
+// candle backdrop without competing with the orange primary used on
+// active form chips and resting-LP markers.
+const DRAWING_COLOR = '#53aea8';
 import { HoverTooltip } from './hover-tooltip';
 import { useChartPrefs } from './use-chart-prefs';
 import { ChartSettingsMenu } from './chart-settings-menu';
