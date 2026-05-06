@@ -52,11 +52,12 @@ export const DrawingToolbar = ({
 }: ToolbarProps) => {
   return (
     // Mounted in a dedicated narrow column to the left of the chart
-    // canvas (see chart.tsx). Previously rendered absolute-positioned
-    // *over* the chart at top-left, which fought the hover-tooltip
-    // for the same corner. Own-lane layout keeps the chart canvas
-    // clean and avoids the z-index dance.
-    <div className='flex h-full flex-col gap-1 border-r border-r-other-solid-stroke bg-base-black/40 p-1'>
+    // canvas (see chart.tsx). shrink-0 so the chart never crushes the
+    // toolbar's natural width to zero on narrow viewports — the chart
+    // canvas has flex-grow on the sibling column instead. Previously
+    // rendered absolute-positioned *over* the chart at top-left,
+    // which fought the hover-tooltip for the same corner.
+    <div className='flex h-full shrink-0 flex-col gap-1 border-r border-r-other-solid-stroke bg-base-black/40 p-1'>
       <ToolButton
         title='Cursor (no drawing)'
         active={tool === 'none'}
