@@ -98,10 +98,11 @@ export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps)
 
   return (
     <div
-      // Render in the top-RIGHT (with room for the price axis on the
-      // right edge) so the tooltip doesn't sit on top of the drawing
-      // toolbar in the top-left corner.
-      className='pointer-events-none absolute top-2 right-16 z-30 min-w-[200px] rounded-sm border border-other-tonal-stroke bg-base-black/85 p-2.5 text-xs shadow-md backdrop-blur'
+      // Top-left corner. The drawing toolbar moved into its own
+      // left-edge lane outside the chart canvas, so this corner is
+      // clear and the tooltip can sit at its natural position next
+      // to the candle data being hovered.
+      className='pointer-events-none absolute top-2 left-2 z-30 min-w-[200px] rounded-sm border border-other-tonal-stroke bg-base-black/85 p-2.5 text-xs shadow-md backdrop-blur'
     >
       <div className='mb-1.5 text-text-secondary'>{formatTime(info.time)}</div>
       <div className='grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 tabular-nums'>
