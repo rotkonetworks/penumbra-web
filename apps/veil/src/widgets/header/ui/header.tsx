@@ -2,6 +2,7 @@ import { Density } from '@penumbra-zone/ui/Density';
 import { HeaderLogo } from './logo';
 import { StatusPopover } from './status-popover';
 import { HelpPopover } from './help-popover';
+import { SettingsPopover } from './settings-popover';
 import { MobileNav } from './mobile-nav';
 import { DesktopNav } from './desktop-nav';
 import { Connection } from './connection';
@@ -21,6 +22,7 @@ export const Header = () => {
         <div className='hidden items-center gap-2 lg:flex'>
           <Density sparse>
             <StatusPopover />
+            <SettingsPopover />
             <HelpPopover />
             <Connection />
           </Density>
@@ -29,6 +31,7 @@ export const Header = () => {
         <div className='flex items-center gap-2 lg:hidden'>
           <Density compact>
             <StatusPopover />
+            <SettingsPopover />
             <HelpPopover />
             <Connection mobile />
             <MobileNav />

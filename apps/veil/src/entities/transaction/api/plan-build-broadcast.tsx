@@ -25,6 +25,8 @@ import { userDeniedTransaction, unauthenticated } from '../model/validations';
 import { planTransaction } from './plan';
 import { broadcastTransaction } from './broadcast';
 import { buildTransaction } from './build';
+import { veilBroadcastTransaction } from './veil-broadcast';
+import { readBroadcastMode } from '@/shared/model/broadcast-mode';
 
 async function fetchTransaction(
   id: TransactionId,
@@ -127,15 +129,53 @@ export const planBuildBroadcast = async (
     const txHash = uint8ArrayToHex((await txToId(transaction)).inner);
     const shortenedTxHash = shorten(txHash, 8);
 
-    const { detectionHeight } = await broadcastTransaction(
-      { transaction, awaitDetection: true },
-      status =>
+    const broadcastMode = readBroadcastMode();
+    let detectionHeight: bigint | undefined;
+    if (broadcastMode === 'veil') {
+      try {
         toast.update({
           type: 'success',
-          message: getBroadcastStatusMessage(label, status),
+          message: `Emitting ${label} transaction via Veil`,
           description: shortenedTxHash,
-        }),
-    );
+        });
+        const result = await veilBroadcastTransaction(transaction, {
+          awaitDetection: true,
+          onBroadcastSuccess: () =>
+            toast.update({
+              type: 'success',
+              message: `${label} submitted — confirmation will appear on next block`,
+              description: shortenedTxHash,
+            }),
+        });
+        detectionHeight = result.detectionHeight;
+      } catch (veilErr) {
+        console.warn('veil-broadcast failed, falling back to wallet:', veilErr);
+        toast.update({
+          type: 'loading',
+          message: `Veil broadcast failed, retrying via wallet`,
+          description: shortenedTxHash,
+        });
+        ({ detectionHeight } = await broadcastTransaction(
+          { transaction, awaitDetection: true },
+          status =>
+            toast.update({
+              type: 'success',
+              message: getBroadcastStatusMessage(label, status),
+              description: shortenedTxHash,
+            }),
+        ));
+      }
+    } else {
+      ({ detectionHeight } = await broadcastTransaction(
+        { transaction, awaitDetection: true },
+        status =>
+          toast.update({
+            type: 'success',
+            message: getBroadcastStatusMessage(label, status),
+            description: shortenedTxHash,
+          }),
+      ));
+    }
 
     let unfilledSwapsInfo = '';
     if (transactionClassification === 'swapClaim') {
