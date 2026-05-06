@@ -1,18 +1,19 @@
 import Link from 'next/link';
-import { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { FileSearch } from 'lucide-react';
+import { ReactNode, memo, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/txhash_pb';
 import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { TransactionSummary } from '@penumbra-zone/ui/TransactionSummary';
-import { Button } from '@penumbra-zone/ui/Button';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
+import { Text } from '@penumbra-zone/ui/Text';
 import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
+import { useLatestBlockHeight } from '@/shared/api/compact-block';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { useObserver } from '@/shared/utils/use-observer';
+import TimeAgo from '@/pages/inspect/explorer/components/timeAgo';
+import { blockSeconds } from '@/pages/inspect/explorer/lib/constants';
 import { useTransactions } from '../api/use-transactions';
 import { NoData } from './no-data';
 
@@ -29,9 +30,31 @@ const getTransactionLink = (id?: TransactionId) => {
   return TxLink;
 };
 
-export const PortfolioTransactions = observer(() => {
-  const router = useRouter();
+interface TransactionRowProps {
+  tx: TransactionInfo;
+  txTimestamp?: number;
+  getMetadata: ReturnType<typeof useGetMetadata>;
+}
 
+const TransactionRow = memo(({ tx, txTimestamp, getMetadata }: TransactionRowProps) => {
+  const Container = useMemo(() => getTransactionLink(tx.id), [tx.id]);
+
+  return (
+    <div className='relative'>
+      <TransactionSummary info={tx} as={Container} getMetadata={getMetadata} />
+      {txTimestamp && (
+        <div className='pointer-events-none absolute top-3 right-3 z-10'>
+          <Text detailTechnical color='text.secondary'>
+            <TimeAgo timestamp={txTimestamp} />
+          </Text>
+        </div>
+      )}
+    </div>
+  );
+});
+TransactionRow.displayName = 'TransactionRow';
+
+export const PortfolioTransactions = observer(() => {
   const { subaccount } = connectionStore;
   const getMetadata = useGetMetadata();
   const {
@@ -43,6 +66,16 @@ export const PortfolioTransactions = observer(() => {
     fetchNextPage,
     hasNextPage,
   } = useTransactions(subaccount);
+
+  // Approximate per-block timestamps: anchor "now" to the chain head and
+  // walk back at the canonical block time. The view server doesn't expose
+  // block times on TransactionInfo, and per-tx block lookups would amplify
+  // RPC traffic linearly with history length.
+  const { data: latestBlockHeight } = useLatestBlockHeight();
+  const nowAtAnchor = useMemo(
+    () => (latestBlockHeight ? Date.now() : undefined),
+    [latestBlockHeight],
+  );
 
   const { observerEl } = useObserver(
     isLoading || isRefetching || isFetchingNextPage || !hasNextPage,
@@ -75,22 +108,21 @@ export const PortfolioTransactions = observer(() => {
       )}
 
       {transactions?.pages.map(page =>
-        page.map((tx, index) => (
-          <TransactionSummary
-            info={tx}
-            key={getTxId(tx) || index}
-            as={getTransactionLink(tx.id)}
-            getMetadata={getMetadata}
-            onClick={() =>
-              tx.id?.inner && router.push(`/explore/tx/${uint8ArrayToHex(tx.id.inner)}`)
-            }
-            endAdornment={
-              <Button actionType='accent' density='compact' iconOnly icon={FileSearch}>
-                Go to transaction details
-              </Button>
-            }
-          />
-        )),
+        page.map((tx, index) => {
+          const txTimestamp =
+            latestBlockHeight && nowAtAnchor
+              ? nowAtAnchor - (latestBlockHeight - Number(tx.height)) * blockSeconds * 1000
+              : undefined;
+
+          return (
+            <TransactionRow
+              key={getTxId(tx) || index}
+              tx={tx}
+              txTimestamp={txTimestamp}
+              getMetadata={getMetadata}
+            />
+          );
+        }),
       )}
 
       {/* An element that triggers the infinite scroll when visible */}
