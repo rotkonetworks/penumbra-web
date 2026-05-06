@@ -1,4 +1,5 @@
 import { observer } from 'mobx-react-lite';
+import cn from 'clsx';
 import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -8,6 +9,7 @@ import { InfoIcon } from 'lucide-react';
 import { Slider as PenumbraSlider } from '@penumbra-zone/ui/Slider';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
+import { useTickDirection } from '../../model/use-tick-direction';
 import { OrderInput } from './order-input';
 import { SelectGroup } from './select-group';
 import { InfoRow } from './info-row';
@@ -71,9 +73,39 @@ export const RangeLiquidityOrderForm = observer(
       parentStore.marketPrice != null
         ? round({ value: parentStore.marketPrice, decimals: 6 })
         : undefined;
+    // Tick-direction off the parent's marketPrice — same idiom as
+    // SimpleLP's banner, the limit form's chip and the chart label.
+    const midDirection = useTickDirection(parentStore.marketPrice);
 
     return (
       <div className='p-4'>
+        {/* Live mid-price banner — anchors the form to the on-chain mid
+            the LP is being centred on, before the trader scrolls down
+            to the InfoRows or scans to the chart. Same pattern as
+            SimpleLP. */}
+        {parentStore.marketPrice != null && midText && (
+          <div className='mb-3 flex items-center justify-between rounded-sm border border-other-tonal-stroke px-2 py-1.5'>
+            <Text detail color='text.secondary'>
+              Live mid
+            </Text>
+            <Tooltip message='Average of best bid + best ask on the on-chain route book — the price you are centring liquidity around.'>
+              <span
+                className={cn(
+                  'tabular-nums',
+                  midDirection === 'up'
+                    ? 'text-success-light'
+                    : midDirection === 'down'
+                      ? 'text-destructive-light'
+                      : 'text-text-primary',
+                )}
+              >
+                {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+                {midText}{' '}
+                <span className='text-text-secondary'>{store.quoteAsset?.symbol ?? ''}</span>
+              </span>
+            </Tooltip>
+          </div>
+        )}
         <div className='mb-4'>
           <div className='mb-1'>
             <OrderInput
