@@ -32,6 +32,18 @@ export interface VolumeAndFees {
   executionCount: number;
 }
 
+export interface PositionStatsRow {
+  position_id: Buffer;
+  asset_1: Buffer;
+  asset_2: Buffer;
+  opening_height: number;
+  opening_time: Date;
+  opening_reserves_1: string;
+  opening_reserves_2: string;
+  fees_1: string;
+  fees_2: string;
+}
+
 class Pindexer {
   private db: Kysely<DB>;
 
@@ -402,6 +414,61 @@ class Pindexer {
       fees1: row.fees1,
       fees2: row.fees2,
       executionCount: row.executionCount,
+    }));
+  }
+
+  // Batched lookup of opening reserves + cumulative fees for a list of
+  // positions. Used by the LP table to compute fees / APR / PNL for every
+  // wallet-owned position in one round-trip.
+  async getPositionsStats(positionIds: PositionId[]): Promise<PositionStatsRow[]> {
+    if (!positionIds.length) {
+      return [];
+    }
+
+    const buffers = positionIds.map(id => Buffer.from(id.inner));
+
+    const fees = this.db
+      .selectFrom('dex_ex_position_executions')
+      .select(eb => [
+        'position_id',
+        sql<string>`sum(${eb.ref('fee_1')})`.as('fees_1'),
+        sql<string>`sum(${eb.ref('fee_2')})`.as('fees_2'),
+      ])
+      .where('position_id', 'in', buffers)
+      .groupBy('position_id');
+
+    const rows = await this.db
+      .selectFrom('dex_ex_position_state as state')
+      .innerJoin(
+        'dex_ex_position_reserves as opening',
+        'state.opening_reserves_rowid',
+        'opening.rowid',
+      )
+      .leftJoin(fees.as('fees'), 'fees.position_id', 'state.position_id')
+      .select([
+        'state.position_id',
+        'state.asset_1',
+        'state.asset_2',
+        'state.opening_height',
+        'state.opening_time',
+        'opening.reserves_1 as opening_reserves_1',
+        'opening.reserves_2 as opening_reserves_2',
+        'fees.fees_1',
+        'fees.fees_2',
+      ])
+      .where('state.position_id', 'in', buffers)
+      .execute();
+
+    return rows.map(r => ({
+      position_id: r.position_id,
+      asset_1: r.asset_1,
+      asset_2: r.asset_2,
+      opening_height: r.opening_height,
+      opening_time: r.opening_time,
+      opening_reserves_1: r.opening_reserves_1,
+      opening_reserves_2: r.opening_reserves_2,
+      fees_1: r.fees_1 ?? '0',
+      fees_2: r.fees_2 ?? '0',
     }));
   }
 

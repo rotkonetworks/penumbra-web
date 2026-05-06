@@ -9,9 +9,11 @@ import { GetMetadata } from '@/shared/api/assets';
 import { isZero } from '@penumbra-zone/types/amount';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { isNumeraireSymbol, isStablecoinSymbol } from '@/shared/utils/is-symbol';
+import { PositionStats } from '@/shared/api/server/position/stats/types';
 import { getCalculatedAssets } from './get-calculated-assets';
 import { CalculatedAsset, DisplayPosition, ExecutedPosition } from './types';
 import { stateToString } from './state-to-string';
+import { computePositionStats } from './get-position-stats';
 
 export const getOrdersByBaseQuoteAssets = (
   baseAsset: CalculatedAsset,
@@ -194,6 +196,11 @@ export interface GetDisplayPositionsArgs {
   getMetadata: GetMetadata;
   asset1Filter?: Metadata;
   asset2Filter?: Metadata;
+  /** Pindexer-derived per-position stats keyed by bech32m id. Optional —
+   *  when absent, rows simply omit the fees/APR/PNL stats. */
+  statsById?: Map<string, PositionStats>;
+  /** Live mid for the row's quote asset; needed to value fees and PNL. */
+  marketPrice?: number;
 }
 
 /**
@@ -205,6 +212,8 @@ export const getDisplayPositions = ({
   getMetadata,
   asset1Filter,
   asset2Filter,
+  statsById,
+  marketPrice,
 }: GetDisplayPositionsArgs): DisplayPosition[] => {
   // take the array of Map and reduce it to an array of entries
   const entries =
@@ -252,6 +261,19 @@ export const getDisplayPositions = ({
       const isWithdrawn = state.state === PositionState_PositionStateEnum.WITHDRAWN;
       const fee = `${pnum(component.fee / 100).toFormattedString({ decimals: 2 })}%`;
 
+      const rawStats = statsById?.get(id);
+      const stats = rawStats
+        ? computePositionStats({
+            raw: rawStats,
+            asset1,
+            asset2,
+            // Use the row's resolved quote (orders[0] orientation) so fees/PNL
+            // are denominated consistently with the rest of the row.
+            quoteAsset: orders[0]?.quoteAsset ?? asset2,
+            marketPrice,
+          })
+        : undefined;
+
       return {
         id: new PositionId(positionIdFromBech32(id)),
         idString: id,
@@ -262,6 +284,7 @@ export const getDisplayPositions = ({
         isWithdrawn,
         state: state.state,
         fee: `${pnum(component.fee / 100).toFormattedString({ decimals: 2 })}%`,
+        stats,
         sortValues: {
           positionId: id,
           type: isOpened
@@ -271,6 +294,9 @@ export const getDisplayPositions = ({
           effectivePrice: isClosed || isWithdrawn ? 0 : pnum(orders[0]?.effectivePrice).toNumber(),
           basePrice: isClosed || isWithdrawn ? 0 : pnum(orders[0]?.basePrice).toNumber(),
           feeTier: isClosed || isWithdrawn ? 0 : Number(fee.replace('%', '')),
+          feesQuote: stats?.feesQuoteNumber ?? 0,
+          aprPct: stats?.aprPct ?? 0,
+          pnlVsHodl: stats?.pnlNumber ?? 0,
         },
       };
     } catch (_) {
