@@ -51,7 +51,12 @@ export const DrawingToolbar = ({
   canRedo,
 }: ToolbarProps) => {
   return (
-    <div className='absolute left-2 top-2 z-20 flex flex-col gap-1 rounded border border-other-tonal-stroke bg-base-black/80 p-1 backdrop-blur'>
+    // Mounted in a dedicated narrow column to the left of the chart
+    // canvas (see chart.tsx). Previously rendered absolute-positioned
+    // *over* the chart at top-left, which fought the hover-tooltip
+    // for the same corner. Own-lane layout keeps the chart canvas
+    // clean and avoids the z-index dance.
+    <div className='flex h-full flex-col gap-1 border-r border-r-other-solid-stroke bg-base-black/40 p-1'>
       <ToolButton
         title='Cursor (no drawing)'
         active={tool === 'none'}

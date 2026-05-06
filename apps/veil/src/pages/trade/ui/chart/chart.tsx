@@ -644,70 +644,80 @@ export const Chart = observer(() => {
         </div>
       </div>
 
-      <div
-        className='relative flex min-h-0 grow items-center justify-center'
-        ref={containerRef}
-        onContextMenu={onContextMenu}
-        style={tool !== 'none' ? { cursor: 'crosshair' } : undefined}
-      >
-        {/* Click-capture overlay shown only while a drawing tool is active.
-            lightweight-charts' own subscribeClick has been unreliable here
-            (chart eats some clicks for pan/zoom), so we route the drawing
-            placement through a real DOM event instead. */}
-        {tool !== 'none' && historyCandles && (
-          <ClickCaptureOverlay
-            priceAtY={priceAtY}
-            timeAtX={timeAtX}
-            containerRef={containerRef}
-            onResolve={handleDrawingClick}
+      <div className='flex min-h-0 grow'>
+        {/* Drawing toolbar in its own narrow column to the left of the
+            chart canvas. Keeps the canvas clean for the hover-tooltip
+            and the click-capture overlay (which is now bounded by the
+            canvas width, not the full chart width). */}
+        {!error && !isLoading && historyCandles && (
+          <DrawingToolbar
+            tool={tool}
+            onToolChange={setTool}
+            onClearAll={clearDrawings}
+            hasDrawings={drawings.length > 0}
+            onUndo={undoDrawing}
+            onRedo={redoDrawing}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
         )}
-        {error && <BlockchainError direction='column' />}
-        {!error && isLoading && <ChartLoadingState />}
-        {!error && !isLoading && historyCandles && (
-          <>
-            <div className='h-full w-full' ref={chartRef} />
-            {prefs.depth && <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />}
-            {/* Live preview of the LP position the trader is constructing —
-                only paints when whichForm is SimpleLP / RangeLP and bounds
-                are set, so it's a no-op for traders not in LP mode. */}
-            <LpPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
-            {/* Live preview line for the limit order being composed —
-                paints only while the Limit form is active and the
-                price input has a value, so the trader sees exactly
-                where the resting order will sit (and whether it would
-                cross the spread) before pressing Submit. */}
-            <LimitPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
-            {prefs.midPrice && (
-              <MidPriceOverlay
-                marketPrice={marketPrice}
-                spreadPercentage={spreadPercentage}
-                yAtPrice={yAtPrice}
-                subscribeRedraw={subscribeRedraw}
-                quoteSymbol={quoteSymbol}
-              />
-            )}
-            <DrawingsOverlay
-              drawings={drawings}
-              yAtPrice={yAtPrice}
-              xAtTime={xAtTime}
+        <div
+          className='relative flex min-h-0 grow items-center justify-center'
+          ref={containerRef}
+          onContextMenu={onContextMenu}
+          style={tool !== 'none' ? { cursor: 'crosshair' } : undefined}
+        >
+          {/* Click-capture overlay shown only while a drawing tool is
+              active. lightweight-charts' own subscribeClick has been
+              unreliable here (chart eats some clicks for pan/zoom), so
+              we route the drawing placement through a real DOM event
+              instead. */}
+          {tool !== 'none' && historyCandles && (
+            <ClickCaptureOverlay
               priceAtY={priceAtY}
               timeAtX={timeAtX}
-              subscribeRedraw={subscribeRedraw}
-              onDelete={removeDrawing}
-              onUpdate={updateDrawing}
+              containerRef={containerRef}
+              onResolve={handleDrawingClick}
             />
-            <DrawingToolbar
-              tool={tool}
-              onToolChange={setTool}
-              onClearAll={clearDrawings}
-              hasDrawings={drawings.length > 0}
-              onUndo={undoDrawing}
-              onRedo={redoDrawing}
-              canUndo={canUndo}
-              canRedo={canRedo}
-            />
-            <HoverTooltip subscribeHover={subscribeHover} quoteSymbol={quoteSymbol} />
+          )}
+          {error && <BlockchainError direction='column' />}
+          {!error && isLoading && <ChartLoadingState />}
+          {!error && !isLoading && historyCandles && (
+            <>
+              <div className='h-full w-full' ref={chartRef} />
+              {prefs.depth && (
+                <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+              )}
+              {/* Live preview of the LP position the trader is constructing —
+                  only paints when whichForm is SimpleLP / RangeLP and bounds
+                  are set, so it's a no-op for traders not in LP mode. */}
+              <LpPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+              {/* Live preview line for the limit order being composed —
+                  paints only while the Limit form is active and the
+                  price input has a value, so the trader sees exactly
+                  where the resting order will sit (and whether it would
+                  cross the spread) before pressing Submit. */}
+              <LimitPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+              {prefs.midPrice && (
+                <MidPriceOverlay
+                  marketPrice={marketPrice}
+                  spreadPercentage={spreadPercentage}
+                  yAtPrice={yAtPrice}
+                  subscribeRedraw={subscribeRedraw}
+                  quoteSymbol={quoteSymbol}
+                />
+              )}
+              <DrawingsOverlay
+                drawings={drawings}
+                yAtPrice={yAtPrice}
+                xAtTime={xAtTime}
+                priceAtY={priceAtY}
+                timeAtX={timeAtX}
+                subscribeRedraw={subscribeRedraw}
+                onDelete={removeDrawing}
+                onUpdate={updateDrawing}
+              />
+              <HoverTooltip subscribeHover={subscribeHover} quoteSymbol={quoteSymbol} />
             {pendingText && (
               <input
                 autoFocus
@@ -762,8 +772,9 @@ export const Chart = observer(() => {
                 />
               );
             })()}
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
