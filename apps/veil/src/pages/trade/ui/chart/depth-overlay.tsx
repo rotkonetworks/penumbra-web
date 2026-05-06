@@ -111,8 +111,13 @@ const DepthBar = memo(
 
 DepthBar.displayName = 'DepthBar';
 
+// Default 50px — matches the lightweight-charts default price-axis
+// width (56px) minus a small gutter, so bars sit *inside* the price
+// scale column instead of bleeding leftward into the candle area.
+// Mirrors MEXC's order-book column where the depth bars are part of
+// the price ladder, not a separate strip.
 export const DepthOverlay = observer(
-  ({ yAtPrice, subscribeRedraw, width = 64 }: DepthOverlayProps) => {
+  ({ yAtPrice, subscribeRedraw, width = 50 }: DepthOverlayProps) => {
     const { data } = useBook();
 
     const levels = useMemo(() => {
@@ -182,7 +187,11 @@ export const DepthOverlay = observer(
       <div
         aria-label='Order book depth overlay'
         className='pointer-events-none absolute top-0 bottom-0 z-[5]'
-        style={{ right: 56, width }}
+        // Pin to the right edge (right: 0) so bars live inside the
+        // price-axis column instead of overflowing left into the
+        // candle area. Semi-transparent fills (set on each bar) keep
+        // the price labels readable on top.
+        style={{ right: 0, width }}
         title='Click a depth bar to set the limit price'
       >
         {bars.map(b => (
