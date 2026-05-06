@@ -15,12 +15,15 @@ import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
+import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { useMarketPrice } from '@/pages/trade/model/useMarketPrice';
 import { usePositions } from '../api/use-positions';
+import { usePositionsStats } from '../api/use-positions-stats';
 import { stateToString } from '../model/state-to-string';
 import { getDisplayPositions } from '../model/get-display-positions';
 import { DisplayPosition } from '../model/types';
 import { PositionsCurrentValue } from './positions-current-value';
+import { PositionsFeesCell, PositionsAprCell, PositionsPnlCell } from './positions-stats-cells';
 import { NotConnectedNotice } from './not-connected-notice';
 import { ErrorNotice } from './error-notice';
 import { NoPositions } from './no-positions';
@@ -122,6 +125,33 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     subaccount,
     stateFilter,
   );
+
+  // Wallet's owned position id list, deduped, used to fetch fees/APR/PNL
+  // stats from pindexer in one round trip rather than per row.
+  const positionIds = useMemo(() => {
+    if (!data?.pages) {
+      return [];
+    }
+    const seen = new Set<string>();
+    for (const page of data.pages) {
+      for (const id of page.keys()) {
+        seen.add(id);
+      }
+    }
+    return [...seen];
+  }, [data?.pages]);
+  const { data: statsResponse } = usePositionsStats(positionIds);
+  const statsById = useMemo(() => {
+    if (!statsResponse) {
+      return undefined;
+    }
+    const map = new Map<string, (typeof statsResponse)['items'][number]>();
+    for (const item of statsResponse.items) {
+      map.set(bech32mPositionId(item.positionId), item);
+    }
+    return map;
+  }, [statsResponse]);
+
   // getDisplayPositions walks every fetched page and resolves metadata per
   // asset on each entry — non-trivial on a wallet with many LP positions.
   // Memoize so it only re-runs when the underlying inputs actually change.
@@ -133,8 +163,10 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
         asset1Filter: base,
         asset2Filter: quote,
         getMetadata,
+        statsById,
+        marketPrice,
       }),
-    [data?.pages, base, quote, getMetadata],
+    [data?.pages, base, quote, getMetadata, statsById, marketPrice],
   );
 
   const { observerEl } = useObserver(isLoading || isRefetching || isFetchingNextPage, () => {
@@ -164,11 +196,11 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
 
   return (
     <div
-      className='grid grid-cols-[80px_1fr_1fr_80px_1fr_1fr_1fr_1fr] overflow-x-auto overflow-y-auto'
+      className='grid grid-cols-[80px_1fr_1fr_80px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] overflow-x-auto overflow-y-auto'
       style={{ overflowAnchor: 'none' }}
     >
       <Density slim>
-        <div className='col-span-8 grid grid-cols-subgrid'>
+        <div className='col-span-11 grid grid-cols-subgrid'>
           <SortableTableHeader
             sortKey='type'
             activeDirection={sortBy.key === 'type' ? sortBy.direction : undefined}
@@ -206,6 +238,27 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
           </SortableTableHeader>
           <TableCell heading>Current Value</TableCell>
           <SortableTableHeader
+            sortKey='feesQuote'
+            activeDirection={sortBy.key === 'feesQuote' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            Fees Earned
+          </SortableTableHeader>
+          <SortableTableHeader
+            sortKey='aprPct'
+            activeDirection={sortBy.key === 'aprPct' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            APR
+          </SortableTableHeader>
+          <SortableTableHeader
+            sortKey='pnlVsHodl'
+            activeDirection={sortBy.key === 'pnlVsHodl' ? sortBy.direction : undefined}
+            onSelect={setSortBy}
+          >
+            vs HODL
+          </SortableTableHeader>
+          <SortableTableHeader
             sortKey='positionId'
             activeDirection={sortBy.key === 'positionId' ? sortBy.direction : undefined}
             onSelect={setSortBy}
@@ -228,7 +281,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                 const variant = isLastCell ? 'lastCell' : 'cell';
 
                 return (
-                  <div key={orderIndex} className='col-span-8 grid grid-cols-subgrid [&>div]:h-10'>
+                  <div key={orderIndex} className='col-span-11 grid grid-cols-subgrid [&>div]:h-10'>
                     <TableCell loading={isLoading} variant={variant}>
                       {position.isOpened ? (
                         <Text
@@ -349,6 +402,30 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                     </TableCell>
 
                     <TableCell loading={isLoading} variant={variant}>
+                      {fullyWithdrawn(position.position) ? (
+                        <Dash />
+                      ) : (
+                        <PositionsFeesCell stats={position.stats} />
+                      )}
+                    </TableCell>
+
+                    <TableCell loading={isLoading} variant={variant}>
+                      {fullyWithdrawn(position.position) ? (
+                        <Dash />
+                      ) : (
+                        <PositionsAprCell stats={position.stats} />
+                      )}
+                    </TableCell>
+
+                    <TableCell loading={isLoading} variant={variant}>
+                      {fullyWithdrawn(position.position) ? (
+                        <Dash />
+                      ) : (
+                        <PositionsPnlCell stats={position.stats} />
+                      )}
+                    </TableCell>
+
+                    <TableCell loading={isLoading} variant={variant}>
                       <div className='flex max-w-[104px]'>
                         <Text as='div' detailTechnical color='text.primary' truncate>
                           {position.idString}
@@ -370,7 +447,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
       </Density>
 
       {isFetchingNextPage && (
-        <div className='col-span-8 my-1 flex h-6 grid-cols-subgrid items-center justify-center'>
+        <div className='col-span-11 my-1 flex h-6 grid-cols-subgrid items-center justify-center'>
           <SpinnerIcon className='animate-spin' />
         </div>
       )}

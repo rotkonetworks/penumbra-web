@@ -26,6 +26,8 @@ export interface DisplayPosition {
   isOpened: boolean;
   isClosed: boolean;
   state: PositionState_PositionStateEnum;
+  /** Fees+APR+PNL stats from pindexer; absent if not yet loaded or unavailable. */
+  stats?: PositionDerivedStats;
   sortValues: {
     type: string;
     tradeAmount: number;
@@ -33,7 +35,27 @@ export interface DisplayPosition {
     basePrice: number;
     feeTier: number;
     positionId: string;
+    feesQuote: number;
+    aprPct: number;
+    pnlVsHodl: number;
   };
+}
+
+export interface PositionDerivedStats {
+  /** Cumulative fees, expressed as a ValueView in the order's quote asset. */
+  feesQuote: ValueView;
+  /** Numeric value of feesQuote in display units. */
+  feesQuoteNumber: number;
+  /** Annualised yield estimate (fees / capital * 365 / age_days), in percent.
+   *  undefined when the position is younger than the noise threshold. */
+  aprPct: number | undefined;
+  /** PNL versus the "I just held opening reserves" benchmark, as a ValueView
+   *  in quote units. Undefined if mid is missing. */
+  pnlValue: ValueView | undefined;
+  /** Numeric value of pnlValue. */
+  pnlNumber: number;
+  /** Position age, in days. */
+  ageDays: number;
 }
 
 export interface CalculatedAsset {
