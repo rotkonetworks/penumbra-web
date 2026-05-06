@@ -1,29 +1,19 @@
 import createConfig from '@penumbra-zone/configs/tailwind-eslint';
-import { FlatCompat } from '@eslint/eslintrc';
-import { fileURLToPath } from 'url';
-import path from 'path';
+import nextVitals from 'eslint-config-next/core-web-vitals';
 import { createRequire } from 'node:module';
 
 const eslintConfig = createConfig(
   createRequire(import.meta.url).resolve('@penumbra-zone/ui/theme.css'),
 );
 
-// mimic CommonJS variables -- not needed if using CommonJS
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
+// Drop plugins from nextVitals already provided by our base config to avoid
+// "plugin already defined" collisions when both spread into the same array.
 const excludePlugins = eslintConfig.flatMap(config => Object.keys(config.plugins || {}));
 
 const config = [
-  ...compat
-    .extends('next/core-web-vitals')
-    .filter(config =>
-      Object.keys(config.plugins || {}).every(plugin => !excludePlugins.includes(plugin)),
-    ),
+  ...nextVitals.filter(config =>
+    Object.keys(config.plugins || {}).every(plugin => !excludePlugins.includes(plugin)),
+  ),
 
   ...eslintConfig.filter(config => config.name !== 'custom:turbo-config'),
 

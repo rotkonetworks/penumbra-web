@@ -3,7 +3,7 @@ import { ChainRegistryClient } from '@penumbra-labs/registry';
 import { getClientSideEnv } from '@/shared/api/env/getClientSideEnv';
 import { assetPatterns } from '@penumbra-zone/types/assets';
 
-export const routingMiddleware = async (request: NextRequest) => {
+export const routingProxy = async (request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
   if (pathname === '/') {
