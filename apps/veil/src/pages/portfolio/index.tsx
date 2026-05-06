@@ -17,6 +17,7 @@ import { PenumbraWaves } from '@/pages/explore/ui/waves.tsx';
 import { ShieldingTicker } from '@/widgets/shielding-ticker';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { PortfolioCard } from './ui/portfolio-card';
+import { SendReceiveTabs } from './ui/send-receive-tabs';
 
 interface PortfolioPageProps {
   isMobile: boolean;
@@ -96,6 +97,8 @@ const DesktopPortfolioPage = observer(() => {
           <AssetsTableLayout>
             <AssetsTable />
           </AssetsTableLayout>
+
+          {isPenumbraConnected && <SendReceiveTabs />}
 
           <PortfolioPositionTabs />
         </div>
