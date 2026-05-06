@@ -259,7 +259,6 @@ export const Chart = observer(() => {
     updateLatestCandles,
     updateLatestVolumes,
     setVolumeRatio,
-    setLinearTime,
     priceAtY,
     yAtPrice,
     xAtTime,
@@ -274,14 +273,6 @@ export const Chart = observer(() => {
   } = useChartConfig(fetchNext, isFetching);
 
   const { prefs, toggle } = useChartPrefs();
-
-  // Apply the time-axis spacing pref both on mount (after the chart is
-  // ready) and whenever the user toggles it. The chart only exists once
-  // chartReady flips true, so wait on that.
-  useEffect(() => {
-    if (!chartReady) return;
-    setLinearTime(prefs.linearTime);
-  }, [chartReady, prefs.linearTime, setLinearTime]);
 
   // Gate per-overlay data feeds behind the user's preference. The hooks
   // still mount (so the queries they own can settle), but we hand each a

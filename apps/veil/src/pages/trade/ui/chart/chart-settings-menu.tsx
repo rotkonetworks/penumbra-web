@@ -47,11 +47,6 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
     label: 'My open limit orders',
     hint: 'Resting limit orders, with × to cancel inline. Coming soon.',
   },
-  {
-    key: 'linearTime',
-    label: 'Chronologically linear time',
-    hint: 'On: pixels of x-axis = constant wall-clock time, gaps render as empty space. Off (default): each candle takes equal width and gaps collapse — tighter on quiet pairs.',
-  },
 ];
 
 // memo'd because the chart re-renders on every block-tick via marketPrice,

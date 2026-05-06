@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ChainRegistryClient } from '@penumbra-labs/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
-import { combineDbCandles } from '@/shared/api/server/candles/utils.ts';
+import { combineDbCandles, insertEmptyCandles } from '@/shared/api/server/candles/utils.ts';
 import { CandleApiResponse, DbCandle } from '@/shared/api/server/candles/types.ts';
 import { pindexerDb } from '@/shared/database/client';
 
@@ -132,10 +132,11 @@ export async function GET(req: NextRequest): Promise<NextResponse<CandleApiRespo
       combineDbCandles(fwd, rev, baseAssetMetadata, quoteAssetMetadata),
     );
 
-  // Note: previously we ran insertEmptyCandles here to pad sparse books with
-  // flat synthetic candles. With timeScale.uniformDistribution=true on the
-  // chart side, that just diluted real signal with thousands of flat fillers
-  // on short timeframes (15m/1h/4h). Skip the padding and let the chart
-  // space candles by index.
-  return NextResponse.json(response);
+  // Gap-fill the time axis: inject flat candles (open=close=prev.close,
+  // volume=0) for every missing window-step between real fills. Without
+  // this, a quiet pair with two trades a day on the 15m chart renders
+  // as two adjacent candles — suggests continuous activity. With it,
+  // empty slots between real trades read as actual time elapsed,
+  // matching Binance / TradingView behaviour ("chronologically linear").
+  return NextResponse.json(insertEmptyCandles(durationWindow, response));
 }
