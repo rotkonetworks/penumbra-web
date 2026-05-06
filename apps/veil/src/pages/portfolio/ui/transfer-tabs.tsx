@@ -8,13 +8,20 @@ import { connectionStore } from '@/shared/model/connection';
 import { PortfolioCard } from './portfolio-card';
 import { ReceivePanel } from './receive-panel';
 import { SendPanel } from './send-panel';
+import { SwapPanel } from './swap-panel';
 
 enum TransferTab {
   Receive = 'Receive',
   Send = 'Send',
+  Swap = 'Swap',
 }
 
-export const SendReceiveTabs = observer(() => {
+const TAB_OPTIONS = Object.values(TransferTab).map(value => ({
+  value,
+  label: value,
+}));
+
+export const TransferTabs = observer(() => {
   const [tab, setTab] = useState(TransferTab.Receive);
 
   if (!connectionStore.connected) {
@@ -29,16 +36,14 @@ export const SendReceiveTabs = observer(() => {
             value={tab}
             actionType='accent'
             onChange={value => setTab(value as TransferTab)}
-            options={[
-              { value: TransferTab.Receive, label: TransferTab.Receive },
-              { value: TransferTab.Send, label: TransferTab.Send },
-            ]}
+            options={TAB_OPTIONS}
           />
         </Density>
       </div>
 
       {tab === TransferTab.Receive && <ReceivePanel />}
       {tab === TransferTab.Send && <SendPanel />}
+      {tab === TransferTab.Swap && <SwapPanel />}
     </PortfolioCard>
   );
 });
