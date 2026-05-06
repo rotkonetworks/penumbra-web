@@ -215,6 +215,66 @@ export const DrawingsOverlay = ({
   // re-render with the new y from yAtPrice(price).
   const DRAG_THRESHOLD = 4;
 
+  // Drag a single corner of a two-point shape. xSide selects which
+  // time field (time1/time2) tracks horizontal drag; ySide selects
+  // which price field (price1/price2) tracks vertical drag. For trend
+  // lines you always pass matching pairs (1,1) or (2,2). For
+  // rectangles the four corners use mixed pairs to update the right
+  // axis-pair: top-left = (1,1), bottom-right = (2,2), top-right =
+  // (2,1), bottom-left = (1,2).
+  const startEndpointDrag =
+    (id: string, xSide: 1 | 2, ySide: 1 | 2 = xSide) =>
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      const svg = containerRef.current;
+      if (!svg) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+      } catch {
+        // ignore
+      }
+      let pendingPatch: Partial<Drawing> | null = null;
+      let rafId = 0;
+      const flush = () => {
+        rafId = 0;
+        if (!pendingPatch) return;
+        const p = pendingPatch;
+        pendingPatch = null;
+        onUpdate(id, p);
+      };
+      const onMove = (ev: PointerEvent) => {
+        const rect = svg.getBoundingClientRect();
+        const newPrice = priceAtY(ev.clientY - rect.top);
+        const newTime = timeAtX(ev.clientX - rect.left);
+        if (
+          newPrice === undefined ||
+          newTime === undefined ||
+          !Number.isFinite(newPrice) ||
+          !Number.isFinite(newTime)
+        ) {
+          return;
+        }
+        pendingPatch = {
+          [`time${xSide}`]: newTime,
+          [`price${ySide}`]: newPrice,
+        } as Partial<Drawing>;
+        if (rafId) return;
+        rafId = requestAnimationFrame(flush);
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          flush();
+        }
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+
   // Generic drag-or-click handler factory for two-point shapes (trend-
   // line, rectangle). Drag translates the whole shape by the cursor's
   // price/time delta from pointer-down. No movement → open manage menu.
@@ -514,8 +574,37 @@ export const DrawingsOverlay = ({
               >
                 <title>Drag to move · click for menu · {slope}</title>
               </line>
-              <circle cx={line.x1} cy={line.y1} r={3} fill={line.color} />
-              <circle cx={line.x2} cy={line.y2} r={3} fill={line.color} />
+              {/* Endpoint handles — visible always so users know
+                  they can grab them. r=5 with stroke ring for a
+                  clear hit target; pointerEvents='all' so the SVG
+                  parent's `none` doesn't block them. Cursor flips
+                  to `grab` so it reads as draggable. */}
+              <circle
+                cx={line.x1}
+                cy={line.y1}
+                r={5}
+                fill={line.color}
+                stroke='#ffffff'
+                strokeWidth='1.5'
+                style={{ cursor: 'grab' }}
+                pointerEvents='all'
+                onPointerDown={startEndpointDrag(line.id, 1)}
+              >
+                <title>Drag to reshape (endpoint 1)</title>
+              </circle>
+              <circle
+                cx={line.x2}
+                cy={line.y2}
+                r={5}
+                fill={line.color}
+                stroke='#ffffff'
+                strokeWidth='1.5'
+                style={{ cursor: 'grab' }}
+                pointerEvents='all'
+                onPointerDown={startEndpointDrag(line.id, 2)}
+              >
+                <title>Drag to reshape (endpoint 2)</title>
+              </circle>
             </g>
           );
         })}
@@ -547,15 +636,96 @@ export const DrawingsOverlay = ({
               >
                 <title>Drag to move · click for menu · {label}</title>
               </rect>
-              {/* Anchor dots at each picked corner so user sees their clicks */}
-              <circle cx={rect.x} cy={rect.y} r={2.5} fill={rect.color} pointerEvents='none' />
-              <circle
-                cx={rect.x + rect.width}
-                cy={rect.y + rect.height}
-                r={2.5}
-                fill={rect.color}
-                pointerEvents='none'
-              />
+              {/* Four corner handles. Each maps a (xSide, ySide) pair
+                  to the {time1|time2, price1|price2} field that the
+                  drag updates so the *other* corners stay put.
+                  cursor flips per corner so the resize affordance is
+                  obvious. */}
+              {(() => {
+                // Figure out which stored corner is at which on-screen
+                // position so the drag updates the right field. The
+                // rectangle is drawn from min/max, so (rect.x, rect.y)
+                // is whichever stored corner has the smaller x AND
+                // smaller y — but those can be different stored
+                // sides. Compute on-screen sides relative to stored.
+                // We don't actually need to know — just update the
+                // matching stored side based on which on-screen corner
+                // was grabbed. The mapping is encoded in xSide/ySide.
+                const handles: Array<{
+                  cx: number;
+                  cy: number;
+                  cursor: string;
+                  xSide: 1 | 2;
+                  ySide: 1 | 2;
+                }> = [];
+                // Determine which stored side corresponds to which
+                // on-screen edge.
+                const leftIsTime1 = rect.x === Math.min(rect.x, rect.x + rect.width);
+                // Always true since rect.x is min, but compute anyway:
+                void leftIsTime1;
+                // We need to know if time1 maps to left edge (smaller
+                // x) or to right edge. For that, we need x1 vs x2 —
+                // which is xAtTime(time1) vs xAtTime(time2). The
+                // PositionedRectangle struct has x = min(x1,x2),
+                // width = |x2-x1|, but doesn't tell us which is which.
+                // Solution: compare the stored time1 vs time2:
+                // leftEdgeTime = min(time1, time2) → that side maps to
+                // whichever is min. Same for price.
+                const leftSide: 1 | 2 = rect.time1 <= rect.time2 ? 1 : 2;
+                const rightSide: 1 | 2 = leftSide === 1 ? 2 : 1;
+                const topSide: 1 | 2 = rect.price1 >= rect.price2 ? 1 : 2;
+                const bottomSide: 1 | 2 = topSide === 1 ? 2 : 1;
+                handles.push(
+                  // top-left: smaller x, smaller y (= higher price)
+                  {
+                    cx: rect.x,
+                    cy: rect.y,
+                    cursor: 'nwse-resize',
+                    xSide: leftSide,
+                    ySide: topSide,
+                  },
+                  // top-right
+                  {
+                    cx: rect.x + rect.width,
+                    cy: rect.y,
+                    cursor: 'nesw-resize',
+                    xSide: rightSide,
+                    ySide: topSide,
+                  },
+                  // bottom-left
+                  {
+                    cx: rect.x,
+                    cy: rect.y + rect.height,
+                    cursor: 'nesw-resize',
+                    xSide: leftSide,
+                    ySide: bottomSide,
+                  },
+                  // bottom-right
+                  {
+                    cx: rect.x + rect.width,
+                    cy: rect.y + rect.height,
+                    cursor: 'nwse-resize',
+                    xSide: rightSide,
+                    ySide: bottomSide,
+                  },
+                );
+                return handles.map((h, i) => (
+                  <circle
+                    key={i}
+                    cx={h.cx}
+                    cy={h.cy}
+                    r={5}
+                    fill={rect.color}
+                    stroke='#ffffff'
+                    strokeWidth='1.5'
+                    style={{ cursor: h.cursor }}
+                    pointerEvents='all'
+                    onPointerDown={startEndpointDrag(rect.id, h.xSide, h.ySide)}
+                  >
+                    <title>Drag to reshape</title>
+                  </circle>
+                ));
+              })()}
             </g>
           );
         })}
