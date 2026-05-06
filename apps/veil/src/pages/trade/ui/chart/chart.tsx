@@ -21,6 +21,7 @@ import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
 import { MidPriceOverlay } from './mid-price-overlay';
 import { LpPreviewOverlay } from './lp-preview-overlay';
+import { LimitPreviewOverlay } from './limit-preview-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
 import { useOwnFillMarkers } from './use-own-fill-markers';
 import { usePathSymbols } from '../../model/use-path';
@@ -671,6 +672,12 @@ export const Chart = observer(() => {
                 only paints when whichForm is SimpleLP / RangeLP and bounds
                 are set, so it's a no-op for traders not in LP mode. */}
             <LpPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+            {/* Live preview line for the limit order being composed —
+                paints only while the Limit form is active and the
+                price input has a value, so the trader sees exactly
+                where the resting order will sit (and whether it would
+                cross the spread) before pressing Submit. */}
+            <LimitPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
             {prefs.midPrice && (
               <MidPriceOverlay
                 marketPrice={marketPrice}
