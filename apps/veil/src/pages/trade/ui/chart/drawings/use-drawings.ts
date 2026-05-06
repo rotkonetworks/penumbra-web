@@ -57,23 +57,34 @@ export const useDrawings = (pairKey: string) => {
     [storageKey],
   );
 
-  // Mutate with history. The setState updater is pure — it just maps
-  // curr → next — and the impure history-stack push runs once outside
-  // the updater. Pure-updater discipline matters because React 18
-  // StrictMode invokes setState updaters twice in development, so any
-  // history push inside the updater would land twice in `past` and
-  // make undo skip every other step in dev.
-  const drawingsRef = useRef<Drawing[]>([]);
-  drawingsRef.current = drawings;
+  // Mutate with history: push the current state to past, clear redo
+  // stack. Side-effects live inside the setState updater so history
+  // and the new value commit in lockstep — avoids stale-ref races
+  // when mutate fires multiple times before React commits (e.g. drag-
+  // to-move firing onUpdate every rAF frame).
+  //
+  // React 18 StrictMode invokes the updater twice in dev, which would
+  // otherwise double-push the history stack — guard with a per-call
+  // token so the second invocation is a no-op for the impure parts.
+  const mutateTokenRef = useRef<symbol | null>(null);
   const mutate = useCallback(
     (compute: (curr: Drawing[]) => Drawing[]) => {
-      const prev = drawingsRef.current;
-      const next = compute(prev);
-      if (next === prev) return;
-      pastRef.current = [...pastRef.current, prev].slice(-HISTORY_LIMIT);
-      futureRef.current = [];
-      persist(next);
-      setDrawings(next);
+      const callToken = Symbol('mutate');
+      mutateTokenRef.current = callToken;
+      setDrawings(curr => {
+        const next = compute(curr);
+        if (next === curr) return curr;
+        // Only the first invocation in a given mutate call should
+        // commit history + persistence; StrictMode's second run sees
+        // a different token and skips.
+        if (mutateTokenRef.current === callToken) {
+          pastRef.current = [...pastRef.current, curr].slice(-HISTORY_LIMIT);
+          futureRef.current = [];
+          persist(next);
+          mutateTokenRef.current = null;
+        }
+        return next;
+      });
       setHistoryTick(t => t + 1);
     },
     [persist],
