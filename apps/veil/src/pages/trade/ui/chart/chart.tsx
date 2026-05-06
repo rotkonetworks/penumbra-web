@@ -49,6 +49,7 @@ import { ChartSettingsMenu } from './chart-settings-menu';
 import { connectionStore } from '@/shared/model/connection';
 import { useMarketPrice } from '../../model/useMarketPrice';
 import { usePriceAlerts } from './alerts/use-price-alerts';
+import { AlertsOverlay } from './alerts/alerts-overlay';
 import { useAlertWatcher } from './alerts/use-alert-watcher';
 import { AlertsMenu } from './alerts/alerts-menu';
 
@@ -837,6 +838,17 @@ export const Chart = observer(() => {
                 subscribeRedraw={subscribeRedraw}
                 onDelete={removeDrawing}
                 onUpdate={updateDrawing}
+              />
+              {/* Each active price alert paints as a dotted horizontal
+                  line on the chart with a left-edge 🔔 label and a
+                  right-edge × button to remove it inline — saves the
+                  trader a trip back to the bell-icon menu just to
+                  cancel a stale alert. */}
+              <AlertsOverlay
+                alerts={pairAlerts}
+                yAtPrice={yAtPrice}
+                subscribeRedraw={subscribeRedraw}
+                onRemove={removeAlert}
               />
               {/* Live preview while drawing trend-line / rectangle —
                   first click anchors and the second endpoint follows
