@@ -13,6 +13,7 @@ import { PagePath } from '@/shared/const/pages';
 import { AssetsTable, AssetsTableLayout } from './assets-table';
 import { WalletConnect } from './wallet-connect';
 import { PortfolioPositionTabs } from './position-tabs';
+import { SendReceiveTabs } from './send-receive-tabs';
 import { AssetBars } from './asset-bars';
 import { PortfolioCard } from './portfolio-card';
 import { useUnifiedAssets } from '../api/use-unified-assets';
@@ -72,6 +73,8 @@ const PortfolioBody = observer(() => {
           <AssetsTableLayout>
             <AssetsTable />
           </AssetsTableLayout>
+
+          {isPenumbraConnected && <SendReceiveTabs />}
 
           <PortfolioPositionTabs />
         </div>
