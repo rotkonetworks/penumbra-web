@@ -5,6 +5,7 @@ import {
   Button,
   Container,
   FilterSelector,
+  ValidatorSortToggle,
 } from '@/pages/inspect/explorer/components';
 import {
   ActiveValidatorsPanelContainer,
@@ -98,10 +99,13 @@ const ValidatorsPage: FC<Props> = async props => {
                   </Button>
                 </div>
               </div>
-              <FilterSelector
-                filters={['active', 'inactive']}
-                selectedFilter={searchParams.filter}
-              />
+              <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
+                <FilterSelector
+                  filters={['active', 'inactive']}
+                  selectedFilter={searchParams.filter}
+                />
+                <ValidatorSortToggle />
+              </div>
             </div>
           }
           inactive={searchParams.filter === 'inactive'}
