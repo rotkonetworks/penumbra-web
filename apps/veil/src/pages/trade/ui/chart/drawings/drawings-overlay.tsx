@@ -171,6 +171,10 @@ export const DrawingsOverlay = ({
 
   if (drawings.length === 0) return null;
 
+  // Both left-click and right-click open the menu. Left-click is the
+  // discoverable affordance; right-click is the legacy one (kept so
+  // existing muscle memory still works). preventDefault() suppresses
+  // the browser's native context menu on right-click.
   const openMenu = (id: string, label: string) => (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -210,7 +214,9 @@ export const DrawingsOverlay = ({
                 strokeWidth='1'
                 strokeDasharray='4 3'
               />
-              {/* Wider invisible hit area for easier right-clicking */}
+              {/* Wider invisible hit area. Left-click or right-click both
+                  open the manage menu — left-click for discoverability,
+                  right-click kept so existing muscle memory still works. */}
               <line
                 x1='0'
                 x2='100%'
@@ -219,10 +225,11 @@ export const DrawingsOverlay = ({
                 stroke='transparent'
                 strokeWidth='8'
                 style={{ cursor: 'pointer' }}
+                onClick={openMenu(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
               >
                 <title>
-                  Right-click to delete · {formatPrice(line.price)}
+                  Click to delete · {formatPrice(line.price)}
                   {deltaText ? ` (${deltaText} from mid)` : ''}
                 </title>
               </line>
@@ -234,6 +241,7 @@ export const DrawingsOverlay = ({
                 fill={line.color}
                 opacity='0.85'
                 style={{ cursor: 'pointer' }}
+                onClick={openMenu(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
               />
               <text
@@ -283,7 +291,8 @@ export const DrawingsOverlay = ({
                 stroke={line.color}
                 strokeWidth='1.5'
               />
-              {/* Wider invisible hit area for easier right-clicking */}
+              {/* Wider invisible hit area. Left or right click opens the
+                  manage menu. */}
               <line
                 x1={line.x1}
                 y1={line.y1}
@@ -292,9 +301,10 @@ export const DrawingsOverlay = ({
                 stroke='transparent'
                 strokeWidth='10'
                 style={{ cursor: 'pointer' }}
+                onClick={openMenu(line.id, slope)}
                 onContextMenu={openMenu(line.id, slope)}
               >
-                <title>Right-click to delete · {slope}</title>
+                <title>Click to delete · {slope}</title>
               </line>
               <circle cx={line.x1} cy={line.y1} r={3} fill={line.color} />
               <circle cx={line.x2} cy={line.y2} r={3} fill={line.color} />
@@ -319,9 +329,10 @@ export const DrawingsOverlay = ({
                 strokeWidth='1'
                 strokeDasharray='4 3'
                 style={{ cursor: 'pointer' }}
+                onClick={openMenu(rect.id, label)}
                 onContextMenu={openMenu(rect.id, label)}
               >
-                <title>Right-click to delete · {label}</title>
+                <title>Click to delete · {label}</title>
               </rect>
               {/* Anchor dots at each picked corner so user sees their clicks */}
               <circle cx={rect.x} cy={rect.y} r={2.5} fill={rect.color} pointerEvents='none' />
@@ -353,9 +364,10 @@ export const DrawingsOverlay = ({
                 opacity={0.85}
                 rx={2}
                 style={{ cursor: 'pointer' }}
+                onClick={openMenu(t.id, t.text)}
                 onContextMenu={openMenu(t.id, t.text)}
               >
-                <title>Right-click to delete · {t.text}</title>
+                <title>Click to delete · {t.text}</title>
               </rect>
               <text
                 x={t.x + padX}

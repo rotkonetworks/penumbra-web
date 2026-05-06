@@ -98,7 +98,10 @@ export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps)
 
   return (
     <div
-      className='pointer-events-none absolute top-12 left-3 z-30 min-w-[200px] rounded-sm border border-other-tonal-stroke bg-base-black/85 p-2.5 text-xs shadow-md backdrop-blur'
+      // Render in the top-RIGHT (with room for the price axis on the
+      // right edge) so the tooltip doesn't sit on top of the drawing
+      // toolbar in the top-left corner.
+      className='pointer-events-none absolute top-2 right-16 z-30 min-w-[200px] rounded-sm border border-other-tonal-stroke bg-base-black/85 p-2.5 text-xs shadow-md backdrop-blur'
     >
       <div className='mb-1.5 text-text-secondary'>{formatTime(info.time)}</div>
       <div className='grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 tabular-nums'>
