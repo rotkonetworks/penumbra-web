@@ -56,10 +56,10 @@ export const PriceContextMenu = ({
     <div
       ref={ref}
       role='menu'
-      className='absolute z-20 min-w-[200px] overflow-hidden rounded-sm border border-other-tonalStroke bg-base-black shadow-lg'
+      className='absolute z-20 min-w-[200px] overflow-hidden rounded-sm border border-other-tonal-stroke bg-base-black shadow-lg'
       style={{ left: x, top: y }}
     >
-      <div className='border-b border-b-other-tonalStroke px-3 py-2'>
+      <div className='border-b border-b-other-tonal-stroke px-3 py-2'>
         <Text detail color='text.secondary'>
           at price
         </Text>

@@ -68,8 +68,9 @@ const formatPrice = (p: number): string => {
 
 /**
  * SVG overlay rendering user drawings positioned via the candle series's
- * priceToCoordinate. Right-click a drawing to delete it (left-click is
- * reserved for selection / chart pan).
+ * priceToCoordinate. Click a shape's body to open the manage menu
+ * (delete / colour) or drag past 4px to move it; click an endpoint /
+ * corner handle to reshape.
  */
 export const DrawingsOverlay = ({
   drawings,
@@ -81,9 +82,6 @@ export const DrawingsOverlay = ({
   onDelete,
   onUpdate,
 }: DrawingsOverlayProps) => {
-  // Reserved for the upcoming trend-line / rectangle endpoint drag —
-  // accepted as a prop now so callers don't have to re-thread it later.
-  void timeAtX;
 
   const [hLines, setHLines] = useState<PositionedHorizontalLine[]>([]);
   const [tLines, setTLines] = useState<PositionedTrendLine[]>([]);
@@ -658,19 +656,9 @@ export const DrawingsOverlay = ({
                   xSide: 1 | 2;
                   ySide: 1 | 2;
                 }> = [];
-                // Determine which stored side corresponds to which
-                // on-screen edge.
-                const leftIsTime1 = rect.x === Math.min(rect.x, rect.x + rect.width);
-                // Always true since rect.x is min, but compute anyway:
-                void leftIsTime1;
-                // We need to know if time1 maps to left edge (smaller
-                // x) or to right edge. For that, we need x1 vs x2 —
-                // which is xAtTime(time1) vs xAtTime(time2). The
-                // PositionedRectangle struct has x = min(x1,x2),
-                // width = |x2-x1|, but doesn't tell us which is which.
-                // Solution: compare the stored time1 vs time2:
-                // leftEdgeTime = min(time1, time2) → that side maps to
-                // whichever is min. Same for price.
+                // PositionedRectangle stores x = min(x1,x2) so the
+                // left edge maps to whichever stored time is smaller.
+                // Same for price (top edge = larger price).
                 const leftSide: 1 | 2 = rect.time1 <= rect.time2 ? 1 : 2;
                 const rightSide: 1 | 2 = leftSide === 1 ? 2 : 1;
                 const topSide: 1 | 2 = rect.price1 >= rect.price2 ? 1 : 2;
@@ -772,16 +760,16 @@ export const DrawingsOverlay = ({
           role='menu'
           // stop bubble so the document mousedown listener doesn't immediately close
           onMouseDown={e => e.stopPropagation()}
-          className='absolute z-30 min-w-[200px] overflow-hidden rounded-sm border border-other-tonalStroke bg-base-black shadow-lg'
+          className='absolute z-30 min-w-[200px] overflow-hidden rounded-sm border border-other-tonal-stroke bg-base-black shadow-lg'
           style={{ left: menu.x, top: menu.y }}
         >
-          <div className='border-b border-b-other-tonalStroke px-3 py-2'>
+          <div className='border-b border-b-other-tonal-stroke px-3 py-2'>
             <Text detail color='text.secondary'>
               drawing
             </Text>
             <div className='font-mono text-sm text-text-primary'>{menu.label}</div>
           </div>
-          <div className='border-b border-b-other-tonalStroke px-3 py-2'>
+          <div className='border-b border-b-other-tonal-stroke px-3 py-2'>
             <Text detail color='text.secondary'>
               color
             </Text>
@@ -795,7 +783,7 @@ export const DrawingsOverlay = ({
                     onUpdate(menu.id, { color: c });
                     setMenu(null);
                   }}
-                  className='h-5 w-5 rounded-sm border border-other-tonalStroke transition-transform hover:scale-110'
+                  className='h-5 w-5 rounded-sm border border-other-tonal-stroke transition-transform hover:scale-110'
                   style={{ background: c }}
                 />
               ))}

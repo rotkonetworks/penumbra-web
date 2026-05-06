@@ -74,6 +74,9 @@ const readStoredDuration = (): DurationWindow => {
 // useOwnFillMarkers) every Chart render.
 const NOOP_SETTER = (_: unknown) => {};
 
+// Hoisted const — same identity every render, drops a fresh-literal alloc.
+const CROSSHAIR_STYLE = { cursor: 'crosshair' } as const;
+
 // Module-scoped formatter — pure, no closure deps, so there's no reason to
 // allocate it inside the Chart render closure.
 const formatPrice = (p: number): string => {
@@ -499,6 +502,9 @@ export const Chart = observer(() => {
   // paint the trend-line / rectangle preview between the anchor and the
   // cursor before the second click lands.
   const [previewCursor, setPreviewCursor] = useState<{ x: number; y: number } | null>(null);
+  // Stable callbacks for ClickCaptureOverlay so its memo() isn't busted
+  // by a fresh inline-arrow `onCursorLeave` each render.
+  const clearPreviewCursor = useCallback(() => setPreviewCursor(null), []);
 
   // Inline text-input state for the text annotation tool.
   const [pendingText, setPendingText] = useState<{
@@ -763,25 +769,7 @@ export const Chart = observer(() => {
           className='relative flex min-h-0 min-w-0 grow items-center justify-center overflow-hidden'
           ref={containerRef}
           onContextMenu={onContextMenu}
-          // Cursor-track at the canvas-div level (instead of buried
-          // inside ClickCaptureOverlay) so the trend-line / rectangle
-          // preview moves the moment the cursor moves, regardless of
-          // which child layer happens to be under the pointer.
-          onMouseMove={
-            pendingAnchor && (tool === 'trend-line' || tool === 'rectangle')
-              ? e => {
-                  const container = containerRef.current;
-                  if (!container) return;
-                  const rect = container.getBoundingClientRect();
-                  setPreviewCursor({
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top,
-                  });
-                }
-              : undefined
-          }
-          onMouseLeave={pendingAnchor ? () => setPreviewCursor(null) : undefined}
-          style={tool !== 'none' ? { cursor: 'crosshair' } : undefined}
+          style={tool !== 'none' ? CROSSHAIR_STYLE : undefined}
         >
           {/* Click-capture overlay shown only while a drawing tool is
               active. lightweight-charts' own subscribeClick has been
@@ -799,7 +787,7 @@ export const Chart = observer(() => {
                   ? setPreviewCursor
                   : undefined
               }
-              onCursorLeave={() => setPreviewCursor(null)}
+              onCursorLeave={clearPreviewCursor}
             />
           )}
           {error && <BlockchainError direction='column' />}

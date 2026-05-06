@@ -57,17 +57,23 @@ export const useDrawings = (pairKey: string) => {
     [storageKey],
   );
 
-  // Mutate with history: push the current state to past, clear redo stack.
+  // Mutate with history. The setState updater is pure — it just maps
+  // curr → next — and the impure history-stack push runs once outside
+  // the updater. Pure-updater discipline matters because React 18
+  // StrictMode invokes setState updaters twice in development, so any
+  // history push inside the updater would land twice in `past` and
+  // make undo skip every other step in dev.
+  const drawingsRef = useRef<Drawing[]>([]);
+  drawingsRef.current = drawings;
   const mutate = useCallback(
     (compute: (curr: Drawing[]) => Drawing[]) => {
-      setDrawings(curr => {
-        const next = compute(curr);
-        if (next === curr) return curr;
-        pastRef.current = [...pastRef.current, curr].slice(-HISTORY_LIMIT);
-        futureRef.current = [];
-        persist(next);
-        return next;
-      });
+      const prev = drawingsRef.current;
+      const next = compute(prev);
+      if (next === prev) return;
+      pastRef.current = [...pastRef.current, prev].slice(-HISTORY_LIMIT);
+      futureRef.current = [];
+      persist(next);
+      setDrawings(next);
       setHistoryTick(t => t + 1);
     },
     [persist],
