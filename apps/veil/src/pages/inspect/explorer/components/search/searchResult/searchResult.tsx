@@ -69,7 +69,7 @@ const SearchResult: FC<Props> = props => {
             link = (
                 <Link
                     className={linkClassName}
-                    href={`/explore/validator/${props.searchResult.id}`}
+                    href={`/explore/validators/${encodeURIComponent(props.searchResult.id)}`}
                 >
                     <Avatar
                         alt={props.searchResult.name ?? props.searchResult.id}
