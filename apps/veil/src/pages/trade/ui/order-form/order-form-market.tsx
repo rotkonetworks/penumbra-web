@@ -1,3 +1,4 @@
+import { useCallback, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -13,6 +14,7 @@ import { InfoRowGasFee } from './info-row-gas-fee';
 import { InfoRowTradingFee } from './info-row-trading-fee';
 import { OrderFormStore } from './store/OrderFormStore';
 import { InfoRow } from './info-row';
+import { ConfirmInfoRow, ConfirmOrderModal } from './confirm-order-modal';
 
 interface SliderProps {
   inputValue: string;
@@ -62,9 +64,9 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
   // For a market order the trade clears at the touch on the relevant side
   // (buy → ask, sell → bid), not at the mid. Showing both the touch and
   // the chain mid lets the trader see, before they enter any size, exactly
-  // how much spread they're paying — matches the way Hyperliquid /
-  // Drift / Bybit pre-fill the price preview.
+  // how much spread they're paying.
   const { bestBid, bestAsk, marketPrice } = useMarketPrice();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isBuy = store.direction === 'buy';
   const touchPrice = isBuy ? bestAsk : bestBid;
@@ -73,6 +75,79 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
     touchPrice != null && marketPrice != null && marketPrice > 0
       ? ((touchPrice - marketPrice) / marketPrice) * 100
       : null;
+
+  const baseSym = store.baseAsset?.symbol ?? '';
+  const quoteSym = store.quoteAsset?.symbol ?? '';
+  const baseAmt = store.baseInputAmount;
+  const quoteAmt = store.quoteInputAmount;
+  const mid = parentStore.marketPrice;
+
+  const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
+    const rows: ConfirmInfoRow[] = [];
+    if (baseAmt && quoteAmt && baseAmt > 0 && quoteAmt > 0) {
+      const fillPrice = quoteAmt / baseAmt;
+      const decimals =
+        fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
+      rows.push({
+        label: 'Avg fill price',
+        value: `${fillPrice.toFixed(decimals)} ${quoteSym}`,
+      });
+      rows.push({
+        label: isBuy ? 'You pay' : 'You receive',
+        value: `${round({ value: quoteAmt, decimals: 6 })} ${quoteSym}`,
+      });
+      rows.push({
+        label: isBuy ? 'You receive' : 'You sell',
+        value: `${round({ value: baseAmt, decimals: 6 })} ${baseSym}`,
+      });
+    }
+    if (mid != null) {
+      rows.push({
+        label: 'Mid price',
+        value: `${round({ value: mid, decimals: 6 })} ${quoteSym}`,
+      });
+    }
+    if (store.priceImpact) {
+      rows.push({ label: 'Price impact', value: store.priceImpact });
+    }
+    if (store.unfilled) {
+      rows.push({ label: 'Unfilled amount', value: store.unfilled, valueColor: 'error' });
+    }
+    rows.push({
+      label: 'Gas fee',
+      value: `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
+    });
+    return rows;
+  }, [
+    baseAmt,
+    quoteAmt,
+    baseSym,
+    quoteSym,
+    isBuy,
+    mid,
+    store.priceImpact,
+    store.unfilled,
+    parentStore.gasFee.display,
+    parentStore.gasFee.symbol,
+  ]);
+
+  const actionLabel = useMemo(() => {
+    if (!baseAmt || baseAmt <= 0) {
+      return `${isBuy ? 'Buy' : 'Sell'} ${baseSym} at market`;
+    }
+    const baseStr = round({ value: baseAmt, decimals: 6 });
+    const quoteStr = quoteAmt ? round({ value: quoteAmt, decimals: 6 }) : null;
+    return isBuy
+      ? `Buy market ${baseStr} ${baseSym}${quoteStr ? ` ≈ ${quoteStr} ${quoteSym}` : ''}`
+      : `Sell market ${baseStr} ${baseSym}${quoteStr ? ` ≈ ${quoteStr} ${quoteSym}` : ''}`;
+  }, [baseAmt, quoteAmt, baseSym, quoteSym, isBuy]);
+
+  const openConfirm = useCallback(() => setConfirmOpen(true), []);
+  const closeConfirm = useCallback(() => setConfirmOpen(false), []);
+  const handleConfirm = useCallback(() => {
+    setConfirmOpen(false);
+    void parentStore.submit();
+  }, [parentStore]);
 
   return (
     <div className='p-4'>
@@ -197,7 +272,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           <Button
             actionType='accent'
             disabled={!parentStore.canSubmit}
-            onClick={() => void parentStore.submit()}
+            onClick={openConfirm}
           >
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}
           </Button>
@@ -205,6 +280,15 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           <ConnectButton actionType='default' />
         )}
       </div>
+      <ConfirmOrderModal
+        isOpen={confirmOpen}
+        actionLabel={actionLabel}
+        rows={confirmRows}
+        confirmDisabled={!parentStore.canSubmit}
+        confirmLabel={`${isBuy ? 'Buy' : 'Sell'} ${baseSym}`}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirm}
+      />
       {parentStore.marketPrice && (
         <div className='flex justify-center p-1'>
           <Text small color='text.secondary'>
