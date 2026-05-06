@@ -99,6 +99,7 @@ export const DrawingsOverlay = ({
     label: string;
   } | null>(null);
   const containerRef = useRef<SVGSVGElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (drawings.length === 0) {
@@ -177,14 +178,25 @@ export const DrawingsOverlay = ({
 
   useEffect(() => {
     if (!menu) return;
-    const close = () => setMenu(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+    // Listen on `click`, not `mousedown`. Native mousedown can fire on
+    // document before React's synthetic onMouseDown stopPropagation
+    // takes effect (React 17+ delegates at the React root container,
+    // and the order of native bubble vs. React's stopPropagation isn't
+    // strictly guaranteed across browsers / dev vs. prod). Click runs
+    // after mouseup, after the button's onClick fires, so the menu's
+    // own buttons (Delete, colour-pick) have already run their action.
+    const onClick = (e: MouseEvent) => {
+      const containerEl = menuRef.current;
+      if (containerEl && containerEl.contains(e.target as Node)) return;
+      setMenu(null);
     };
-    document.addEventListener('mousedown', close);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null);
+    };
+    document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', close);
+      document.removeEventListener('click', onClick);
       document.removeEventListener('keydown', onKey);
     };
   }, [menu]);
@@ -757,9 +769,8 @@ export const DrawingsOverlay = ({
 
       {menu && (
         <div
+          ref={menuRef}
           role='menu'
-          // stop bubble so the document mousedown listener doesn't immediately close
-          onMouseDown={e => e.stopPropagation()}
           className='absolute z-30 min-w-[200px] overflow-hidden rounded-sm border border-other-tonal-stroke bg-base-black shadow-lg'
           style={{ left: menu.x, top: menu.y }}
         >
