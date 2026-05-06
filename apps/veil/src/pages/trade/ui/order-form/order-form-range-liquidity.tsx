@@ -1,5 +1,4 @@
 import { observer } from 'mobx-react-lite';
-import cn from 'clsx';
 import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -9,7 +8,6 @@ import { InfoIcon } from 'lucide-react';
 import { Slider as PenumbraSlider } from '@penumbra-zone/ui/Slider';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
-import { useTickDirection } from '../../model/use-tick-direction';
 import { OrderInput } from './order-input';
 import { SelectGroup } from './select-group';
 import { InfoRow } from './info-row';
@@ -35,32 +33,6 @@ const LOWER_BOUND_OPTIONS = Object.values(LowerBoundOptions);
 const FEE_TIER_OPTIONS = Object.values(FeeTierOptions);
 const LIQUIDITY_SHAPES = Object.values(LiquidityDistributionShape);
 
-// Live mid-relative readout for a typed bound. Renders nothing when the
-// input is empty, mid is loading, or the typed value lands within sub-bp
-// of mid. Sits between the OrderInput and the preset-chip SelectGroup
-// so the trader sees `+5.21% from mid` while typing a custom bound,
-// instead of having to mentally compare the typed value to the chart.
-const BoundDistanceFromMid = ({
-  input,
-  mid,
-}: {
-  input: string;
-  mid: number | undefined;
-}) => {
-  const typed = parseFloat(input);
-  if (!Number.isFinite(typed) || typed <= 0 || !mid || mid <= 0) return null;
-  const deltaPct = ((typed - mid) / mid) * 100;
-  if (Math.abs(deltaPct) < 0.05) return null;
-  return (
-    <div className='-mt-1 mb-2 px-1'>
-      <Text detail color='text.secondary'>
-        {deltaPct > 0 ? '+' : ''}
-        {deltaPct.toFixed(2)}% from mid
-      </Text>
-    </div>
-  );
-};
-
 export const RangeLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
     const { connected } = connectionStore;
@@ -73,39 +45,13 @@ export const RangeLiquidityOrderForm = observer(
       parentStore.marketPrice != null
         ? round({ value: parentStore.marketPrice, decimals: 6 })
         : undefined;
-    // Tick-direction off the parent's marketPrice — same idiom as
-    // SimpleLP's banner, the limit form's chip and the chart label.
-    const midDirection = useTickDirection(parentStore.marketPrice);
 
     return (
       <div className='p-4'>
-        {/* Live mid-price banner — anchors the form to the on-chain mid
-            the LP is being centred on, before the trader scrolls down
-            to the InfoRows or scans to the chart. Same pattern as
-            SimpleLP. */}
-        {parentStore.marketPrice != null && midText && (
-          <div className='mb-3 flex items-center justify-between rounded-sm border border-other-tonal-stroke px-2 py-1.5'>
-            <Text detail color='text.secondary'>
-              Live mid
-            </Text>
-            <Tooltip message='Average of best bid + best ask on the on-chain route book — the price you are centring liquidity around.'>
-              <span
-                className={cn(
-                  'tabular-nums',
-                  midDirection === 'up'
-                    ? 'text-success-light'
-                    : midDirection === 'down'
-                      ? 'text-destructive-light'
-                      : 'text-text-primary',
-                )}
-              >
-                {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
-                {midText}{' '}
-                <span className='text-text-secondary'>{store.quoteAsset?.symbol ?? ''}</span>
-              </span>
-            </Tooltip>
-          </div>
-        )}
+        {/* Live-mid banner removed (duplicate of the 'Anchor mid'
+            InfoRow at the bottom of this form). RangeLP is denser than
+            SimpleLP — every extra row costs viewport, so we keep the
+            mid reference to one place. */}
         <div className='mb-4'>
           <div className='mb-1'>
             <OrderInput
@@ -166,10 +112,6 @@ export const RangeLiquidityOrderForm = observer(
               denominator={store.quoteAsset?.symbol}
             />
           </div>
-          <BoundDistanceFromMid
-            input={store.upperPriceInput}
-            mid={parentStore.marketPrice}
-          />
           <SelectGroup
             options={UPPER_BOUND_OPTIONS}
             value={store.upperPriceInputOption}
@@ -190,10 +132,6 @@ export const RangeLiquidityOrderForm = observer(
               denominator={store.quoteAsset?.symbol}
             />
           </div>
-          <BoundDistanceFromMid
-            input={store.lowerPriceInput}
-            mid={parentStore.marketPrice}
-          />
           <SelectGroup
             options={LOWER_BOUND_OPTIONS}
             value={store.lowerPriceInputOption}

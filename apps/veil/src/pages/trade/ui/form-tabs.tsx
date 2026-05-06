@@ -59,8 +59,11 @@ export const FormTabs = observer(() => {
   return (
     <div
       ref={parent}
+      // h-full + min-h-0 so the inner form area can flex-1 + scroll
+      // internally instead of pushing the whole page longer when the
+      // form (esp. RangeLP) is taller than the panel.
       className={cn(
-        'flex flex-col transition-colors duration-500',
+        'flex h-full min-h-0 flex-col transition-colors duration-500',
         store.highlight && 'bg-action-hover-overlay',
       )}
     >
@@ -74,7 +77,7 @@ export const FormTabs = observer(() => {
           />
         </Density>
       </div>
-      <div className='overflow-y-auto'>
+      <div className='min-h-0 flex-1 overflow-y-auto'>
         {store.whichForm === 'Market' && <MarketOrderForm parentStore={store} />}
         {store.whichForm === 'Limit' && <LimitOrderForm parentStore={store} />}
         {store.whichForm === 'RangeLP' && <RangeLiquidityOrderForm parentStore={store} />}
