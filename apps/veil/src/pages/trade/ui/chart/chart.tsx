@@ -545,6 +545,18 @@ export const Chart = observer(() => {
         setTool('none');
         return;
       }
+      if (t === 'vertical-line') {
+        if (time === undefined) return;
+        addDrawing({
+          id: `vl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          kind: 'vertical-line',
+          time,
+          color: DRAWING_COLOR,
+          createdAt: Date.now(),
+        });
+        setTool('none');
+        return;
+      }
       if (t === 'trend-line' || t === 'rectangle') {
         if (time === undefined) return;
         // First click anchors. Preview line/rect now follows the cursor

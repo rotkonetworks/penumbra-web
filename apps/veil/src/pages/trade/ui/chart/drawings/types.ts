@@ -1,9 +1,25 @@
-export type DrawingKind = 'horizontal-line' | 'trend-line' | 'rectangle' | 'text';
+export type DrawingKind =
+  | 'horizontal-line'
+  | 'vertical-line'
+  | 'trend-line'
+  | 'rectangle'
+  | 'text';
 
 export interface HorizontalLineDrawing {
   id: string;
   kind: 'horizontal-line';
   price: number;
+  color: string;
+  createdAt: number;
+}
+
+/** Vertical "beam" — single click drops a full-height line at that
+ *  time. Useful for anchoring an event / candle of interest. */
+export interface VerticalLineDrawing {
+  id: string;
+  kind: 'vertical-line';
+  /** Unix seconds, same convention as TrendLine.time1. */
+  time: number;
   color: string;
   createdAt: number;
 }
@@ -44,6 +60,7 @@ export interface TextDrawing {
 
 export type Drawing =
   | HorizontalLineDrawing
+  | VerticalLineDrawing
   | TrendLineDrawing
   | RectangleDrawing
   | TextDrawing;

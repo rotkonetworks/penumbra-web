@@ -23,6 +23,13 @@ interface PositionedHorizontalLine {
   color: string;
 }
 
+interface PositionedVerticalLine {
+  id: string;
+  x: number;
+  time: number;
+  color: string;
+}
+
 interface PositionedTrendLine {
   id: string;
   x1: number;
@@ -66,6 +73,17 @@ const formatPrice = (p: number): string => {
   return p.toPrecision(4);
 };
 
+// Tiny HH:MM label used on vertical beam markers. Vertical lines are
+// time-anchored so the label needs to read the click's wall-clock at
+// a glance — full datetime is overkill for a chart that already has
+// an axis below.
+const formatTimeShort = (t: number): string => {
+  const d = new Date(t * 1000);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
 /**
  * SVG overlay rendering user drawings positioned via the candle series's
  * priceToCoordinate. Click a shape's body to open the manage menu
@@ -84,6 +102,7 @@ export const DrawingsOverlay = ({
 }: DrawingsOverlayProps) => {
 
   const [hLines, setHLines] = useState<PositionedHorizontalLine[]>([]);
+  const [vLines, setVLines] = useState<PositionedVerticalLine[]>([]);
   const [tLines, setTLines] = useState<PositionedTrendLine[]>([]);
   const [rects, setRects] = useState<PositionedRectangle[]>([]);
   const [texts, setTexts] = useState<PositionedText[]>([]);
@@ -104,6 +123,7 @@ export const DrawingsOverlay = ({
   useEffect(() => {
     if (drawings.length === 0) {
       setHLines([]);
+      setVLines([]);
       setTLines([]);
       setRects([]);
       setTexts([]);
@@ -112,6 +132,7 @@ export const DrawingsOverlay = ({
 
     const recompute = () => {
       const nextH: PositionedHorizontalLine[] = [];
+      const nextV: PositionedVerticalLine[] = [];
       const nextT: PositionedTrendLine[] = [];
       const nextR: PositionedRectangle[] = [];
       const nextTx: PositionedText[] = [];
@@ -120,6 +141,10 @@ export const DrawingsOverlay = ({
           const y = yAtPrice(d.price);
           if (y === undefined) continue;
           nextH.push({ id: d.id, y, price: d.price, color: d.color });
+        } else if (d.kind === 'vertical-line') {
+          const x = xAtTime(d.time);
+          if (x === undefined) continue;
+          nextV.push({ id: d.id, x, time: d.time, color: d.color });
         } else if (d.kind === 'trend-line') {
           const x1 = xAtTime(d.time1);
           const y1 = yAtPrice(d.price1);
@@ -168,6 +193,7 @@ export const DrawingsOverlay = ({
         }
       }
       setHLines(nextH);
+      setVLines(nextV);
       setTLines(nextT);
       setRects(nextR);
       setTexts(nextTx);
@@ -484,6 +510,64 @@ export const DrawingsOverlay = ({
     window.addEventListener('pointerup', onUp);
   };
 
+  // Drag-or-click for vertical "beam" lines — same idiom as
+  // startHLineDrag but tracking time (x) instead of price (y).
+  const startVLineDrag = (id: string, label: string) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const svg = containerRef.current;
+    if (!svg) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+    } catch {
+      // ignore
+    }
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let pendingTime: number | null = null;
+    let rafId = 0;
+    const flush = () => {
+      rafId = 0;
+      if (pendingTime === null) return;
+      const next = pendingTime;
+      pendingTime = null;
+      onUpdate(id, { time: next });
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+        dragging = true;
+      }
+      const rect = svg.getBoundingClientRect();
+      const t = timeAtX(ev.clientX - rect.left);
+      if (t === undefined || !Number.isFinite(t)) return;
+      pendingTime = t;
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
+    };
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        flush();
+      }
+      if (!dragging) {
+        const rect = svg.getBoundingClientRect();
+        setMenu({
+          x: ev.clientX - rect.left,
+          y: ev.clientY - rect.top,
+          id,
+          label,
+        });
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   return (
     <>
       <svg
@@ -575,6 +659,63 @@ export const DrawingsOverlay = ({
                   {deltaText}
                 </text>
               )}
+            </g>
+          );
+        })}
+
+        {/* Vertical "beam" lines — single-click drop, drag-or-click
+            for delete/colour. Dashed full-height stroke; small label
+            on the bottom edge with a relative time hint. */}
+        {vLines.map(line => {
+          const labelText = formatTimeShort(line.time);
+          return (
+            <g key={line.id} className='pointer-events-auto'>
+              <line
+                x1={line.x}
+                x2={line.x}
+                y1='0'
+                y2='100%'
+                stroke={line.color}
+                strokeWidth='1'
+                strokeDasharray='4 3'
+              />
+              {/* Wider invisible hit area for easier click + drag. */}
+              <line
+                x1={line.x}
+                x2={line.x}
+                y1='0'
+                y2='100%'
+                stroke='transparent'
+                strokeWidth='8'
+                pointerEvents='stroke'
+                style={{ cursor: 'ew-resize' }}
+                onPointerDown={startVLineDrag(line.id, labelText)}
+                onContextMenu={openMenu(line.id, labelText)}
+              >
+                <title>Drag to move · click for menu · {labelText}</title>
+              </line>
+              <rect
+                x={line.x - 26}
+                y='2'
+                width='52'
+                height='14'
+                fill={line.color}
+                opacity='0.85'
+                style={{ cursor: 'ew-resize' }}
+                onPointerDown={startVLineDrag(line.id, labelText)}
+                onContextMenu={openMenu(line.id, labelText)}
+              />
+              <text
+                x={line.x}
+                y='12'
+                fill='#0d0d0d'
+                fontSize='10'
+                fontFamily='monospace'
+                textAnchor='middle'
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {labelText}
+              </text>
             </g>
           );
         })}

@@ -1,5 +1,15 @@
 import cn from 'clsx';
-import { Minus, MousePointer2, Slash, Square, Trash2, Type, Undo2, Redo2 } from 'lucide-react';
+import {
+  Minus,
+  MousePointer2,
+  AlignVerticalJustifyCenter,
+  Slash,
+  Square,
+  Trash2,
+  Type,
+  Undo2,
+  Redo2,
+} from 'lucide-react';
 import type { ToolMode } from './types';
 
 interface ToolbarProps {
@@ -71,6 +81,13 @@ export const DrawingToolbar = ({
         onClick={() => onToolChange(tool === 'horizontal-line' ? 'none' : 'horizontal-line')}
       >
         <Minus size={14} />
+      </ToolButton>
+      <ToolButton
+        title='Vertical beam — click on chart to anchor a time'
+        active={tool === 'vertical-line'}
+        onClick={() => onToolChange(tool === 'vertical-line' ? 'none' : 'vertical-line')}
+      >
+        <AlignVerticalJustifyCenter size={14} />
       </ToolButton>
       <ToolButton
         title='Trend line — click two points on the chart'
