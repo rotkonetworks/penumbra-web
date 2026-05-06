@@ -234,6 +234,14 @@ export const DrawingsOverlay = ({
       if (e.button !== 0) return;
       const svg = containerRef.current;
       if (!svg) return;
+      // Same anti-chart-pan-capture treatment as horizontal lines.
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+      } catch {
+        // ignore
+      }
       const startClientX = e.clientX;
       const startClientY = e.clientY;
       const rect0 = svg.getBoundingClientRect();
@@ -313,6 +321,16 @@ export const DrawingsOverlay = ({
     if (e.button !== 0) return; // primary click only; right-click → onContextMenu
     const svg = containerRef.current;
     if (!svg) return;
+    // Stop the chart's native pan handlers from also seeing this gesture,
+    // and pin the pointer to the line element so pointermove/pointerup
+    // route directly here instead of through the chart canvas below.
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+    } catch {
+      // older browsers — window-level listeners below still work.
+    }
     const startX = e.clientX;
     const startY = e.clientY;
     let dragging = false;
