@@ -16,11 +16,11 @@ const CANDLES_LIMIT = 5;
  * one lands, and chart.tsx's seeding effect re-runs once new data
  * actually arrives.
  */
-export const useLatestCandles = (durationWindow: DurationWindow) => {
+export const useLatestCandles = (durationWindow: DurationWindow, linearTime = true) => {
   const { baseSymbol, quoteSymbol } = usePathSymbols();
 
   const query = useQuery<CandleWithVolume[]>({
-    queryKey: ['latest-candles', baseSymbol, quoteSymbol, durationWindow],
+    queryKey: ['latest-candles', baseSymbol, quoteSymbol, durationWindow, linearTime],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<CandleWithVolume[]> => {
       return apiFetch<CandleWithVolume[]>('/api/candles', {
@@ -28,6 +28,7 @@ export const useLatestCandles = (durationWindow: DurationWindow) => {
         quoteAsset: quoteSymbol,
         limit: CANDLES_LIMIT,
         durationWindow,
+        gapFill: linearTime ? '1' : '0',
       });
     },
   });

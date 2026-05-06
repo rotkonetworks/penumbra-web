@@ -132,11 +132,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<CandleApiRespo
       combineDbCandles(fwd, rev, baseAssetMetadata, quoteAssetMetadata),
     );
 
-  // Gap-fill the time axis: inject flat candles (open=close=prev.close,
-  // volume=0) for every missing window-step between real fills. Without
-  // this, a quiet pair with two trades a day on the 15m chart renders
-  // as two adjacent candles — suggests continuous activity. With it,
-  // empty slots between real trades read as actual time elapsed,
-  // matching Binance / TradingView behaviour ("chronologically linear").
-  return NextResponse.json(insertEmptyCandles(durationWindow, response));
+  // Gap-fill the time axis when ?gapFill=1 (default): inject flat
+  // candles (open=close=prev.close, vol=0) for every missing window-
+  // step between real fills, so candle X-position tracks actual time
+  // elapsed (Binance / TradingView default). gapFill=0 returns only
+  // candles with real fills — denser plot but a quiet pair looks
+  // busier than it was.
+  const gapFill = searchParams.get('gapFill');
+  const filled =
+    gapFill === '0' ? response : insertEmptyCandles(durationWindow, response);
+  return NextResponse.json(filled);
 }

@@ -234,10 +234,19 @@ export const Chart = observer(() => {
     }
   }, []);
 
+  // Prefs read up here so the candle queries below can pin to the
+  // current linearTime setting (the API gap-fills server-side based
+  // on it). Toggling the pref re-keys the queries and pulls fresh
+  // data without tearing down the chart instance.
+  const { prefs, toggle } = useChartPrefs();
+
   // we need two queries to avoid overfetching. if we leave only the infinite query, it will
   // be requested PAGE times on each block, causing many unnecessary requests.
-  const { data: latestCandles } = useLatestCandles(duration);
-  const { data: historyCandles, isLoading, error, fetchNextPage } = useInfiniteCandles(duration);
+  const { data: latestCandles } = useLatestCandles(duration, prefs.linearTime);
+  const { data: historyCandles, isLoading, error, fetchNextPage } = useInfiniteCandles(
+    duration,
+    prefs.linearTime,
+  );
 
   const isFetching = useRef(false);
   // Stabilize across renders. useChartConfig's setChartRef wires this into a
@@ -271,8 +280,6 @@ export const Chart = observer(() => {
     subscribeHover,
     subscribeChartClick,
   } = useChartConfig(fetchNext, isFetching);
-
-  const { prefs, toggle } = useChartPrefs();
 
   // Gate per-overlay data feeds behind the user's preference. The hooks
   // still mount (so the queries they own can settle), but we hand each a

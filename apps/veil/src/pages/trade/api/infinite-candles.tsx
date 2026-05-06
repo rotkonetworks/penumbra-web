@@ -15,11 +15,11 @@ const CANDLES_LIMIT = 100;
  * !isLoading && historyCandles), tearing down the entire lightweight-charts
  * instance and forcing a full series rebuild on every timeframe switch.
  */
-export const useInfiniteCandles = (durationWindow: DurationWindow) => {
+export const useInfiniteCandles = (durationWindow: DurationWindow, linearTime = true) => {
   const { baseSymbol, quoteSymbol } = usePathSymbols();
 
   return useInfiniteQuery<CandleWithVolume[]>({
-    queryKey: ['infinite-candles', baseSymbol, quoteSymbol, durationWindow],
+    queryKey: ['infinite-candles', baseSymbol, quoteSymbol, durationWindow, linearTime],
     initialPageParam: 1,
     placeholderData: keepPreviousData,
     getNextPageParam: (lastPage, _, lastPageParam) => {
@@ -32,6 +32,7 @@ export const useInfiniteCandles = (durationWindow: DurationWindow) => {
         page: pageParam as number,
         limit: CANDLES_LIMIT,
         durationWindow,
+        gapFill: linearTime ? '1' : '0',
       });
     },
   });

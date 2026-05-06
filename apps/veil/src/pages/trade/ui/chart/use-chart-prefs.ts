@@ -18,6 +18,16 @@ export interface ChartPrefs {
   // wired up in subsequent passes
   ownTrades: boolean;
   openOrders: boolean;
+  /**
+   * Server-side time-axis gap-fill.
+   *  - true  (default): missing window-steps render as flat candles
+   *    (open=close=prev.close, vol=0) so candle X-position reflects
+   *    actual time elapsed — Binance / TradingView default.
+   *  - false: only candles with real fills are sent; a quiet pair
+   *    shows its trades adjacent to each other, denser but less
+   *    honest about time.
+   */
+  linearTime: boolean;
 }
 
 const DEFAULTS: ChartPrefs = {
@@ -30,6 +40,7 @@ const DEFAULTS: ChartPrefs = {
   ownPositions: true,
   ownTrades: false,
   openOrders: false,
+  linearTime: true,
 };
 
 const STORAGE_KEY = 'veil_chart_prefs';

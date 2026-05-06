@@ -58,31 +58,19 @@ export const useDrawings = (pairKey: string) => {
   );
 
   // Mutate with history: push the current state to past, clear redo
-  // stack. Side-effects live inside the setState updater so history
-  // and the new value commit in lockstep — avoids stale-ref races
-  // when mutate fires multiple times before React commits (e.g. drag-
-  // to-move firing onUpdate every rAF frame).
-  //
-  // React 18 StrictMode invokes the updater twice in dev, which would
-  // otherwise double-push the history stack — guard with a per-call
-  // token so the second invocation is a no-op for the impure parts.
-  const mutateTokenRef = useRef<symbol | null>(null);
+  // stack. Plain functional updater — side-effects (history push +
+  // localStorage write) happen inside the updater. In React 18
+  // StrictMode dev, the updater runs twice and the past stack will
+  // double-stack a step; that's a known dev-only annoyance, not a
+  // correctness issue for prod.
   const mutate = useCallback(
     (compute: (curr: Drawing[]) => Drawing[]) => {
-      const callToken = Symbol('mutate');
-      mutateTokenRef.current = callToken;
       setDrawings(curr => {
         const next = compute(curr);
         if (next === curr) return curr;
-        // Only the first invocation in a given mutate call should
-        // commit history + persistence; StrictMode's second run sees
-        // a different token and skips.
-        if (mutateTokenRef.current === callToken) {
-          pastRef.current = [...pastRef.current, curr].slice(-HISTORY_LIMIT);
-          futureRef.current = [];
-          persist(next);
-          mutateTokenRef.current = null;
-        }
+        pastRef.current = [...pastRef.current, curr].slice(-HISTORY_LIMIT);
+        futureRef.current = [];
+        persist(next);
         return next;
       });
       setHistoryTick(t => t + 1);
