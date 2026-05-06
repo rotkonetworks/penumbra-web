@@ -165,45 +165,50 @@ export const Summary = () => {
           in the route-book table. */}
       <SummaryCard title='Bid / Ask' loading={isLoading && bestBid == null}>
         {bestBid != null && bestAsk != null ? (
-          <Tooltip message='Highest active buy price (bid) and lowest active sell price (ask). Click bid to set up a sell limit at that price, ask for a buy limit. A market buy clears at the ask; a market sell clears at the bid.'>
-            <div className='flex items-center gap-1 font-mono text-xs tabular-nums'>
-              <button
-                type='button'
-                onClick={() => {
-                  tradeFormStore.setWhichForm('Limit');
-                  tradeFormStore.limitForm.setDirection('sell');
-                  tradeFormStore.limitForm.setPriceInput(
-                    round({ value: bestBid, decimals: 6 }),
-                  );
-                }}
-                title='Click to set a sell limit at the bid'
-                className='cursor-pointer hover:underline'
-              >
-                <Text detail color='success.light'>
-                  {round({ value: bestBid, decimals: 6 })}
-                </Text>
-              </button>
-              <Text detail color='text.secondary'>
-                /
+          // No <Tooltip> wrapper here — it would render as a button and
+          // the inner clickable bid/ask spans are also buttons, which
+          // throws 'button cannot contain a nested button' in React.
+          // The per-button title attrs explain the click action.
+          <div
+            className='flex items-center gap-1 font-mono text-xs tabular-nums'
+            title='Highest active buy (bid) and lowest active sell (ask) on the on-chain route book. Click bid → sell limit at that price; click ask → buy limit.'
+          >
+            <button
+              type='button'
+              onClick={() => {
+                tradeFormStore.setWhichForm('Limit');
+                tradeFormStore.limitForm.setDirection('sell');
+                tradeFormStore.limitForm.setPriceInput(
+                  round({ value: bestBid, decimals: 6 }),
+                );
+              }}
+              title='Click to set a sell limit at the bid'
+              className='cursor-pointer hover:underline'
+            >
+              <Text detail color='success.light'>
+                {round({ value: bestBid, decimals: 6 })}
               </Text>
-              <button
-                type='button'
-                onClick={() => {
-                  tradeFormStore.setWhichForm('Limit');
-                  tradeFormStore.limitForm.setDirection('buy');
-                  tradeFormStore.limitForm.setPriceInput(
-                    round({ value: bestAsk, decimals: 6 }),
-                  );
-                }}
-                title='Click to set a buy limit at the ask'
-                className='cursor-pointer hover:underline'
-              >
-                <Text detail color='destructive.light'>
-                  {round({ value: bestAsk, decimals: 6 })}
-                </Text>
-              </button>
-            </div>
-          </Tooltip>
+            </button>
+            <Text detail color='text.secondary'>
+              /
+            </Text>
+            <button
+              type='button'
+              onClick={() => {
+                tradeFormStore.setWhichForm('Limit');
+                tradeFormStore.limitForm.setDirection('buy');
+                tradeFormStore.limitForm.setPriceInput(
+                  round({ value: bestAsk, decimals: 6 }),
+                );
+              }}
+              title='Click to set a buy limit at the ask'
+              className='cursor-pointer hover:underline'
+            >
+              <Text detail color='destructive.light'>
+                {round({ value: bestAsk, decimals: 6 })}
+              </Text>
+            </button>
+          </div>
         ) : (
           <Text detail color='text.primary'>
             -

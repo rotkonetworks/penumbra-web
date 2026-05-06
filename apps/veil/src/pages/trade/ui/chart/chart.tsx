@@ -742,7 +742,7 @@ export const Chart = observer(() => {
         </div>
       </div>
 
-      <div className='flex min-h-0 grow'>
+      <div className='flex min-h-0 min-w-0 grow'>
         {/* Drawing toolbar in its own narrow column to the left of the
             chart canvas. Always mounted (regardless of loading state)
             so the column is reserved upfront and the chart canvas
@@ -759,7 +759,7 @@ export const Chart = observer(() => {
           canRedo={canRedo}
         />
         <div
-          className='relative flex min-h-0 grow items-center justify-center'
+          className='relative flex min-h-0 min-w-0 grow items-center justify-center overflow-hidden'
           ref={containerRef}
           onContextMenu={onContextMenu}
           // Cursor-track at the canvas-div level (instead of buried
