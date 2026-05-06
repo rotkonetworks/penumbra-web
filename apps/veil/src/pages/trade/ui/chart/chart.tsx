@@ -762,6 +762,24 @@ export const Chart = observer(() => {
           className='relative flex min-h-0 grow items-center justify-center'
           ref={containerRef}
           onContextMenu={onContextMenu}
+          // Cursor-track at the canvas-div level (instead of buried
+          // inside ClickCaptureOverlay) so the trend-line / rectangle
+          // preview moves the moment the cursor moves, regardless of
+          // which child layer happens to be under the pointer.
+          onMouseMove={
+            pendingAnchor && (tool === 'trend-line' || tool === 'rectangle')
+              ? e => {
+                  const container = containerRef.current;
+                  if (!container) return;
+                  const rect = container.getBoundingClientRect();
+                  setPreviewCursor({
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                  });
+                }
+              : undefined
+          }
+          onMouseLeave={pendingAnchor ? () => setPreviewCursor(null) : undefined}
           style={tool !== 'none' ? { cursor: 'crosshair' } : undefined}
         >
           {/* Click-capture overlay shown only while a drawing tool is
