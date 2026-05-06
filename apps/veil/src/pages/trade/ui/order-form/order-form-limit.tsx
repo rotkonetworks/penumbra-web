@@ -118,6 +118,34 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       </div>
       <div className='mb-4'>
         <InfoRow label='Available balance' value={store.balance} />
+        {/* Mid-equivalent of the trader's current balance — for a buy,
+            the quote balance worth at current mid converts to the base
+            amount they'd come away with; for a sell, the base balance
+            converts to its mid-value in quote. Lets a trader sense at a
+            glance 'this is what my balance is worth right now', without
+            mentally multiplying. */}
+        {(() => {
+          const mid = parentStore.marketPrice;
+          if (!mid || mid <= 0) return null;
+          const balanceNum = isBuy
+            ? store.quoteAsset?.balance
+            : store.baseAsset?.balance;
+          if (balanceNum === undefined || !Number.isFinite(balanceNum) || balanceNum <= 0) {
+            return null;
+          }
+          // buy: balance is in quote → equivalent base = balance / mid
+          // sell: balance is in base → equivalent quote = balance * mid
+          const equiv = isBuy ? balanceNum / mid : balanceNum * mid;
+          const equivAsset = isBuy ? store.baseAsset : store.quoteAsset;
+          if (!equivAsset || !Number.isFinite(equiv)) return null;
+          return (
+            <InfoRow
+              label='≈ at mid'
+              value={`${equivAsset.formatDisplayAmount(equiv)}`}
+              toolTip='Your available balance valued at the current chain mid — what you would come away with if you cleared at the mid right now.'
+            />
+          );
+        })()}
         {/* % of mid the limit price sits at — catches fat-finger order-of-
             magnitude typos before submit. Coloured by direction-of-intent
             so a buy 5% above mid (i.e. would cross immediately) reads as
