@@ -18,6 +18,17 @@ export interface ChartPrefs {
   // wired up in subsequent passes
   ownTrades: boolean;
   openOrders: boolean;
+  /**
+   * X-axis spacing mode.
+   *  - true:  chronologically linear — each pixel is a fixed amount of
+   *           wall-clock time, so missing-data gaps render as visible
+   *           empty space (TradingView's default). Better for spotting
+   *           when a market actually went quiet vs simply slow.
+   *  - false: uniform per-candle (the legacy/current default) — each
+   *           candle takes equal width, gaps collapse. Less honest about
+   *           gaps but reads tighter on quiet pairs.
+   */
+  linearTime: boolean;
 }
 
 const DEFAULTS: ChartPrefs = {
@@ -30,6 +41,7 @@ const DEFAULTS: ChartPrefs = {
   ownPositions: true,
   ownTrades: false,
   openOrders: false,
+  linearTime: false,
 };
 
 const STORAGE_KEY = 'veil_chart_prefs';

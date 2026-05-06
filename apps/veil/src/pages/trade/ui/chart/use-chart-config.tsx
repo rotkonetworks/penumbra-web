@@ -155,6 +155,17 @@ export const useChartConfig = (
     });
   }, []);
 
+  // Toggle the time-axis spacing between chronologically linear (each
+  // pixel = fixed wall-clock time, gaps render as empty space) and
+  // uniform-per-candle (each candle equal width, gaps collapse).
+  // Lightweight-charts' uniformDistribution flag is the inverse: true
+  // means uniform/per-candle; false means linear/wall-clock.
+  const setLinearTime = useCallback((linear: boolean) => {
+    chartRef.current?.timeScale().applyOptions({
+      uniformDistribution: !linear,
+    });
+  }, []);
+
   // useCallback so the consumer's chart-paint useEffect, which lists
   // setCandlesData / setVolumeData in its deps, doesn't re-fire on every
   // Chart render (Chart re-renders every block via useMarketPrice). The
@@ -285,6 +296,9 @@ export const useChartConfig = (
         timeScale: {
           timeVisible: true,
           secondsVisible: false,
+          // uniformDistribution=true → each candle takes equal width
+          // regardless of time gaps. Toggleable from chart settings; the
+          // chart re-applies on toggle via setLinearTime below.
           uniformDistribution: true,
         },
       });
@@ -518,6 +532,7 @@ export const useChartConfig = (
     updateLatestCandles,
     updateLatestVolumes,
     setVolumeRatio,
+    setLinearTime,
     priceAtY,
     yAtPrice,
     xAtTime,
