@@ -196,10 +196,64 @@ export const DrawingsOverlay = ({
     setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, id, label });
   };
 
-  // Suppress unused warnings — wired through for future drag-to-move /
-  // endpoint-handle editing on horizontal / trend / rectangle drawings.
-  void priceAtY;
-  void onUpdate;
+  // Drag-or-click handler factory for horizontal lines. Pointer-down
+  // starts tracking. If pointermove travels >= DRAG_THRESHOLD pixels,
+  // we enter drag mode and feed live `price` updates to onUpdate (rAF-
+  // coalesced). On release, no movement = click → open manage menu;
+  // movement = commit drag (already feeding updates, so just stop).
+  // The line stays painted during drag because each onUpdate triggers a
+  // re-render with the new y from yAtPrice(price).
+  const DRAG_THRESHOLD = 4;
+  const startHLineDrag = (id: string, label: string) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return; // primary click only; right-click → onContextMenu
+    const svg = containerRef.current;
+    if (!svg) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let pendingPrice: number | null = null;
+    let rafId = 0;
+    const flush = () => {
+      rafId = 0;
+      if (pendingPrice === null) return;
+      const next = pendingPrice;
+      pendingPrice = null;
+      onUpdate(id, { price: next });
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+        dragging = true;
+      }
+      const rect = svg.getBoundingClientRect();
+      const p = priceAtY(ev.clientY - rect.top);
+      if (p === undefined || !Number.isFinite(p) || p <= 0) return;
+      pendingPrice = p;
+      if (rafId) return;
+      rafId = requestAnimationFrame(flush);
+    };
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        flush();
+      }
+      // No drag → open manage menu (Delete / colour) at the release
+      // position. Drag → drag committed live; nothing to do.
+      if (!dragging) {
+        const rect = svg.getBoundingClientRect();
+        setMenu({
+          x: ev.clientX - rect.left,
+          y: ev.clientY - rect.top,
+          id,
+          label,
+        });
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
 
   return (
     <>
@@ -231,8 +285,10 @@ export const DrawingsOverlay = ({
                 strokeWidth='1'
                 strokeDasharray='4 3'
               />
-              {/* Wider invisible hit area. Click or right-click both
-                  open the manage menu (Delete). */}
+              {/* Wider invisible hit area. Pointer-down enters drag-or-
+                  click mode: <4px movement = click → open manage menu;
+                  drag = move the line live. Right-click also opens
+                  the menu directly. */}
               <line
                 x1='0'
                 x2='100%'
@@ -240,12 +296,12 @@ export const DrawingsOverlay = ({
                 y2={line.y}
                 stroke='transparent'
                 strokeWidth='8'
-                style={{ cursor: 'pointer' }}
-                onClick={openMenu(line.id, formatPrice(line.price))}
+                style={{ cursor: 'ns-resize' }}
+                onPointerDown={startHLineDrag(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
               >
                 <title>
-                  Click to delete · {formatPrice(line.price)}
+                  Drag to move · click for menu · {formatPrice(line.price)}
                   {deltaText ? ` (${deltaText} from mid)` : ''}
                 </title>
               </line>
@@ -256,8 +312,8 @@ export const DrawingsOverlay = ({
                 height='14'
                 fill={line.color}
                 opacity='0.85'
-                style={{ cursor: 'pointer' }}
-                onClick={openMenu(line.id, formatPrice(line.price))}
+                style={{ cursor: 'ns-resize' }}
+                onPointerDown={startHLineDrag(line.id, formatPrice(line.price))}
                 onContextMenu={openMenu(line.id, formatPrice(line.price))}
               />
               <text
@@ -405,7 +461,7 @@ export const DrawingsOverlay = ({
           role='menu'
           // stop bubble so the document mousedown listener doesn't immediately close
           onMouseDown={e => e.stopPropagation()}
-          className='absolute z-30 min-w-[180px] overflow-hidden rounded-sm border border-other-tonalStroke bg-base-black shadow-lg'
+          className='absolute z-30 min-w-[200px] overflow-hidden rounded-sm border border-other-tonalStroke bg-base-black shadow-lg'
           style={{ left: menu.x, top: menu.y }}
         >
           <div className='border-b border-b-other-tonalStroke px-3 py-2'>
@@ -413,6 +469,26 @@ export const DrawingsOverlay = ({
               drawing
             </Text>
             <div className='font-mono text-sm text-text-primary'>{menu.label}</div>
+          </div>
+          <div className='border-b border-b-other-tonalStroke px-3 py-2'>
+            <Text detail color='text.secondary'>
+              color
+            </Text>
+            <div className='mt-1 flex gap-1.5'>
+              {DRAWING_COLOR_PRESETS.map(c => (
+                <button
+                  key={c}
+                  type='button'
+                  aria-label={`Set drawing colour ${c}`}
+                  onClick={() => {
+                    onUpdate(menu.id, { color: c });
+                    setMenu(null);
+                  }}
+                  className='h-5 w-5 rounded-sm border border-other-tonalStroke transition-transform hover:scale-110'
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
           </div>
           <button
             type='button'
@@ -430,3 +506,14 @@ export const DrawingsOverlay = ({
     </>
   );
 };
+
+// Color presets matching the rest of veil's chart palette: orange
+// (default), green/red (buy/sell hint), neutral light, plus a cool
+// blue for trend lines. Stored on each Drawing as a hex string.
+const DRAWING_COLOR_PRESETS = [
+  '#f49c43', // primary.light — default
+  '#55d383', // success.light — green
+  '#f17878', // destructive.light — red
+  '#7baaf7', // cool blue — for support/resistance trend lines
+  '#d4d4d4', // neutral light — subtle marker
+];
