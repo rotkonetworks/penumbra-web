@@ -87,13 +87,17 @@ const DepthBar = memo(
     side: 'bid' | 'ask';
     title: string;
   }) => {
+    // Taller bars so each level reads as a row (MEXC-style heatmap)
+    // not a thin sliver. Levels near mid sit close together
+    // vertically, so 4px stripes blur into a continuous gradient
+    // band near the touch and stay distinct further out.
     const style = useMemo(
       () => ({
         top,
-        height: 2,
+        height: 4,
         width,
         background: color,
-        opacity: 0.7,
+        opacity: 0.55,
       }),
       [top, width, color],
     );
@@ -111,13 +115,14 @@ const DepthBar = memo(
 
 DepthBar.displayName = 'DepthBar';
 
-// Default 50px — matches the lightweight-charts default price-axis
-// width (56px) minus a small gutter, so bars sit *inside* the price
-// scale column instead of bleeding leftward into the candle area.
-// Mirrors MEXC's order-book column where the depth bars are part of
-// the price ladder, not a separate strip.
+// Default 40px wide, anchored to right: 56 — sits in a dedicated
+// column *immediately left of* the price-axis labels (which occupy
+// the rightmost ~56px). Mirrors MEXC's depth-heatmap-next-to-price-
+// ladder layout: bars don't bleed into the candle area on the left
+// or obscure the price labels on the right.
+const DEPTH_COLUMN_RIGHT = 56;
 export const DepthOverlay = observer(
-  ({ yAtPrice, subscribeRedraw, width = 50 }: DepthOverlayProps) => {
+  ({ yAtPrice, subscribeRedraw, width = 40 }: DepthOverlayProps) => {
     const { data } = useBook();
 
     const levels = useMemo(() => {
@@ -187,17 +192,16 @@ export const DepthOverlay = observer(
       <div
         aria-label='Order book depth overlay'
         className='pointer-events-none absolute top-0 bottom-0 z-[5]'
-        // Pin to the right edge (right: 0) so bars live inside the
-        // price-axis column instead of overflowing left into the
-        // candle area. Semi-transparent fills (set on each bar) keep
-        // the price labels readable on top.
-        style={{ right: 0, width }}
+        // Anchor immediately left of the price-axis labels (which
+        // occupy the rightmost ~56px). Gives the depth bars their
+        // own column without overlapping price text or chart candles.
+        style={{ right: DEPTH_COLUMN_RIGHT, width }}
         title='Click a depth bar to set the limit price'
       >
         {bars.map(b => (
           <DepthBar
             key={b.id}
-            top={b.y - 1}
+            top={b.y - 2}
             width={b.width}
             color={b.color}
             price={b.price}
