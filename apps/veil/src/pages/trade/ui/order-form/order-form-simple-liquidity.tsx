@@ -383,6 +383,38 @@ export const SimpleLiquidityOrderForm = observer(
               </>
             );
           })()}
+          {/* Same one-sided-LP foot-gun warning as Range LP — when the
+              configured range doesn't include live mid, the LP earns
+              nothing in fees until the market moves into range. */}
+          {(() => {
+            const mid = store.marketPrice;
+            const lo = priceRanges[0];
+            const hi = priceRanges[1];
+            if (
+              mid == null ||
+              lo === undefined ||
+              hi === undefined ||
+              mid <= 0 ||
+              lo <= 0 ||
+              hi <= 0
+            ) {
+              return null;
+            }
+            if (mid >= lo && mid <= hi) return null;
+            const aboveMid = mid > hi;
+            return (
+              <InfoRow
+                label='⚠ Range warning'
+                valueColor='error'
+                value={
+                  aboveMid
+                    ? "Mid above range — fully ASK side, won't fill bids until price drops in"
+                    : "Mid below range — fully BID side, won't fill asks until price rises in"
+                }
+                toolTip='Your range does not include the live chain mid. A one-sided LP earns nothing in fees until the market moves into your range. Either widen the range to include mid, or accept that this is a directional bet on the market crossing your range.'
+              />
+            );
+          })()}
           {LQT_ENABLED && (
             <InfoRow
               label='LQT Rewards'
