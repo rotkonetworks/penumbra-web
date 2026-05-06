@@ -129,6 +129,8 @@ const ClickCaptureOverlay = memo(
     timeAtX,
     containerRef,
     onResolve,
+    onCursorMove,
+    onCursorLeave,
   }: {
     priceAtY: (y: number) => number | undefined;
     timeAtX: (x: number) => number | undefined;
@@ -138,6 +140,10 @@ const ClickCaptureOverlay = memo(
       price: number,
       time: number | undefined,
     ) => void;
+    /** Live cursor tracking for trend-line / rectangle preview. rAF-
+     *  coalesced inside so 60-100Hz pointermove doesn't flood setState. */
+    onCursorMove?: (point: { x: number; y: number }) => void;
+    onCursorLeave?: () => void;
   }) => {
     const onClick = useCallback(
       (e: ReactMouseEvent) => {
@@ -153,7 +159,42 @@ const ClickCaptureOverlay = memo(
       },
       [priceAtY, timeAtX, containerRef, onResolve],
     );
-    return <div className='absolute inset-0 z-[5] cursor-crosshair' onClick={onClick} />;
+    const rafRef = useRef(0);
+    const pendingRef = useRef<{ x: number; y: number } | null>(null);
+    const onMove = useCallback(
+      (e: ReactMouseEvent) => {
+        if (!onCursorMove) return;
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        pendingRef.current = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
+        if (rafRef.current) return;
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = 0;
+          const p = pendingRef.current;
+          if (p) onCursorMove(p);
+        });
+      },
+      [containerRef, onCursorMove],
+    );
+    const onLeave = useCallback(() => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+      onCursorLeave?.();
+    }, [onCursorLeave]);
+    return (
+      <div
+        className='absolute inset-0 z-[5] cursor-crosshair'
+        onClick={onClick}
+        onMouseMove={onMove}
+        onMouseLeave={onLeave}
+      />
+    );
   },
 );
 
@@ -445,7 +486,18 @@ export const Chart = observer(() => {
   }, [tool]);
 
   // Pending first anchor for two-click drawing tools (trend-line, rectangle).
-  const pendingAnchorRef = useRef<{ time: number; price: number } | null>(null);
+  // Lifted to state so the live preview rerenders when the anchor lands —
+  // ref alone wouldn't trigger the preview SVG repaint.
+  const [pendingAnchor, setPendingAnchor] = useState<{
+    x: number;
+    y: number;
+    time: number;
+    price: number;
+  } | null>(null);
+  // Live cursor position in canvas coords while a tool is active. Used to
+  // paint the trend-line / rectangle preview between the anchor and the
+  // cursor before the second click lands.
+  const [previewCursor, setPreviewCursor] = useState<{ x: number; y: number } | null>(null);
 
   // Inline text-input state for the text annotation tool.
   const [pendingText, setPendingText] = useState<{
@@ -484,28 +536,32 @@ export const Chart = observer(() => {
       }
       if (t === 'trend-line' || t === 'rectangle') {
         if (time === undefined) return;
-        if (pendingAnchorRef.current === null) {
-          pendingAnchorRef.current = { time, price };
+        // First click anchors. Preview line/rect now follows the cursor
+        // until the second click commits.
+        // (The chart re-render on setPendingAnchor is what makes the
+        // preview overlay appear.)
+        if (pendingAnchor === null) {
+          setPendingAnchor({ x: point.x, y: point.y, time, price });
           return;
         }
-        const a = pendingAnchorRef.current;
         addDrawing({
           id: `${t === 'trend-line' ? 'tl' : 'rc'}-${Date.now()}-${Math.floor(
             Math.random() * 1000,
           )}`,
           kind: t,
-          time1: a.time,
-          price1: a.price,
+          time1: pendingAnchor.time,
+          price1: pendingAnchor.price,
           time2: time,
           price2: price,
           color: DRAWING_COLOR,
           createdAt: Date.now(),
         });
-        pendingAnchorRef.current = null;
+        setPendingAnchor(null);
+        setPreviewCursor(null);
         setTool('none');
       }
     },
-    [addDrawing],
+    [addDrawing, pendingAnchor],
   );
 
   useEffect(() => {
@@ -519,7 +575,10 @@ export const Chart = observer(() => {
   // (e.g. user picks cursor mid-placement) so a stale half-shape doesn't
   // hang around.
   useEffect(() => {
-    if (tool !== 'trend-line' && tool !== 'rectangle') pendingAnchorRef.current = null;
+    if (tool !== 'trend-line' && tool !== 'rectangle') {
+      setPendingAnchor(null);
+      setPreviewCursor(null);
+    }
     if (tool !== 'text') {
       setPendingText(null);
       setPendingTextValue('');
@@ -717,6 +776,12 @@ export const Chart = observer(() => {
               timeAtX={timeAtX}
               containerRef={containerRef}
               onResolve={handleDrawingClick}
+              onCursorMove={
+                pendingAnchor && (tool === 'trend-line' || tool === 'rectangle')
+                  ? setPreviewCursor
+                  : undefined
+              }
+              onCursorLeave={() => setPreviewCursor(null)}
             />
           )}
           {error && <BlockchainError direction='column' />}
@@ -756,6 +821,62 @@ export const Chart = observer(() => {
                 onDelete={removeDrawing}
                 onUpdate={updateDrawing}
               />
+              {/* Live preview while drawing trend-line / rectangle —
+                  first click anchors and the second endpoint follows
+                  the cursor until the second click commits, so the
+                  trader sees the shape they're about to drop instead
+                  of stabbing blind. */}
+              {pendingAnchor &&
+                previewCursor &&
+                (tool === 'trend-line' || tool === 'rectangle') && (
+                  <svg
+                    aria-label='Drawing preview'
+                    className='pointer-events-none absolute inset-0 z-[7] h-full w-full'
+                    style={{ overflow: 'visible' }}
+                  >
+                    {tool === 'trend-line' && (
+                      <>
+                        <line
+                          x1={pendingAnchor.x}
+                          y1={pendingAnchor.y}
+                          x2={previewCursor.x}
+                          y2={previewCursor.y}
+                          stroke={DRAWING_COLOR}
+                          strokeWidth='1.5'
+                          strokeDasharray='4 3'
+                          opacity='0.85'
+                        />
+                        <circle
+                          cx={pendingAnchor.x}
+                          cy={pendingAnchor.y}
+                          r={3}
+                          fill={DRAWING_COLOR}
+                        />
+                        <circle
+                          cx={previewCursor.x}
+                          cy={previewCursor.y}
+                          r={3}
+                          fill={DRAWING_COLOR}
+                          opacity='0.6'
+                        />
+                      </>
+                    )}
+                    {tool === 'rectangle' && (
+                      <rect
+                        x={Math.min(pendingAnchor.x, previewCursor.x)}
+                        y={Math.min(pendingAnchor.y, previewCursor.y)}
+                        width={Math.abs(previewCursor.x - pendingAnchor.x)}
+                        height={Math.abs(previewCursor.y - pendingAnchor.y)}
+                        fill={DRAWING_COLOR}
+                        fillOpacity={0.1}
+                        stroke={DRAWING_COLOR}
+                        strokeWidth='1'
+                        strokeDasharray='4 3'
+                        opacity='0.85'
+                      />
+                    )}
+                  </svg>
+                )}
               <HoverTooltip subscribeHover={subscribeHover} quoteSymbol={quoteSymbol} />
             {pendingText && (
               <input
