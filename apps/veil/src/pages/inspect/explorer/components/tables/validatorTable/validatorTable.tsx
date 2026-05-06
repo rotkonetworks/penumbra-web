@@ -11,14 +11,26 @@ import SortableHeader from '../../sortableHeader'
 import ValidatorStateBonding from '../../validatorStateBonding'
 import { Table, TableCell, TableProps, TableRow } from '../table'
 
-export type SortKey = 'commission' | 'name' | 'power' | 'uptime'
+export type SortKey =
+    | 'commission'
+    | 'growth30d'
+    | 'growth7d'
+    | 'name'
+    | 'power'
+    | 'uptime'
 export type SortDir = 'asc' | 'desc'
+
+export type ValidatorRow =
+    ValidatorsQuery['validatorsHomepage']['validators'][number] & {
+        stakeDelta7d?: number
+        stakeDelta30d?: number
+    }
 
 export interface Props extends Omit<TableProps, 'children'> {
     inactive?: boolean
     sort?: SortKey
     sortDir?: SortDir
-    validators: ValidatorsQuery['validatorsHomepage']['validators']
+    validators: ValidatorRow[]
     /**
      * SSR-rendering limit. By default we render only the top `limit`
      * validators after sorting; the page footer offers a `?all=1`
@@ -28,6 +40,23 @@ export interface Props extends Omit<TableProps, 'children'> {
      */
     limit?: number
 }
+
+const toneFor = (value: number): string => {
+    if (value > 0) {
+        return 'text-success-light'
+    }
+    if (value < 0) {
+        return 'text-destructive-light'
+    }
+    return 'text-text-secondary'
+}
+
+const DeltaCell: FC<{ value: number }> = ({ value }) => (
+    <span className={toneFor(value)}>
+        {value > 0 ? '+' : ''}
+        {formatNumber(value)} UM
+    </span>
+)
 
 function sortValidators(
     validators: Props['validators'],
@@ -47,6 +76,10 @@ function sortValidators(
                 return mul * ((a.uptime || 0) - (b.uptime || 0))
             case 'commission':
                 return mul * (a.commission - b.commission)
+            case 'growth7d':
+                return mul * ((a.stakeDelta7d ?? 0) - (b.stakeDelta7d ?? 0))
+            case 'growth30d':
+                return mul * ((a.stakeDelta30d ?? 0) - (b.stakeDelta30d ?? 0))
             default:
                 return 0
         }
@@ -64,6 +97,10 @@ const ValidatorTable: FC<Props> = ({
 }) => {
     const sorted = sortValidators(rawValidators, sort, sortDir)
     const validators = limit ? sorted.slice(0, limit) : sorted
+    const showDeltaCol = sort === 'growth7d' || sort === 'growth30d'
+    const deltaWindow = sort === 'growth30d' ? '30d' : '7d'
+    const deltaKey: 'stakeDelta30d' | 'stakeDelta7d' =
+        sort === 'growth30d' ? 'stakeDelta30d' : 'stakeDelta7d'
     return (
         <Table {...props}>
             <thead>
@@ -106,6 +143,21 @@ const ValidatorTable: FC<Props> = ({
                             Commission
                         </SortableHeader>
                     </TableCell>
+                    {showDeltaCol && (
+                        <TableCell header>
+                            <SortableHeader
+                                currentSort={sort}
+                                direction={sortDir}
+                                sortKey={
+                                    sort === 'growth30d'
+                                        ? 'growth30d'
+                                        : 'growth7d'
+                                }
+                            >
+                                Δ {deltaWindow}
+                            </SortableHeader>
+                        </TableCell>
+                    )}
                 </TableRow>
             </thead>
             <tbody>
@@ -192,11 +244,21 @@ const ValidatorTable: FC<Props> = ({
                             <TableCell className="h-15">
                                 {validator.commission}%
                             </TableCell>
+                            {showDeltaCol && (
+                                <TableCell className="h-15">
+                                    <DeltaCell
+                                        value={validator[deltaKey] ?? 0}
+                                    />
+                                </TableCell>
+                            )}
                         </TableRow>
                     ))
                 ) : (
                     <TableRow>
-                        <TableCell className="h-15" colSpan={6}>
+                        <TableCell
+                            className="h-15"
+                            colSpan={showDeltaCol ? 7 : 6}
+                        >
                             <EmptyState>No validators found</EmptyState>
                         </TableCell>
                     </TableRow>

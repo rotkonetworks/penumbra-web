@@ -5,20 +5,33 @@ import { FC } from 'react'
 import { ValidatorTable } from '@/pages/inspect/explorer/components'
 import { getValidators } from '@/pages/inspect/explorer/lib/data'
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types'
+import { fetchValidatorStakeDeltas } from '@/pages/inspect/explorer/server/validator-stake-deltas'
 import { Props } from './validatorTableContainer'
 
 const ValidatorTableLoader: FC<Props> = async props => {
-    const validators = await getValidators({
-        state: props.inactive
-            ? ValidatorStateFilter.Inactive
-            : ValidatorStateFilter.Active,
-    })
+    const [validators, deltas] = await Promise.all([
+        getValidators({
+            state: props.inactive
+                ? ValidatorStateFilter.Inactive
+                : ValidatorStateFilter.Active,
+        }),
+        fetchValidatorStakeDeltas(),
+    ])
 
     if (!validators) {
         notFound()
     }
 
-    const total = validators.length
+    const enriched = validators.map(v => {
+        const d = deltas.get(v.id)
+        return {
+            ...v,
+            stakeDelta7d: d?.delta7d ?? 0,
+            stakeDelta30d: d?.delta30d ?? 0,
+        }
+    })
+
+    const total = enriched.length
     const truncated = props.limit !== undefined && total > props.limit
 
     return (
@@ -53,7 +66,7 @@ const ValidatorTableLoader: FC<Props> = async props => {
                     )}
                 </span>
             }
-            validators={validators}
+            validators={enriched}
         />
     )
 }
