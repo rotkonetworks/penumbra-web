@@ -111,7 +111,7 @@ const ValidatorTable: FC<Props> = ({
             <tbody>
                 {validators.length ? (
                     validators.map((validator, i) => (
-                        <TableRow key={i} href={`/explore/validator/${validator.id}`}>
+                        <TableRow key={i} href={`/explore/validators/${encodeURIComponent(validator.id)}`}>
                             <TableCell className="h-15">
                                 <Avatar
                                     alt={validator.name || validator.id}
@@ -119,7 +119,7 @@ const ValidatorTable: FC<Props> = ({
                                     src={validatorImages[validator.id]}
                                     fallbackLetter
                                 />
-                                <Link href={`/explore/validator/${validator.id}`}>
+                                <Link href={`/explore/validators/${encodeURIComponent(validator.id)}`}>
                                     {validator.name ||
                                         shortenHash(validator.id, 19, 'end')}
                                 </Link>

@@ -46,7 +46,7 @@ const VoteTable: FC<Props> = ({ votes, ...props }) => (
                                         fallbackLetter
                                     />
                                     <span className="inline-flex flex-col">
-                                        <Link href={`/explore/validator/${vote.id}`}>
+                                        <Link href={`/explore/validators/${encodeURIComponent(vote.id)}`}>
                                             {vote.name}
                                         </Link>
                                         <span className="text-text-secondary text-xs">
