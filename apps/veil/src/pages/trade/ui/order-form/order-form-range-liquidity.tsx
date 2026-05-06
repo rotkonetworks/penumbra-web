@@ -203,6 +203,32 @@ export const RangeLiquidityOrderForm = observer(
               toolTip='The on-chain mid the form is centred on. The shape selector above weights liquidity around this point.'
             />
           )}
+          {/* Warn when the configured range doesn't include the live mid
+              — a common foot-gun: traders accidentally create a one-
+              sided LP that earns nothing until the market moves into
+              the range. */}
+          {(() => {
+            const mid = parentStore.marketPrice;
+            const lo = store.lowerPrice;
+            const hi = store.upperPrice;
+            if (mid == null || lo == null || hi == null || mid <= 0 || lo <= 0 || hi <= 0) {
+              return null;
+            }
+            if (mid >= lo && mid <= hi) return null;
+            const aboveMid = mid > hi;
+            return (
+              <InfoRow
+                label='⚠ Range warning'
+                valueColor='error'
+                value={
+                  aboveMid
+                    ? 'Mid above range — fully ASK side, won\'t fill bids until price drops in'
+                    : 'Mid below range — fully BID side, won\'t fill asks until price rises in'
+                }
+                toolTip='Your range does not include the live chain mid. A one-sided LP earns nothing in fees until the market moves into your range. Either widen the range to include mid, or accept that this is a directional bet on the market crossing your range.'
+              />
+            );
+          })()}
           <InfoRow
             label='Orders'
             value={
