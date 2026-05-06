@@ -19,9 +19,9 @@ const XlLayout = () => {
     <div className={cn(sharedStyle, 'hidden h-[calc(100vh-3.5rem)] xl:block')}>
       <ResizableSplit
         anchor='right'
-        defaultSize={320}
+        defaultSize={400}
         min={260}
-        max={520}
+        max={560}
         storageKey='veil-trade-xl-form-width'
         className='h-full'
       >
@@ -84,9 +84,9 @@ const LLayout = () => {
       </div>
       <ResizableSplit
         anchor='right'
-        defaultSize={320}
+        defaultSize={400}
         min={260}
-        max={520}
+        max={560}
         storageKey='veil-trade-lg-form-width'
         className='min-h-0 flex-1'
       >
