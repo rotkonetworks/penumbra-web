@@ -3,20 +3,20 @@
 
 import { FC, useEffect, useRef, useState } from 'react'
 import { useClient } from 'urql'
-import { pipe, subscribe } from 'wonka'
 import { BlockTable, Pagination, ResultCount } from '@/pages/inspect/explorer/components'
 import { animationFrameMs } from '@/pages/inspect/explorer/lib/constants'
 import dayjs from '@/pages/inspect/explorer/lib/dayjs'
 import {
-    BlockUpdateSubscription,
-    BlockUpdateSubscriptionVariables,
     BlocksQuery,
     BlocksQueryVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
-import blockSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/blockSubscription.graphql'
 import blocksQuery from '@/pages/inspect/explorer/lib/graphql/queries/blocksQuery.graphql'
+import { subscribeToNewBlocks } from '@/shared/cometbft/subscribe-new-blocks'
 import { TransformedPartialBlockFragment } from '@/pages/inspect/explorer/lib/types'
 import { Props as BlockTableContainerProps } from './blockTableContainer'
+
+const COMETBFT_WS_URL =
+    process.env.NEXT_PUBLIC_COMETBFT_WS_URL ?? 'wss://penumbra.rotko.net/websocket'
 
 interface Props extends BlockTableContainerProps {
     blocks?: TransformedPartialBlockFragment[]
@@ -64,17 +64,19 @@ const BlockTableUpdater: FC<Props> = ({
             return
         }
 
-        const source = client.subscription<
-            BlockUpdateSubscription,
-            BlockUpdateSubscriptionVariables
-        >(blockSubscription, {})
+        // Live block heads come straight from CometBFT's RPC WebSocket
+        // rather than through the indexer's GraphQL subscription. The
+        // chain is the source of truth and a single WS hop away; the
+        // indexer path adds a proxy, a process, and a pg notification
+        // fan-out, each a fresh way for "live blocks" to silently stall.
+        //
+        // The indexer is still in charge of the initial paint and the
+        // safety-net refill below — cometbft only knows the head it
+        // sees, not the historical paginated window.
 
-        // The subscription only ever pushes the *current* head block. If the
-        // socket misses any blocks (transient disconnect, browser tab idle,
-        // server-side missed publish), the next event would land non-
-        // contiguously and the panel would render a hole. Detect that and
-        // fall back to a one-shot REST-style query to refill the visible
-        // window so the table stays contiguous.
+        // If a block arrives non-contiguously (we missed one), refill
+        // the visible window from the indexer in one round-trip so the
+        // panel stays gap-free.
         const refillVisibleWindow = async () => {
             try {
                 const result = await client
@@ -95,23 +97,20 @@ const BlockTableUpdater: FC<Props> = ({
                 queueRef.current = []
                 setBlocks(transformed)
             } catch {
-                // ignore — next sub event will retry
+                // ignore — next sub event or poll will retry
             }
         }
 
-        const { unsubscribe } = pipe(
-            source,
-            subscribe(result => {
-                const block = result.data?.latestBlocks
-
-                if (!block || blockHeightsRef.current.has(block.height)) {
+        const unsubscribe = subscribeToNewBlocks({
+            url: COMETBFT_WS_URL,
+            onBlock: block => {
+                if (blockHeightsRef.current.has(block.height)) {
                     return
                 }
 
-                // Detect a gap: the incoming block height should be exactly 1
-                // above whichever height we currently consider "top" (queued
-                // or rendered). If it's farther, fetch the missing window in
-                // one round-trip and reset.
+                // Detect a gap: incoming height should be exactly one above
+                // whichever height we currently consider "top" (queued or
+                // rendered). If it's farther, refill the window.
                 const knownTop = Math.max(
                     blocksRef.current[0]?.height ?? 0,
                     queueRef.current[queueRef.current.length - 1]?.height ?? 0,
@@ -122,26 +121,25 @@ const BlockTableUpdater: FC<Props> = ({
                 }
 
                 blockHeightsRef.current.add(block.height)
-
                 queueRef.current.push({
                     height: block.height,
-                    timestamp: dayjs(block.createdAt).valueOf(),
-                    transactionsCount: block.transactionsCount,
+                    timestamp: dayjs(block.time).valueOf(),
+                    transactionsCount: block.txCount,
                 })
                 kickAnimationLoop()
-            })
-        )
+            },
+        })
 
-        // Also refill on visibility-change wake — closes the gap from the
+        // Refill on visibility-change wake — closes the gap from the
         // common "tab was backgrounded for 30 minutes" failure mode.
         const onVisible = () => {
             if (document.visibilityState === 'visible') void refillVisibleWindow()
         }
         document.addEventListener('visibilitychange', onVisible)
 
-        // Hard-poll every 15s as a safety net in case the websocket subscription
-        // silently dies (mid-host network blip, ws server restart, etc).
-        // The query is a single 10-row read; cheap.
+        // Hard-poll every 15s as a safety net for the case where the WS
+        // is silently broken (e.g. middlebox idle timeout, NAT rebind,
+        // proxy hiccup). Cheap — one 10-row indexer read.
         const pollId = window.setInterval(() => {
             void refillVisibleWindow()
         }, 15_000)
