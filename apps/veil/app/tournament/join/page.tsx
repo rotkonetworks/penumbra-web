@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { TournamentJoinPage as TournamentJoinPageComponent } from '@/pages/tournament/ui/join/page';
 import { TournamentQueryParams } from '@/features/tournament-earnings-canvas';
 

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { PortfolioPage } from '@/pages/portfolio';
 import { headers } from 'next/headers';
 import { userAgent } from 'next/server';

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
 import {

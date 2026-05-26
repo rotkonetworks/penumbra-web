@@ -14,7 +14,7 @@ import { Button, Container } from '@/pages/inspect/explorer/components';
 // timestamp and stale-tabs would still show 3-hour-old rows even after
 // the live WS subscription updated 'Current block'. ISR every 30s rebuilds
 // the snapshot in the background so cold loads land on fresh rows.
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 const InspectHomePage: FC = () => (
   <>
