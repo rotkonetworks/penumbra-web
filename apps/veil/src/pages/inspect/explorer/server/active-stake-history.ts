@@ -39,6 +39,12 @@ interface PerValidatorDayRow {
  * over the chart window. For 30-90 day windows this is mostly true on
  * Penumbra mainnet — validator churn is slow.
  *
+ * supply_total_staked only writes a row when a validator's stake changes,
+ * so for any given day many validators have no row at all. The stake query
+ * must therefore carry forward each validator's last known um value rather
+ * than reading the day's rows directly — otherwise quiet days collapse to
+ * near-zero and the chart looks broken.
+ *
  * Delegation/undelegation flows come from the per-tx tables and are summed
  * by day regardless of validator state, since you can delegate to (or
  * undelegate from) inactive validators too.
@@ -54,20 +60,29 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
         SELECT id FROM stake_validator_set
         WHERE validator_state::jsonb->>'state' = 'VALIDATOR_STATE_ENUM_ACTIVE'
       ),
-      per_validator_day AS (
-        SELECT
-          to_char(date_trunc('day', bd.timestamp), 'YYYY-MM-DD') AS date,
-          MAX(sts.um) AS um
+      days AS (
+        SELECT generate_series(
+          date_trunc('day', ${since}::timestamp),
+          date_trunc('day', now()),
+          interval '1 day'
+        ) AS day
+      )
+      SELECT
+        to_char(d.day, 'YYYY-MM-DD') AS date,
+        COALESCE(SUM(last_um.um), 0)::bigint AS um
+      FROM days d
+      CROSS JOIN active_validators av
+      LEFT JOIN LATERAL (
+        SELECT sts.um
         FROM supply_total_staked sts
         JOIN block_details bd ON bd.height = sts.height
-        JOIN active_validators av ON av.id = sts.validator_id
-        WHERE bd.timestamp >= ${since}
-        GROUP BY date_trunc('day', bd.timestamp), sts.validator_id
-      )
-      SELECT date, SUM(um)::bigint AS um
-      FROM per_validator_day
-      GROUP BY date
-      ORDER BY date ASC
+        WHERE sts.validator_id = av.id
+          AND bd.timestamp < d.day + interval '1 day'
+        ORDER BY bd.height DESC
+        LIMIT 1
+      ) last_um ON true
+      GROUP BY d.day
+      ORDER BY d.day ASC
     `.execute(pindexerDb),
 
     sql<DateRow>`
