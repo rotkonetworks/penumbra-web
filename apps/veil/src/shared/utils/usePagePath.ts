@@ -36,7 +36,22 @@ const matchPagePath = (str: string): PagePath => {
       return value;
     }
   }
-  return PagePath.Home;
+  // Fall back to the longest PagePath prefix so sub-pages outside the
+  // explicit enum (e.g. /explore/validators, /explore/blocks) light up
+  // their parent tab instead of defaulting to Home. Skip parametric
+  // entries (handled above) and the bare '/' (it'd match everything).
+  let bestMatch: PagePath = PagePath.Home;
+  let bestLen = 0;
+  for (const candidate of _pathValues!) {
+    if (candidate.includes(':') || candidate === '/') continue;
+    if (str === candidate || str.startsWith(candidate + '/')) {
+      if (candidate.length > bestLen) {
+        bestLen = candidate.length;
+        bestMatch = candidate as PagePath;
+      }
+    }
+  }
+  return bestMatch;
 };
 
 export const usePagePath = () => {
