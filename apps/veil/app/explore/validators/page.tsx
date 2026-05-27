@@ -20,10 +20,7 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import { ActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
 import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
-import {
-  parseStakeRange,
-  stakeRangeDays,
-} from '@/pages/inspect/explorer/ui/stake-range-selector';
+import { parseStakeRange, stakeRangeDays } from '@/pages/inspect/explorer/ui/stake-range';
 
 interface Props {
   searchParams: Promise<{

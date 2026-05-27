@@ -13,7 +13,8 @@ import {
   YAxis,
 } from 'recharts';
 import type { ActiveStakeFlowPoint, ValidatorFlow } from '../server/active-stake-history';
-import { StakeRangeSelector, type StakeRangeKey } from './stake-range-selector';
+import { StakeRangeSelector } from './stake-range-selector';
+import type { StakeRangeKey } from './stake-range';
 
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
