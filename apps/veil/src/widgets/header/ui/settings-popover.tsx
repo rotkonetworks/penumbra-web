@@ -19,7 +19,10 @@ export const SettingsPopover = () => {
         </Button>
       </Popover.Trigger>
       <Popover.Content align='end' side='bottom'>
-        <div className='flex w-72 flex-col gap-4 p-2 text-text-primary'>
+        {/* w-[min(...)] keeps the popover inside the viewport on narrow
+            phones (iPhone SE ~320px chrome-included) — fixed w-72 used
+            to overhang the right edge with content clipped. */}
+        <div className='flex w-[min(18rem,calc(100vw-1rem))] flex-col gap-4 p-2 text-text-primary'>
           <div className='flex flex-col gap-2'>
             <Text small color='text.primary'>
               Broadcast via
@@ -34,10 +37,10 @@ export const SettingsPopover = () => {
                 onChange={value => setMode(value as BroadcastMode)}
               >
                 <SegmentedControl.Item value='veil' style='filled'>
-                  Veil (recommended)
+                  Veil
                 </SegmentedControl.Item>
                 <SegmentedControl.Item value='wallet' style='unfilled'>
-                  Wallet (Prax)
+                  Wallet
                 </SegmentedControl.Item>
               </SegmentedControl>
             </Density>
