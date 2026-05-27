@@ -20,9 +20,19 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import { ActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
 import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
+import {
+  parseStakeRange,
+  stakeRangeDays,
+} from '@/pages/inspect/explorer/ui/stake-range-selector';
 
 interface Props {
-  searchParams: Promise<{ all?: string; dir?: string; filter?: string; sort?: string }>;
+  searchParams: Promise<{
+    all?: string;
+    dir?: string;
+    filter?: string;
+    sort?: string;
+    range?: string;
+  }>;
 }
 
 const ValidatorsPage: FC<Props> = async props => {
@@ -37,10 +47,11 @@ const ValidatorsPage: FC<Props> = async props => {
       ? ValidatorStateFilter.Inactive
       : ValidatorStateFilter.Active;
 
-  // 90d active-stake + delegation/undelegation flow timeseries.
-  // Server-fetched here so the chart hydrates immediately on first paint
-  // alongside the rest of the panel data.
-  const stakeHistory = await fetchActiveStakeHistory(90);
+  // Active-stake + delegation/undelegation flow timeseries for the
+  // user-selected window. Server-fetched here so the chart hydrates
+  // immediately on first paint alongside the rest of the panel data.
+  const stakeRange = parseStakeRange(searchParams.range);
+  const stakeHistory = await fetchActiveStakeHistory(stakeRangeDays(stakeRange));
 
   return (
     <Container>
@@ -49,7 +60,7 @@ const ValidatorsPage: FC<Props> = async props => {
         <Breadcrumb>Validators</Breadcrumb>
       </Breadcrumbs>
 
-      <ActiveStakeChart data={stakeHistory} />
+      <ActiveStakeChart data={stakeHistory} currentRange={stakeRange} />
       <div className='grid grid-cols-12 gap-4 lg:items-start'>
         <ActiveVotingPowerPanelContainer
           className='col-span-full md:col-span-4'

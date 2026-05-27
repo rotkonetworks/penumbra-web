@@ -12,7 +12,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ActiveStakeFlowPoint } from '../server/active-stake-history';
+import type { ActiveStakeFlowPoint, ValidatorFlow } from '../server/active-stake-history';
+import { StakeRangeSelector, type StakeRangeKey } from './stake-range-selector';
 
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -26,14 +27,30 @@ const fmtUM = (n: number) => {
   return `${sign}${abs.toFixed(0)}`;
 };
 
+interface ChartDatum {
+  date: string;
+  activeStake: number;
+  delegated: number;
+  undelegated: number;
+  netFlow: number;
+  validatorFlows: ValidatorFlow[];
+}
+
 interface RechartsTooltipProps {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ name: string; value: number; color: string; payload?: ChartDatum }>;
   label?: string;
 }
 
+// Truncate long validator names for the tooltip — keeps the breakdown
+// readable on narrow viewports without dropping disambiguating chars.
+const trimName = (name: string, max = 22): string =>
+  name.length > max ? `${name.slice(0, max - 1)}…` : name;
+
 const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
   if (!active || !payload?.length || !label) return null;
+  const datum = payload[0]?.payload;
+  const flows = datum?.validatorFlows ?? [];
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
       <div className='text-text-secondary'>{fmtDate(label)}</div>
@@ -42,12 +59,39 @@ const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
           {p.name}: {fmtUM(p.value)} UM
         </div>
       ))}
+      {flows.length > 0 && (
+        <div className='mt-2 border-t border-neutral-700 pt-2'>
+          <div className='mb-1 text-xs uppercase tracking-wide text-text-secondary'>
+            Top movers
+          </div>
+          {flows.map(f => {
+            const net = f.delegated - f.undelegated;
+            return (
+              <div
+                key={f.name}
+                className='mt-0.5 flex items-center justify-between gap-3 font-mono text-xs'
+              >
+                <span className='text-text-primary'>{trimName(f.name)}</span>
+                <span
+                  className={
+                    net >= 0 ? 'text-success-light' : 'text-destructive-light'
+                  }
+                >
+                  {net >= 0 ? '+' : ''}
+                  {fmtUM(net)} UM
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
 
 interface Props {
   data: ActiveStakeFlowPoint[];
+  currentRange: StakeRangeKey;
 }
 
 /**
@@ -61,16 +105,17 @@ interface Props {
  * so a trader who learned the visual language there reads this one for
  * free.
  */
-export const ActiveStakeChart = ({ data }: Props) => {
+export const ActiveStakeChart = ({ data, currentRange }: Props) => {
   // Recharts wants a positive 'undelegated' value to draw downward — we
   // flip the sign here so bars below zero render naturally on a shared
-  // axis.
-  const chartData = data.map(p => ({
+  // axis. validatorFlows passes through unchanged for the tooltip.
+  const chartData: ChartDatum[] = data.map(p => ({
     date: p.date,
     activeStake: p.activeStake,
     delegated: p.delegated,
     undelegated: -p.undelegated,
     netFlow: p.netFlow,
+    validatorFlows: p.validatorFlows,
   }));
 
   const totals = data.reduce(
@@ -86,9 +131,12 @@ export const ActiveStakeChart = ({ data }: Props) => {
   return (
     <section className='flex flex-col gap-6'>
       <div className='flex flex-col gap-2'>
-        <Text variant='h2' color='text.primary'>
-          Active stake history
-        </Text>
+        <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+          <Text variant='h2' color='text.primary'>
+            Active stake history
+          </Text>
+          <StakeRangeSelector current={currentRange} />
+        </div>
         <Text body color='text.secondary'>
           The slow line is total UM delegated to currently-active validators —
           what&apos;s securing the chain end-of-day. The bars are daily delegation

@@ -7,6 +7,20 @@ const UM_UNIT = 1_000_000;
 const toUM = (raw: bigint | number | string | null | undefined): number =>
   raw === null || raw === undefined ? 0 : Number(raw) / UM_UNIT;
 
+// Cap the per-day validator breakdown the API returns so a year-wide
+// window stays a manageable JSON payload. The chart tooltip only needs
+// the "who moved the needle" — anything past the top handful is noise.
+const FLOWS_TOP_N = 5;
+
+export interface ValidatorFlow {
+  /** Resolved validator name, falling back to ik if pindexer has no entry. */
+  name: string;
+  /** UM delegated to this validator on this day. */
+  delegated: number;
+  /** UM undelegated from this validator on this day. */
+  undelegated: number;
+}
+
 export interface ActiveStakeFlowPoint {
   date: string; // ISO date
   /** Sum of delegations to currently-active validators at end-of-day. UM. */
@@ -17,11 +31,8 @@ export interface ActiveStakeFlowPoint {
   undelegated: number;
   /** delegated - undelegated. UM. */
   netFlow: number;
-}
-
-interface DateRow {
-  date: string;
-  amount: bigint;
+  /** Top contributors to the day's flows, by |delegated|+|undelegated|. */
+  validatorFlows: ValidatorFlow[];
 }
 
 interface PerValidatorDayRow {
@@ -29,8 +40,16 @@ interface PerValidatorDayRow {
   um: bigint;
 }
 
+interface DateValidatorRow {
+  date: string;
+  ik: string;
+  name: string;
+  amount: bigint;
+}
+
 /**
- * Per-day active stake + delegation/undelegation tx flows.
+ * Per-day active stake + delegation/undelegation tx flows, with the
+ * top validators that drove each day's flow.
  *
  * Active stake here = sum of supply_total_staked.um for validators that are
  * *currently* in the ACTIVE state. Pindexer's stake_validator_set table only
@@ -47,13 +66,13 @@ interface PerValidatorDayRow {
  *
  * Delegation/undelegation flows come from the per-tx tables and are summed
  * by day regardless of validator state, since you can delegate to (or
- * undelegate from) inactive validators too.
+ * undelegate from) inactive validators too. Joined against
+ * stake_validator_set for the human-readable name; falls back to ik when
+ * pindexer hasn't seen that validator yet (rare for recently-active sets).
  */
 export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlowPoint[]> {
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
-  // All three queries hit pindexer; raw SQL keeps Kysely's typed alias
-  // inference out of the way for the slightly hairy joins/casts.
   const [stakeRows, delegationRows, undelegationRows] = await Promise.all([
     sql<PerValidatorDayRow>`
       WITH active_validators AS (
@@ -85,62 +104,92 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
       ORDER BY d.day ASC
     `.execute(pindexerDb),
 
-    sql<DateRow>`
+    sql<DateValidatorRow>`
       SELECT
         to_char(date_trunc('day', bd.timestamp), 'YYYY-MM-DD') AS date,
+        txs.ik AS ik,
+        COALESCE(vs.name, txs.ik) AS name,
         SUM(txs.amount)::bigint AS amount
       FROM stake_delegation_txs txs
       JOIN block_details bd ON bd.height = txs.height
+      LEFT JOIN stake_validator_set vs ON vs.ik = txs.ik
       WHERE bd.timestamp >= ${since}
-      GROUP BY date_trunc('day', bd.timestamp)
-      ORDER BY date ASC
+      GROUP BY date_trunc('day', bd.timestamp), txs.ik, vs.name
+      ORDER BY date ASC, amount DESC
     `.execute(pindexerDb),
 
-    sql<DateRow>`
+    sql<DateValidatorRow>`
       SELECT
         to_char(date_trunc('day', bd.timestamp), 'YYYY-MM-DD') AS date,
+        txs.ik AS ik,
+        COALESCE(vs.name, txs.ik) AS name,
         SUM(txs.amount)::bigint AS amount
       FROM stake_undelegation_txs txs
       JOIN block_details bd ON bd.height = txs.height
+      LEFT JOIN stake_validator_set vs ON vs.ik = txs.ik
       WHERE bd.timestamp >= ${since}
-      GROUP BY date_trunc('day', bd.timestamp)
-      ORDER BY date ASC
+      GROUP BY date_trunc('day', bd.timestamp), txs.ik, vs.name
+      ORDER BY date ASC, amount DESC
     `.execute(pindexerDb),
   ]);
 
   const byDate = new Map<string, ActiveStakeFlowPoint>();
-  for (const r of stakeRows.rows) {
-    byDate.set(r.date, {
-      date: r.date,
-      activeStake: toUM(r.um),
-      delegated: 0,
-      undelegated: 0,
-      netFlow: 0,
-    });
-  }
-  for (const r of delegationRows.rows) {
-    const e = byDate.get(r.date);
-    if (e) e.delegated = toUM(r.amount);
-    else
-      byDate.set(r.date, {
-        date: r.date,
-        activeStake: 0,
-        delegated: toUM(r.amount),
-        undelegated: 0,
-        netFlow: 0,
-      });
-  }
-  for (const r of undelegationRows.rows) {
-    const e = byDate.get(r.date);
-    if (e) e.undelegated = toUM(r.amount);
-    else
-      byDate.set(r.date, {
-        date: r.date,
+  // Per-day validator aggregation: date -> ik -> { name, delegated, undelegated }.
+  // Keying by ik (not name) avoids merging two distinct validators that
+  // happen to share a display name.
+  const flowsByDate = new Map<string, Map<string, ValidatorFlow & { ik: string }>>();
+
+  const point = (date: string): ActiveStakeFlowPoint => {
+    let e = byDate.get(date);
+    if (!e) {
+      e = {
+        date,
         activeStake: 0,
         delegated: 0,
-        undelegated: toUM(r.amount),
+        undelegated: 0,
         netFlow: 0,
-      });
+        validatorFlows: [],
+      };
+      byDate.set(date, e);
+    }
+    return e;
+  };
+
+  const flowFor = (date: string, ik: string, name: string): ValidatorFlow & { ik: string } => {
+    let day = flowsByDate.get(date);
+    if (!day) {
+      day = new Map();
+      flowsByDate.set(date, day);
+    }
+    let v = day.get(ik);
+    if (!v) {
+      v = { ik, name, delegated: 0, undelegated: 0 };
+      day.set(ik, v);
+    }
+    return v;
+  };
+
+  for (const r of stakeRows.rows) {
+    point(r.date).activeStake = toUM(r.um);
+  }
+  for (const r of delegationRows.rows) {
+    const um = toUM(r.amount);
+    const p = point(r.date);
+    p.delegated += um;
+    flowFor(r.date, r.ik, r.name).delegated += um;
+  }
+  for (const r of undelegationRows.rows) {
+    const um = toUM(r.amount);
+    const p = point(r.date);
+    p.undelegated += um;
+    flowFor(r.date, r.ik, r.name).undelegated += um;
+  }
+  for (const [date, day] of flowsByDate) {
+    const top = Array.from(day.values())
+      .sort((a, b) => Math.abs(b.delegated) + Math.abs(b.undelegated) - (Math.abs(a.delegated) + Math.abs(a.undelegated)))
+      .slice(0, FLOWS_TOP_N)
+      .map(({ name, delegated, undelegated }) => ({ name, delegated, undelegated }));
+    point(date).validatorFlows = top;
   }
   for (const e of byDate.values()) {
     e.netFlow = e.delegated - e.undelegated;
