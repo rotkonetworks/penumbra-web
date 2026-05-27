@@ -31,6 +31,7 @@ const fmtUM = (n: number) => {
 interface ChartDatum {
   date: string;
   activeStake: number;
+  inactiveStake: number;
   delegated: number;
   undelegated: number;
   netFlow: number;
@@ -113,6 +114,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
   const chartData: ChartDatum[] = data.map(p => ({
     date: p.date,
     activeStake: p.activeStake,
+    inactiveStake: p.inactiveStake,
     delegated: p.delegated,
     undelegated: -p.undelegated,
     netFlow: p.netFlow,
@@ -127,7 +129,9 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
     { delegated: 0, undelegated: 0 },
   );
   const netFlow = totals.delegated - totals.undelegated;
-  const latestActive = data.length > 0 ? data[data.length - 1]!.activeStake : 0;
+  const latest = data.length > 0 ? data[data.length - 1]! : undefined;
+  const latestActive = latest?.activeStake ?? 0;
+  const latestInactive = latest?.inactiveStake ?? 0;
 
   return (
     <section className='flex flex-col gap-6'>
@@ -139,21 +143,29 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
           <StakeRangeSelector current={currentRange} />
         </div>
         <Text body color='text.secondary'>
-          The slow line is total UM delegated to currently-active validators —
-          what&apos;s securing the chain end-of-day. The bars are daily delegation
-          (positive) and undelegation (negative) tx flows. Net inflow swells the
-          line, net outflow drains it.
+          The teal area is UM delegated to currently-active validators — what&apos;s
+          securing the chain end-of-day. Amber on top is bonded stake on the
+          jailed / disabled / not-yet-promoted set, still locked but not earning
+          or securing. Bars are daily delegation (positive) and undelegation
+          (negative) tx flows.
         </Text>
       </div>
 
       <div className='grid grid-cols-2 gap-3 desktop:grid-cols-4'>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            Active stake (latest)
+            Bonded stake (latest)
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-teal-300'>{fmtUM(latestActive)} UM</span>
           </Text>
+          {latestInactive > 0 && (
+            <Text detail color='text.secondary'>
+              <span className='font-mono text-amber-300'>
+                + {fmtUM(latestInactive)} UM inactive
+              </span>
+            </Text>
+          )}
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
@@ -232,6 +244,17 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
               fill='#5eead4'
               fillOpacity={0.25}
               type='monotone'
+              stackId='stake'
+            />
+            <Area
+              yAxisId='stake'
+              dataKey='inactiveStake'
+              name='Inactive bonded'
+              stroke='#fcd34d'
+              fill='#fcd34d'
+              fillOpacity={0.18}
+              type='monotone'
+              stackId='stake'
             />
             <Bar
               yAxisId='flow'

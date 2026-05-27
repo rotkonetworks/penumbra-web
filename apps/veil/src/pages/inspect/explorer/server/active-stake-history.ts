@@ -25,6 +25,9 @@ export interface ActiveStakeFlowPoint {
   date: string; // ISO date
   /** Sum of delegations to currently-active validators at end-of-day. UM. */
   activeStake: number;
+  /** Sum of delegations to bonded-but-not-active validators
+   *  (JAILED / DISABLED / DEFINED — excludes TOMBSTONED which is slashed). UM. */
+  inactiveStake: number;
   /** Total amount delegated that day across all validators. UM. */
   delegated: number;
   /** Total amount undelegated that day. UM. */
@@ -35,8 +38,9 @@ export interface ActiveStakeFlowPoint {
   validatorFlows: ValidatorFlow[];
 }
 
-interface PerValidatorDayRow {
+interface PerBucketDayRow {
   date: string;
+  bucket: 'active' | 'inactive';
   um: bigint;
 }
 
@@ -74,10 +78,27 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
   const [stakeRows, delegationRows, undelegationRows] = await Promise.all([
-    sql<PerValidatorDayRow>`
-      WITH active_validators AS (
-        SELECT id FROM stake_validator_set
-        WHERE validator_state::jsonb->>'state' = 'VALIDATOR_STATE_ENUM_ACTIVE'
+    sql<PerBucketDayRow>`
+      WITH bonded_validators AS (
+        SELECT
+          id,
+          CASE
+            WHEN validator_state::jsonb->>'state' = 'VALIDATOR_STATE_ENUM_ACTIVE'
+              THEN 'active'
+            WHEN validator_state::jsonb->>'state' IN (
+              'VALIDATOR_STATE_ENUM_JAILED',
+              'VALIDATOR_STATE_ENUM_DISABLED',
+              'VALIDATOR_STATE_ENUM_DEFINED'
+            ) THEN 'inactive'
+            ELSE NULL
+          END AS bucket
+        FROM stake_validator_set
+        WHERE validator_state::jsonb->>'state' IN (
+          'VALIDATOR_STATE_ENUM_ACTIVE',
+          'VALIDATOR_STATE_ENUM_JAILED',
+          'VALIDATOR_STATE_ENUM_DISABLED',
+          'VALIDATOR_STATE_ENUM_DEFINED'
+        )
       ),
       days AS (
         SELECT generate_series(
@@ -88,20 +109,21 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
       )
       SELECT
         to_char(d.day, 'YYYY-MM-DD') AS date,
+        bv.bucket AS bucket,
         COALESCE(SUM(last_um.um), 0)::bigint AS um
       FROM days d
-      CROSS JOIN active_validators av
+      CROSS JOIN bonded_validators bv
       LEFT JOIN LATERAL (
         SELECT sts.um
         FROM supply_total_staked sts
         JOIN block_details bd ON bd.height = sts.height
-        WHERE sts.validator_id = av.id
+        WHERE sts.validator_id = bv.id
           AND bd.timestamp < d.day + interval '1 day'
         ORDER BY bd.height DESC
         LIMIT 1
       ) last_um ON true
-      GROUP BY d.day
-      ORDER BY d.day ASC
+      GROUP BY d.day, bv.bucket
+      ORDER BY d.day ASC, bv.bucket
     `.execute(pindexerDb),
 
     sql<DateValidatorRow>`
@@ -145,6 +167,7 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
       e = {
         date,
         activeStake: 0,
+        inactiveStake: 0,
         delegated: 0,
         undelegated: 0,
         netFlow: 0,
@@ -170,7 +193,9 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
   };
 
   for (const r of stakeRows.rows) {
-    point(r.date).activeStake = toUM(r.um);
+    const p = point(r.date);
+    if (r.bucket === 'active') p.activeStake = toUM(r.um);
+    else if (r.bucket === 'inactive') p.inactiveStake = toUM(r.um);
   }
   for (const r of delegationRows.rows) {
     const um = toUM(r.amount);
