@@ -1,11 +1,12 @@
 export const dynamic = 'force-dynamic';
-import { FC } from 'react';
+import { FC, Suspense } from 'react';
 import {
   Breadcrumb,
   Breadcrumbs,
   Button,
   Container,
   FilterSelector,
+  Skeleton,
   ValidatorSortToggle,
 } from '@/pages/inspect/explorer/components';
 import {
@@ -20,7 +21,38 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import { ActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
 import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
-import { parseStakeRange, stakeRangeDays } from '@/pages/inspect/explorer/ui/stake-range';
+import {
+  parseStakeRange,
+  stakeRangeDays,
+  type StakeRangeKey,
+} from '@/pages/inspect/explorer/ui/stake-range';
+
+// Cold-fetch for the chart is ~450ms at 90d and several seconds at 2y
+// (LATERAL lookup per validator-day pair). The fetch is wrapped in
+// unstable_cache server-side, but the FIRST visitor on each range still
+// pays the full price. Streaming the chart in via Suspense means the
+// rest of the page (validator list, summary panels, parameters) renders
+// immediately and the chart slot fills in when ready.
+async function StakeChartSection({ range }: { range: StakeRangeKey }) {
+  const data = await fetchActiveStakeHistory(stakeRangeDays(range));
+  return <ActiveStakeChart data={data} currentRange={range} />;
+}
+
+const StakeChartSkeleton = () => (
+  <section className='flex flex-col gap-6'>
+    <div className='flex flex-col gap-2'>
+      <Skeleton className='h-7 w-56' />
+      <Skeleton className='h-4 w-full max-w-2xl' />
+    </div>
+    <div className='grid grid-cols-2 gap-3 desktop:grid-cols-4'>
+      <Skeleton className='h-24' />
+      <Skeleton className='h-24' />
+      <Skeleton className='h-24' />
+      <Skeleton className='h-24' />
+    </div>
+    <Skeleton className='h-[332px]' />
+  </section>
+);
 
 interface Props {
   searchParams: Promise<{
@@ -44,11 +76,7 @@ const ValidatorsPage: FC<Props> = async props => {
       ? ValidatorStateFilter.Inactive
       : ValidatorStateFilter.Active;
 
-  // Active-stake + delegation/undelegation flow timeseries for the
-  // user-selected window. Server-fetched here so the chart hydrates
-  // immediately on first paint alongside the rest of the panel data.
   const stakeRange = parseStakeRange(searchParams.range);
-  const stakeHistory = await fetchActiveStakeHistory(stakeRangeDays(stakeRange));
 
   return (
     <Container>
@@ -57,7 +85,13 @@ const ValidatorsPage: FC<Props> = async props => {
         <Breadcrumb>Validators</Breadcrumb>
       </Breadcrumbs>
 
-      <ActiveStakeChart data={stakeHistory} currentRange={stakeRange} />
+      {/* Streaming boundary: the rest of the page paints right away;
+          the chart fills in when its (cached) fetch resolves. Keyed by
+          stakeRange so switching ranges shows the skeleton again
+          instead of stale data. */}
+      <Suspense key={stakeRange} fallback={<StakeChartSkeleton />}>
+        <StakeChartSection range={stakeRange} />
+      </Suspense>
       <div className='grid grid-cols-12 gap-4 lg:items-start'>
         <ActiveVotingPowerPanelContainer
           className='col-span-full md:col-span-4'
