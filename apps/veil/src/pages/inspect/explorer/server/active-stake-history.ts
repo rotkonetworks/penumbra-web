@@ -1,6 +1,7 @@
 'use server';
 
 import { sql } from 'kysely';
+import { unstable_cache } from 'next/cache';
 import { pindexerDb } from '@/shared/database/client';
 
 const UM_UNIT = 1_000_000;
@@ -83,7 +84,9 @@ interface DateValidatorRow {
  * stake_validator_set for the human-readable name; falls back to ik when
  * pindexer hasn't seen that validator yet (rare for recently-active sets).
  */
-export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlowPoint[]> {
+async function fetchActiveStakeHistoryUncached(
+  days: number,
+): Promise<ActiveStakeFlowPoint[]> {
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
   const [stakeRows, delegationRows, undelegationRows, supplyRows] = await Promise.all([
@@ -260,3 +263,17 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
 
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
+
+/**
+ * The underlying SQL takes ~450ms for a 90-day window and ~5s for a 2y
+ * window (one LATERAL lookup per validator-day pair). The data only
+ * changes at epoch boundaries (~24h on Penumbra mainnet), so caching
+ * for a half-hour costs nothing on freshness and saves every visitor
+ * after the first the round-trip cost. Keyed by `days` so each range
+ * preset gets its own slot.
+ */
+export const fetchActiveStakeHistory = unstable_cache(
+  fetchActiveStakeHistoryUncached,
+  ['active-stake-history'],
+  { revalidate: 1800 },
+);
