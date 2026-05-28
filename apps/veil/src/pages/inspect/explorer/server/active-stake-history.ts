@@ -8,53 +8,48 @@ const UM_UNIT = 1_000_000;
 const toUM = (raw: bigint | number | string | null | undefined): number =>
   raw === null || raw === undefined ? 0 : Number(raw) / UM_UNIT;
 
-// Cap the per-day validator breakdown the API returns so a year-wide
-// window stays a manageable JSON payload. The chart tooltip only needs
-// the "who moved the needle" — anything past the top handful is noise.
 const FLOWS_TOP_N = 5;
 
 export interface ValidatorFlow {
   /** Resolved validator name, falling back to ik if pindexer has no entry. */
   name: string;
-  /** UM delegated to this validator on this day. */
+  /** UM delegated to this validator in this bucket. */
   delegated: number;
-  /** UM undelegated from this validator on this day. */
+  /** UM undelegated from this validator in this bucket. */
   undelegated: number;
 }
 
 export interface ActiveStakeFlowPoint {
-  date: string; // ISO date
-  /** Sum of delegations to currently-active validators at end-of-day. UM.
-   *  The split between this and inactiveStake reflects *current* validator
-   *  state, not historical — see fetchActiveStakeHistory's doc. */
+  date: string; // ISO date (bucket start)
+  /** Sum of delegations to currently-active validators at end-of-bucket. UM. */
   activeStake: number;
-  /** Sum of delegations to bonded-but-not-active validators
-   *  (JAILED / DISABLED / DEFINED — excludes TOMBSTONED which is slashed). UM. */
+  /** Sum of delegations to bonded-but-not-active validators (JAILED /
+   *  DISABLED / DEFINED — excludes TOMBSTONED which is slashed). UM. */
   inactiveStake: number;
-  /** Total UM supply at end-of-day, from insights_supply. */
+  /** Total UM supply at end-of-bucket, from insights_supply. */
   totalSupply: number;
-  /** Total amount delegated that day across all validators. UM. */
+  /** Total amount delegated during this bucket. UM. */
   delegated: number;
-  /** Total amount undelegated that day. UM. */
+  /** Total amount undelegated during this bucket. UM. */
   undelegated: number;
   /** delegated - undelegated. UM. */
   netFlow: number;
-  /** Top contributors to the day's flows, by |delegated|+|undelegated|. */
+  /** Top contributors to this bucket's flows, by |delegated|+|undelegated|. */
   validatorFlows: ValidatorFlow[];
 }
 
-interface PerBucketDayRow {
+interface PerBucketRow {
   date: string;
   bucket: 'active' | 'inactive';
   um: bigint;
 }
 
-interface SupplyDayRow {
+interface SupplyBucketRow {
   date: string;
   supply: bigint | null;
 }
 
-interface DateValidatorRow {
+interface BucketValidatorRow {
   date: string;
   ik: string;
   name: string;
@@ -62,35 +57,37 @@ interface DateValidatorRow {
 }
 
 /**
- * Per-day active stake + delegation/undelegation tx flows, with the
- * top validators that drove each day's flow.
+ * Per-bucket bonded-stake snapshots + delegation/undelegation flows, with the
+ * top validators that drove each bucket's flow.
+ *
+ * Buckets are `stepDays` wide. With stepDays=1 each row is a calendar day;
+ * larger steps aggregate flows and sparsen the stake snapshots to keep the
+ * cost manageable for long windows. The chart picks step values such that
+ * every window stays in the 25–200 point range — fine enough that the line
+ * still reads as continuous, coarse enough that the per-validator LATERAL
+ * lookup count stays sane (90K lookups at daily/2y was timing out >60s).
  *
  * Active stake here = sum of supply_total_staked.um for validators that are
  * *currently* in the ACTIVE state. Pindexer's stake_validator_set table only
  * holds the latest validator state (no per-height history), so we make the
  * defensible approximation that membership in the active set has been stable
- * over the chart window. For 30-90 day windows this is mostly true on
+ * over the chart window. For 30–90 day windows this is mostly true on
  * Penumbra mainnet — validator churn is slow.
  *
  * supply_total_staked only writes a row when a validator's stake changes,
- * so for any given day many validators have no row at all. The stake query
- * must therefore carry forward each validator's last known um value rather
- * than reading the day's rows directly — otherwise quiet days collapse to
- * near-zero and the chart looks broken.
- *
- * Delegation/undelegation flows come from the per-tx tables and are summed
- * by day regardless of validator state, since you can delegate to (or
- * undelegate from) inactive validators too. Joined against
- * stake_validator_set for the human-readable name; falls back to ik when
- * pindexer hasn't seen that validator yet (rare for recently-active sets).
+ * so for any given bucket many validators have no row at all. The stake
+ * query must therefore carry forward each validator's last known um value
+ * rather than reading the bucket's rows directly — otherwise quiet buckets
+ * collapse to near-zero and the chart looks broken.
  */
 async function fetchActiveStakeHistoryUncached(
   days: number,
+  stepDays: number,
 ): Promise<ActiveStakeFlowPoint[]> {
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
   const [stakeRows, delegationRows, undelegationRows, supplyRows] = await Promise.all([
-    sql<PerBucketDayRow>`
+    sql<PerBucketRow>`
       WITH bonded_validators AS (
         SELECT
           id,
@@ -112,35 +109,46 @@ async function fetchActiveStakeHistoryUncached(
           'VALIDATOR_STATE_ENUM_DEFINED'
         )
       ),
-      days AS (
+      step AS (
+        SELECT (interval '1 day' * ${stepDays}) AS dur,
+               date_trunc('day', ${since}::timestamp) AS anchor
+      ),
+      buckets AS (
         SELECT generate_series(
-          date_trunc('day', ${since}::timestamp),
+          (SELECT anchor FROM step),
           date_trunc('day', now()),
-          interval '1 day'
-        ) AS day
+          (SELECT dur FROM step)
+        ) AS bucket_start
       )
       SELECT
-        to_char(d.day, 'YYYY-MM-DD') AS date,
+        to_char(b.bucket_start, 'YYYY-MM-DD') AS date,
         bv.bucket AS bucket,
         COALESCE(SUM(last_um.um), 0)::bigint AS um
-      FROM days d
+      FROM buckets b
       CROSS JOIN bonded_validators bv
       LEFT JOIN LATERAL (
         SELECT sts.um
         FROM supply_total_staked sts
         JOIN block_details bd ON bd.height = sts.height
         WHERE sts.validator_id = bv.id
-          AND bd.timestamp < d.day + interval '1 day'
+          AND bd.timestamp < b.bucket_start + (SELECT dur FROM step)
         ORDER BY bd.height DESC
         LIMIT 1
       ) last_um ON true
-      GROUP BY d.day, bv.bucket
-      ORDER BY d.day ASC, bv.bucket
+      GROUP BY b.bucket_start, bv.bucket
+      ORDER BY b.bucket_start ASC, bv.bucket
     `.execute(pindexerDb),
 
-    sql<DateValidatorRow>`
+    sql<BucketValidatorRow>`
       SELECT
-        to_char(date_trunc('day', bd.timestamp), 'YYYY-MM-DD') AS date,
+        to_char(
+          date_bin(
+            interval '1 day' * ${stepDays},
+            bd.timestamp,
+            date_trunc('day', ${since}::timestamp)
+          ),
+          'YYYY-MM-DD'
+        ) AS date,
         txs.ik AS ik,
         COALESCE(vs.name, txs.ik) AS name,
         SUM(txs.amount)::bigint AS amount
@@ -148,13 +156,20 @@ async function fetchActiveStakeHistoryUncached(
       JOIN block_details bd ON bd.height = txs.height
       LEFT JOIN stake_validator_set vs ON vs.ik = txs.ik
       WHERE bd.timestamp >= ${since}
-      GROUP BY date_trunc('day', bd.timestamp), txs.ik, vs.name
-      ORDER BY date ASC, amount DESC
+      GROUP BY 1, txs.ik, vs.name
+      ORDER BY 1 ASC, amount DESC
     `.execute(pindexerDb),
 
-    sql<DateValidatorRow>`
+    sql<BucketValidatorRow>`
       SELECT
-        to_char(date_trunc('day', bd.timestamp), 'YYYY-MM-DD') AS date,
+        to_char(
+          date_bin(
+            interval '1 day' * ${stepDays},
+            bd.timestamp,
+            date_trunc('day', ${since}::timestamp)
+          ),
+          'YYYY-MM-DD'
+        ) AS date,
         txs.ik AS ik,
         COALESCE(vs.name, txs.ik) AS name,
         SUM(txs.amount)::bigint AS amount
@@ -162,40 +177,39 @@ async function fetchActiveStakeHistoryUncached(
       JOIN block_details bd ON bd.height = txs.height
       LEFT JOIN stake_validator_set vs ON vs.ik = txs.ik
       WHERE bd.timestamp >= ${since}
-      GROUP BY date_trunc('day', bd.timestamp), txs.ik, vs.name
-      ORDER BY date ASC, amount DESC
+      GROUP BY 1, txs.ik, vs.name
+      ORDER BY 1 ASC, amount DESC
     `.execute(pindexerDb),
 
-    // End-of-day total UM supply from insights_supply, carry-forward
-    // to fill gaps the same way the per-validator stake query does.
-    sql<SupplyDayRow>`
-      WITH days AS (
+    sql<SupplyBucketRow>`
+      WITH step AS (
+        SELECT (interval '1 day' * ${stepDays}) AS dur,
+               date_trunc('day', ${since}::timestamp) AS anchor
+      ),
+      buckets AS (
         SELECT generate_series(
-          date_trunc('day', ${since}::timestamp),
+          (SELECT anchor FROM step),
           date_trunc('day', now()),
-          interval '1 day'
-        ) AS day
+          (SELECT dur FROM step)
+        ) AS bucket_start
       )
       SELECT
-        to_char(d.day, 'YYYY-MM-DD') AS date,
+        to_char(b.bucket_start, 'YYYY-MM-DD') AS date,
         last_supply.total AS supply
-      FROM days d
+      FROM buckets b
       LEFT JOIN LATERAL (
         SELECT ins.total
         FROM insights_supply ins
         JOIN block_details bd ON bd.height = ins.height
-        WHERE bd.timestamp < d.day + interval '1 day'
+        WHERE bd.timestamp < b.bucket_start + (SELECT dur FROM step)
         ORDER BY bd.height DESC
         LIMIT 1
       ) last_supply ON true
-      ORDER BY d.day ASC
+      ORDER BY b.bucket_start ASC
     `.execute(pindexerDb),
   ]);
 
   const byDate = new Map<string, ActiveStakeFlowPoint>();
-  // Per-day validator aggregation: date -> ik -> { name, delegated, undelegated }.
-  // Keying by ik (not name) avoids merging two distinct validators that
-  // happen to share a display name.
   const flowsByDate = new Map<string, Map<string, ValidatorFlow & { ik: string }>>();
 
   const point = (date: string): ActiveStakeFlowPoint => {
@@ -252,7 +266,10 @@ async function fetchActiveStakeHistoryUncached(
   }
   for (const [date, day] of flowsByDate) {
     const top = Array.from(day.values())
-      .sort((a, b) => Math.abs(b.delegated) + Math.abs(b.undelegated) - (Math.abs(a.delegated) + Math.abs(a.undelegated)))
+      .sort((a, b) =>
+        Math.abs(b.delegated) + Math.abs(b.undelegated)
+        - (Math.abs(a.delegated) + Math.abs(a.undelegated)),
+      )
       .slice(0, FLOWS_TOP_N)
       .map(({ name, delegated, undelegated }) => ({ name, delegated, undelegated }));
     point(date).validatorFlows = top;
@@ -265,15 +282,36 @@ async function fetchActiveStakeHistoryUncached(
 }
 
 /**
- * The underlying SQL takes ~450ms for a 90-day window and ~5s for a 2y
- * window (one LATERAL lookup per validator-day pair). The data only
- * changes at epoch boundaries (~24h on Penumbra mainnet), so caching
- * for a half-hour costs nothing on freshness and saves every visitor
- * after the first the round-trip cost. Keyed by `days` so each range
- * preset gets its own slot.
+ * 30-minute server-side cache. Penumbra mainnet ticks epoch boundaries roughly
+ * once per day, so a half-hour TTL costs ~nothing on freshness and saves every
+ * visitor past the first the full LATERAL round-trip.
+ *
+ * Keyed on (days, stepDays) so each (window × density) gets its own slot —
+ * the coarse-then-dense progressive pattern below relies on this.
  */
 export const fetchActiveStakeHistory = unstable_cache(
   fetchActiveStakeHistoryUncached,
-  ['active-stake-history'],
+  ['active-stake-history-v2'],
   { revalidate: 1800 },
 );
+
+/**
+ * Step sizing per window. The numbers are tuned so each window ends up
+ * with roughly 25 (coarse) or 90–180 (dense) points — fine enough that
+ * the chart line reads as continuous, coarse enough that the SQL stays
+ * out of the multi-second regime.
+ */
+export interface StakeStep {
+  /** Cheap first paint. Always renders fast. */
+  coarse: number;
+  /** Final refinement streamed in over Suspense. */
+  dense: number;
+}
+
+export const stakeStepFor = (days: number): StakeStep => {
+  if (days <= 30) return { coarse: 1, dense: 1 };
+  if (days <= 90) return { coarse: 3, dense: 1 };
+  if (days <= 180) return { coarse: 7, dense: 1 };
+  if (days <= 365) return { coarse: 14, dense: 3 };
+  return { coarse: 30, dense: 7 }; // 2y
+};

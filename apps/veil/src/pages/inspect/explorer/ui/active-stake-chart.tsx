@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense, use } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
 import {
   Area,
@@ -343,3 +344,51 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
     </section>
   );
 };
+
+interface ProgressiveProps {
+  /** Cheap coarse-resolution data, server-fetched and resolved on first paint. */
+  coarseData: ActiveStakeFlowPoint[];
+  /** Higher-resolution refinement, streamed in via Suspense. When this Promise
+   *  resolves the chart re-renders with the denser series in place. */
+  densePromise: Promise<ActiveStakeFlowPoint[]>;
+  currentRange: StakeRangeKey;
+}
+
+const ResolvedDenseChart = ({
+  promise,
+  currentRange,
+}: {
+  promise: Promise<ActiveStakeFlowPoint[]>;
+  currentRange: StakeRangeKey;
+}) => {
+  // React.use() suspends this subtree until the dense data arrives.
+  // The outer Suspense fallback keeps the coarse chart on screen meanwhile,
+  // so the user sees something useful within ~100ms and a smoother refinement
+  // a few seconds later (worst case, 2y cold).
+  const data = use(promise);
+  return <ActiveStakeChart data={data} currentRange={currentRange} />;
+};
+
+/**
+ * Progressive-refinement wrapper. Pattern:
+ *
+ *   1. Server awaits a coarse query (fast, even for 2y), passes the result.
+ *   2. Server kicks off a dense query as a *pending* Promise and passes it
+ *      across the RSC boundary; React.use() consumes it on the client.
+ *   3. Suspense renders the coarse chart while the dense Promise is pending.
+ *   4. When the Promise resolves, the dense chart replaces it in place.
+ *
+ * Net effect: visible chart in ~100ms regardless of window size, with the
+ * resolution sharpening up shortly after.
+ */
+export const ProgressiveActiveStakeChart = ({
+  coarseData,
+  densePromise,
+  currentRange,
+}: ProgressiveProps) => (
+  <Suspense
+    fallback={<ActiveStakeChart data={coarseData} currentRange={currentRange} />}
+  >
+    <ResolvedDenseChart promise={densePromise} currentRange={currentRange} />
+  </Suspense>
+);

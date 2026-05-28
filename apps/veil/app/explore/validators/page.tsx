@@ -19,23 +19,36 @@ import {
 } from '@/pages/inspect/explorer/containers';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
-import { ActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
-import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
+import { ProgressiveActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
+import {
+  fetchActiveStakeHistory,
+  stakeStepFor,
+} from '@/pages/inspect/explorer/server/active-stake-history';
 import {
   parseStakeRange,
   stakeRangeDays,
   type StakeRangeKey,
 } from '@/pages/inspect/explorer/ui/stake-range';
 
-// Cold-fetch for the chart is ~450ms at 90d and several seconds at 2y
-// (LATERAL lookup per validator-day pair). The fetch is wrapped in
-// unstable_cache server-side, but the FIRST visitor on each range still
-// pays the full price. Streaming the chart in via Suspense means the
-// rest of the page (validator list, summary panels, parameters) renders
-// immediately and the chart slot fills in when ready.
+// Progressive-refinement chart loader. Awaits the cheap coarse-step query
+// (always returns within ~150ms even for 2y) and kicks the denser query as
+// a pending Promise. ProgressiveActiveStakeChart renders coarse immediately
+// and replaces the data with dense when its Promise resolves via React.use().
+// Net effect: chart is visible within a few hundred ms regardless of window;
+// resolution sharpens up shortly after.
 async function StakeChartSection({ range }: { range: StakeRangeKey }) {
-  const data = await fetchActiveStakeHistory(stakeRangeDays(range));
-  return <ActiveStakeChart data={data} currentRange={range} />;
+  const days = stakeRangeDays(range);
+  const { coarse, dense } = stakeStepFor(days);
+  const coarseData = await fetchActiveStakeHistory(days, coarse);
+  // NOT awaited — gets passed across the RSC boundary as a pending Promise.
+  const densePromise = fetchActiveStakeHistory(days, dense);
+  return (
+    <ProgressiveActiveStakeChart
+      coarseData={coarseData}
+      densePromise={densePromise}
+      currentRange={range}
+    />
+  );
 }
 
 const StakeChartSkeleton = () => (
