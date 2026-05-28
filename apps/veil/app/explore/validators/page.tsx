@@ -20,13 +20,11 @@ import {
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import { ProgressiveActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
-import {
-  fetchActiveStakeHistory,
-  stakeStepFor,
-} from '@/pages/inspect/explorer/server/active-stake-history';
+import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
 import {
   parseStakeRange,
   stakeRangeDays,
+  stakeStepFor,
   type StakeRangeKey,
 } from '@/pages/inspect/explorer/ui/stake-range';
 

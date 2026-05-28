@@ -295,23 +295,3 @@ export const fetchActiveStakeHistory = unstable_cache(
   { revalidate: 1800 },
 );
 
-/**
- * Step sizing per window. The numbers are tuned so each window ends up
- * with roughly 25 (coarse) or 90–180 (dense) points — fine enough that
- * the chart line reads as continuous, coarse enough that the SQL stays
- * out of the multi-second regime.
- */
-export interface StakeStep {
-  /** Cheap first paint. Always renders fast. */
-  coarse: number;
-  /** Final refinement streamed in over Suspense. */
-  dense: number;
-}
-
-export const stakeStepFor = (days: number): StakeStep => {
-  if (days <= 30) return { coarse: 1, dense: 1 };
-  if (days <= 90) return { coarse: 3, dense: 1 };
-  if (days <= 180) return { coarse: 7, dense: 1 };
-  if (days <= 365) return { coarse: 14, dense: 3 };
-  return { coarse: 30, dense: 7 }; // 2y
-};
