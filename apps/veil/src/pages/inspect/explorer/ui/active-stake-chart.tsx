@@ -30,8 +30,10 @@ const fmtUM = (n: number) => {
 
 interface ChartDatum {
   date: string;
-  activeStake: number;
-  inactiveStake: number;
+  /** activeStake + inactiveStake — the only stake number that's
+   *  historically meaningful, since the active/inactive split has to be
+   *  taken from each validator's *current* state. */
+  bondedStake: number;
   delegated: number;
   undelegated: number;
   netFlow: number;
@@ -113,8 +115,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
   // axis. validatorFlows passes through unchanged for the tooltip.
   const chartData: ChartDatum[] = data.map(p => ({
     date: p.date,
-    activeStake: p.activeStake,
-    inactiveStake: p.inactiveStake,
+    bondedStake: p.activeStake + p.inactiveStake,
     delegated: p.delegated,
     undelegated: -p.undelegated,
     netFlow: p.netFlow,
@@ -138,16 +139,17 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
       <div className='flex flex-col gap-2'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
           <Text variant='h2' color='text.primary'>
-            Active stake history
+            Bonded stake history
           </Text>
           <StakeRangeSelector current={currentRange} />
         </div>
         <Text body color='text.secondary'>
-          The teal area is UM delegated to currently-active validators — what&apos;s
-          securing the chain end-of-day. Amber on top is bonded stake on the
-          jailed / disabled / not-yet-promoted set, still locked but not earning
-          or securing. Bars are daily delegation (positive) and undelegation
-          (negative) tx flows.
+          The teal area is total UM bonded to all validators (active +
+          jailed / disabled / not-yet-promoted) at end-of-day. We only split
+          this for the latest point — the indexer doesn&apos;t track per-height
+          validator state, so historically the chart can&apos;t honestly say which
+          slice was active. Bars are daily delegation (positive) and
+          undelegation (negative) tx flows.
         </Text>
       </div>
 
@@ -157,13 +159,16 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
             Bonded stake (latest)
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono text-teal-300'>{fmtUM(latestActive)} UM</span>
+            <span className='font-mono text-teal-300'>
+              {fmtUM(latestActive + latestInactive)} UM
+            </span>
           </Text>
-          {latestInactive > 0 && (
+          {(latestActive > 0 || latestInactive > 0) && (
             <Text detail color='text.secondary'>
-              <span className='font-mono text-amber-300'>
-                + {fmtUM(latestInactive)} UM inactive
-              </span>
+              <span className='font-mono text-teal-300'>{fmtUM(latestActive)}</span>
+              {' active · '}
+              <span className='font-mono text-amber-300'>{fmtUM(latestInactive)}</span>
+              {' inactive'}
             </Text>
           )}
         </div>
@@ -238,23 +243,12 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
             />
             <Area
               yAxisId='stake'
-              dataKey='activeStake'
-              name='Active stake'
+              dataKey='bondedStake'
+              name='Bonded stake'
               stroke='#5eead4'
               fill='#5eead4'
               fillOpacity={0.25}
               type='monotone'
-              stackId='stake'
-            />
-            <Area
-              yAxisId='stake'
-              dataKey='inactiveStake'
-              name='Inactive bonded'
-              stroke='#fcd34d'
-              fill='#fcd34d'
-              fillOpacity={0.18}
-              type='monotone'
-              stackId='stake'
             />
             <Bar
               yAxisId='flow'
