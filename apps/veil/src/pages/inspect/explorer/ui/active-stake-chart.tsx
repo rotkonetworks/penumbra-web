@@ -28,12 +28,22 @@ const fmtUM = (n: number) => {
   return `${sign}${abs.toFixed(0)}`;
 };
 
+const fmtPct = (frac: number, digits = 2) =>
+  `${(frac * 100).toFixed(digits)}%`;
+
 interface ChartDatum {
   date: string;
   /** activeStake + inactiveStake — the only stake number that's
    *  historically meaningful, since the active/inactive split has to be
    *  taken from each validator's *current* state. */
   bondedStake: number;
+  /** totalSupply - bondedStake, stacked on top of bondedStake so the
+   *  visible chart reaches total supply and the teal share reads as
+   *  the staking ratio. */
+  unstakedSupply: number;
+  totalSupply: number;
+  /** bondedStake / totalSupply, included so the tooltip can render it. */
+  stakingRatio: number;
   delegated: number;
   undelegated: number;
   netFlow: number;
@@ -63,6 +73,11 @@ const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
           {p.name}: {fmtUM(p.value)} UM
         </div>
       ))}
+      {datum && datum.totalSupply > 0 && (
+        <div className='mt-1 font-mono text-text-secondary'>
+          Staking ratio: {fmtPct(datum.stakingRatio)}
+        </div>
+      )}
       {flows.length > 0 && (
         <div className='mt-2 border-t border-neutral-700 pt-2'>
           <div className='mb-1 text-xs uppercase tracking-wide text-text-secondary'>
@@ -113,14 +128,22 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
   // Recharts wants a positive 'undelegated' value to draw downward — we
   // flip the sign here so bars below zero render naturally on a shared
   // axis. validatorFlows passes through unchanged for the tooltip.
-  const chartData: ChartDatum[] = data.map(p => ({
-    date: p.date,
-    bondedStake: p.activeStake + p.inactiveStake,
-    delegated: p.delegated,
-    undelegated: -p.undelegated,
-    netFlow: p.netFlow,
-    validatorFlows: p.validatorFlows,
-  }));
+  const chartData: ChartDatum[] = data.map(p => {
+    const bonded = p.activeStake + p.inactiveStake;
+    const unstaked = Math.max(0, p.totalSupply - bonded);
+    const ratio = p.totalSupply > 0 ? bonded / p.totalSupply : 0;
+    return {
+      date: p.date,
+      bondedStake: bonded,
+      unstakedSupply: unstaked,
+      totalSupply: p.totalSupply,
+      stakingRatio: ratio,
+      delegated: p.delegated,
+      undelegated: -p.undelegated,
+      netFlow: p.netFlow,
+      validatorFlows: p.validatorFlows,
+    };
+  });
 
   const totals = data.reduce(
     (acc, p) => ({
@@ -131,8 +154,28 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
   );
   const netFlow = totals.delegated - totals.undelegated;
   const latest = data.length > 0 ? data[data.length - 1]! : undefined;
+  const first = data.length > 0 ? data[0]! : undefined;
   const latestActive = latest?.activeStake ?? 0;
   const latestInactive = latest?.inactiveStake ?? 0;
+  const latestBonded = latestActive + latestInactive;
+  const latestSupply = latest?.totalSupply ?? 0;
+  const stakingRatio = latestSupply > 0 ? latestBonded / latestSupply : 0;
+
+  // Annualised supply growth from the first to the last visible day —
+  // i.e. realised UM-token inflation over the selected window, rescaled
+  // to a yearly rate. Falls back to 0 when we don't have both endpoints.
+  const supplyStart = first?.totalSupply ?? 0;
+  const supplyEnd = latestSupply;
+  const windowDays = Math.max(data.length - 1, 1);
+  const annualizedInflation =
+    supplyStart > 0 && supplyEnd > supplyStart
+      ? Math.pow(supplyEnd / supplyStart, 365 / windowDays) - 1
+      : 0;
+  // If every newly-issued UM flowed to stakers, staking APR ≈
+  // inflation / staking_ratio. This is the upper-bound back-of-envelope
+  // estimate; real yield is lower (slashing, commission, non-staker
+  // issuance like LQT rewards), so we label it "implied".
+  const impliedApr = stakingRatio > 0 ? annualizedInflation / stakingRatio : 0;
 
   return (
     <section className='flex flex-col gap-6'>
@@ -144,12 +187,14 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
           <StakeRangeSelector current={currentRange} />
         </div>
         <Text body color='text.secondary'>
-          The teal area is total UM bonded to all validators (active +
-          jailed / disabled / not-yet-promoted) at end-of-day. We only split
-          this for the latest point — the indexer doesn&apos;t track per-height
-          validator state, so historically the chart can&apos;t honestly say which
-          slice was active. Bars are daily delegation (positive) and
-          undelegation (negative) tx flows.
+          The teal area is total UM bonded to all validators at end-of-day
+          (active + jailed / disabled / not-yet-promoted). The lighter band
+          above is the rest of the UM supply, so the chart top reads as
+          total supply and the teal share reads as the staking ratio.
+          Bars are daily delegation (positive) and undelegation (negative)
+          tx flows. Active vs inactive is shown for the latest point only —
+          the indexer doesn&apos;t track per-height validator state, so
+          historically the chart can&apos;t honestly split the teal band.
         </Text>
       </div>
 
@@ -160,7 +205,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-teal-300'>
-              {fmtUM(latestActive + latestInactive)} UM
+              {fmtUM(latestBonded)} UM
             </span>
           </Text>
           {(latestActive > 0 || latestInactive > 0) && (
@@ -174,25 +219,37 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            Delegated (window)
+            Total UM supply
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono text-success-light'>{fmtUM(totals.delegated)} UM</span>
+            <span className='font-mono text-text-primary'>{fmtUM(latestSupply)} UM</span>
           </Text>
+          {latestSupply > 0 && (
+            <Text detail color='text.secondary'>
+              <span className='font-mono text-teal-300'>{fmtPct(stakingRatio)}</span>
+              {' staking ratio'}
+            </Text>
+          )}
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            Undelegated (window)
+            Realised inflation (annualised)
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono text-destructive-light'>
-              {fmtUM(totals.undelegated)} UM
+            <span className='font-mono text-amber-300'>
+              {annualizedInflation > 0 ? fmtPct(annualizedInflation) : '—'}
             </span>
           </Text>
+          {impliedApr > 0 && (
+            <Text detail color='text.secondary'>
+              <span className='font-mono text-teal-300'>~{fmtPct(impliedApr)}</span>
+              {' implied staking APR'}
+            </Text>
+          )}
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            Net flow
+            Net flow (window)
           </Text>
           <Text large color='text.primary'>
             <span
@@ -201,6 +258,11 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
               {netFlow >= 0 ? '+' : ''}
               {fmtUM(netFlow)} UM
             </span>
+          </Text>
+          <Text detail color='text.secondary'>
+            <span className='font-mono text-success-light'>+{fmtUM(totals.delegated)}</span>
+            {' / '}
+            <span className='font-mono text-destructive-light'>-{fmtUM(totals.undelegated)}</span>
           </Text>
         </div>
       </div>
@@ -249,6 +311,17 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
               fill='#5eead4'
               fillOpacity={0.25}
               type='monotone'
+              stackId='supply'
+            />
+            <Area
+              yAxisId='stake'
+              dataKey='unstakedSupply'
+              name='Unstaked supply'
+              stroke='#525252'
+              fill='#525252'
+              fillOpacity={0.12}
+              type='monotone'
+              stackId='supply'
             />
             <Bar
               yAxisId='flow'

@@ -23,11 +23,15 @@ export interface ValidatorFlow {
 
 export interface ActiveStakeFlowPoint {
   date: string; // ISO date
-  /** Sum of delegations to currently-active validators at end-of-day. UM. */
+  /** Sum of delegations to currently-active validators at end-of-day. UM.
+   *  The split between this and inactiveStake reflects *current* validator
+   *  state, not historical — see fetchActiveStakeHistory's doc. */
   activeStake: number;
   /** Sum of delegations to bonded-but-not-active validators
    *  (JAILED / DISABLED / DEFINED — excludes TOMBSTONED which is slashed). UM. */
   inactiveStake: number;
+  /** Total UM supply at end-of-day, from insights_supply. */
+  totalSupply: number;
   /** Total amount delegated that day across all validators. UM. */
   delegated: number;
   /** Total amount undelegated that day. UM. */
@@ -42,6 +46,11 @@ interface PerBucketDayRow {
   date: string;
   bucket: 'active' | 'inactive';
   um: bigint;
+}
+
+interface SupplyDayRow {
+  date: string;
+  supply: bigint | null;
 }
 
 interface DateValidatorRow {
@@ -77,7 +86,7 @@ interface DateValidatorRow {
 export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlowPoint[]> {
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
-  const [stakeRows, delegationRows, undelegationRows] = await Promise.all([
+  const [stakeRows, delegationRows, undelegationRows, supplyRows] = await Promise.all([
     sql<PerBucketDayRow>`
       WITH bonded_validators AS (
         SELECT
@@ -153,6 +162,31 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
       GROUP BY date_trunc('day', bd.timestamp), txs.ik, vs.name
       ORDER BY date ASC, amount DESC
     `.execute(pindexerDb),
+
+    // End-of-day total UM supply from insights_supply, carry-forward
+    // to fill gaps the same way the per-validator stake query does.
+    sql<SupplyDayRow>`
+      WITH days AS (
+        SELECT generate_series(
+          date_trunc('day', ${since}::timestamp),
+          date_trunc('day', now()),
+          interval '1 day'
+        ) AS day
+      )
+      SELECT
+        to_char(d.day, 'YYYY-MM-DD') AS date,
+        last_supply.total AS supply
+      FROM days d
+      LEFT JOIN LATERAL (
+        SELECT ins.total
+        FROM insights_supply ins
+        JOIN block_details bd ON bd.height = ins.height
+        WHERE bd.timestamp < d.day + interval '1 day'
+        ORDER BY bd.height DESC
+        LIMIT 1
+      ) last_supply ON true
+      ORDER BY d.day ASC
+    `.execute(pindexerDb),
   ]);
 
   const byDate = new Map<string, ActiveStakeFlowPoint>();
@@ -168,6 +202,7 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
         date,
         activeStake: 0,
         inactiveStake: 0,
+        totalSupply: 0,
         delegated: 0,
         undelegated: 0,
         netFlow: 0,
@@ -196,6 +231,9 @@ export async function fetchActiveStakeHistory(days = 90): Promise<ActiveStakeFlo
     const p = point(r.date);
     if (r.bucket === 'active') p.activeStake = toUM(r.um);
     else if (r.bucket === 'inactive') p.inactiveStake = toUM(r.um);
+  }
+  for (const r of supplyRows.rows) {
+    point(r.date).totalSupply = toUM(r.supply);
   }
   for (const r of delegationRows.rows) {
     const um = toUM(r.amount);
