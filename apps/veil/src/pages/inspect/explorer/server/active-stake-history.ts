@@ -181,8 +181,23 @@ async function fetchActiveStakeHistoryUncached(
       ORDER BY 1 ASC, amount DESC
     `.execute(pindexerDb),
 
+    // insights_supply has ~one row per block (10M+ rows). The naive LATERAL
+    // (scan by height DESC, JOIN block_details, filter timestamp, LIMIT 1)
+    // is O(blocks-since-bucket-end) per bucket — fine for "today" but a
+    // ~8M-row scan for buckets 2 years back, even with both PKs. Without a
+    // block_details(timestamp) index we can't make that fast directly.
+    //
+    // Workaround: convert the bucket-end timestamp into an *approximate*
+    // chain height using a fixed ~6s block time, then do a single PK
+    // lookup on insights_supply. Supply changes slowly (no per-second
+    // delta), so a few-minute approximation against the true bucket-end
+    // height is invisible in the chart.
     sql<SupplyBucketRow>`
-      WITH step AS (
+      WITH chain_tip AS (
+        -- instant: max(height) is the rightmost leaf of the PK btree
+        SELECT max(height) AS h FROM block_details
+      ),
+      step AS (
         SELECT (interval '1 day' * ${stepDays}) AS dur,
                date_trunc('day', ${since}::timestamp) AS anchor
       ),
@@ -195,16 +210,20 @@ async function fetchActiveStakeHistoryUncached(
       )
       SELECT
         to_char(b.bucket_start, 'YYYY-MM-DD') AS date,
-        last_supply.total AS supply
+        ins.total AS supply
       FROM buckets b
-      LEFT JOIN LATERAL (
-        SELECT ins.total
-        FROM insights_supply ins
-        JOIN block_details bd ON bd.height = ins.height
-        WHERE bd.timestamp < b.bucket_start + (SELECT dur FROM step)
-        ORDER BY bd.height DESC
-        LIMIT 1
-      ) last_supply ON true
+      CROSS JOIN chain_tip ct
+      -- Clamp to [0, chain_tip]: future-bucket-ends use current supply,
+      -- pre-genesis dates fall off the table and yield NULL.
+      LEFT JOIN insights_supply ins ON ins.height = LEAST(
+        ct.h,
+        GREATEST(
+          ct.h - FLOOR(EXTRACT(epoch FROM (
+            now() - (b.bucket_start + (SELECT dur FROM step))
+          )) / 6)::bigint,
+          0
+        )
+      )
       ORDER BY b.bucket_start ASC
     `.execute(pindexerDb),
   ]);
