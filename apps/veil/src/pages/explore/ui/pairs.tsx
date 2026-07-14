@@ -10,10 +10,18 @@ import type { SummaryWithPrices } from '@/shared/api/server/summary';
 import { useDebounce } from '@/shared/utils/use-debounce';
 import { useGetMetadata } from '@/shared/api/assets';
 import { deserialize, Serialized } from '@/shared/utils/serializer';
+import { isPairHealthy } from '@/shared/config/featured-pairs';
 
 interface ExplorePairsProps {
   summaries: Serialized<SummaryWithPrices[]>;
 }
+
+// 24h volume as a single comparable bigint. All summaries are denominated in the
+// same indexing asset, so raw amounts compare directly across pairs.
+const volumeBigInt = (s: SummaryWithPrices): bigint => {
+  const amt = s.volume.amount;
+  return ((amt?.hi ?? 0n) << 64n) | (amt?.lo ?? 0n);
+};
 
 export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
   const getMetadata = useGetMetadata();
@@ -24,6 +32,18 @@ export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
       getMetadata(x.start)?.symbol.toUpperCase() ?? '',
       getMetadata(x.end)?.symbol.toUpperCase() ?? '',
     ]);
+    // Healthy (settleable) pairs first, then by 24h trading volume desc within
+    // each group. Keeps UM/USDC at the top and sinks bridge-paused markets.
+    out.sort((a, b) => {
+      const ah = isPairHealthy(a[1], a[2]);
+      const bh = isPairHealthy(b[1], b[2]);
+      if (ah !== bh) {
+        return ah ? -1 : 1;
+      }
+      const av = volumeBigInt(a[0]);
+      const bv = volumeBigInt(b[0]);
+      return av > bv ? -1 : av < bv ? 1 : 0;
+    });
     return out;
   }, [summaries, getMetadata]);
   const [rawSearch, setSearch] = useState('');

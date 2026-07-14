@@ -11,6 +11,11 @@ import { shortify } from '@penumbra-zone/types/shortify';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useIsLqtEligible } from '@/shared/utils/is-lqt-eligible';
 import { Pair, StarButton, starStore } from '@/features/star-pair';
+import {
+  isPairHealthy,
+  BRIDGE_PAUSED_LABEL,
+  BRIDGE_PAUSED_TOOLTIP,
+} from '@/shared/config/featured-pairs';
 import { LoadingAsset } from './loading-asset';
 
 export interface DefaultResultsProps {
@@ -104,6 +109,14 @@ export const DefaultResults = observer(({ onSelect }: DefaultResultsProps) => {
     );
   }
 
+  // Stable sort keeps the API's volume-desc order within each group while
+  // floating settleable pairs above bridge-paused ones.
+  const suggestedSorted = [...(suggested ?? [])].sort((a, b) => {
+    const ah = isPairHealthy(a.baseAsset.symbol, a.quoteAsset.symbol);
+    const bh = isPairHealthy(b.baseAsset.symbol, b.quoteAsset.symbol);
+    return ah === bh ? 0 : ah ? -1 : 1;
+  });
+
   return (
     <>
       {!!starred.length && (
@@ -138,14 +151,26 @@ export const DefaultResults = observer(({ onSelect }: DefaultResultsProps) => {
 
         <Dialog.RadioGroup>
           <div className='flex flex-col gap-1'>
-            {suggested?.map(({ baseAsset: base, quoteAsset: quote, volume }) => (
+            {suggestedSorted.map(({ baseAsset: base, quoteAsset: quote, volume }) => {
+              const paused = !isPairHealthy(base.symbol, quote.symbol);
+              return (
               <Dialog.RadioItem
                 key={`suggested-${base.symbol}/${quote.symbol}`}
                 value={`${base.symbol}/${quote.symbol}`}
                 title={
-                  <Text color='text.primary'>
-                    {base.symbol}/{quote.symbol}
-                  </Text>
+                  <div className='flex items-center gap-2'>
+                    <Text color={paused ? 'text.secondary' : 'text.primary'}>
+                      {base.symbol}/{quote.symbol}
+                    </Text>
+                    {paused && (
+                      <span
+                        title={BRIDGE_PAUSED_TOOLTIP}
+                        className='whitespace-nowrap rounded-xs bg-secondary-dark px-1.5 py-0.5 text-textXs text-text-secondary'
+                      >
+                        {BRIDGE_PAUSED_LABEL}
+                      </span>
+                    )}
+                  </div>
                 }
                 description={
                   <div className='-mt-2'>
@@ -158,7 +183,8 @@ export const DefaultResults = observer(({ onSelect }: DefaultResultsProps) => {
                 startAdornment={<StartAdornment base={base} quote={quote} />}
                 onSelect={() => onSelect({ base, quote })}
               />
-            ))}
+              );
+            })}
           </div>
         </Dialog.RadioGroup>
       </div>

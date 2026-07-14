@@ -17,6 +17,11 @@ import { useGetMetadata } from '@/shared/api/assets';
 import { toValueView } from '@/shared/utils/value-view';
 import { convertPriceToDisplay } from '@/shared/math/price';
 import { getTradePairPath } from '@/shared/const/pages';
+import {
+  isPairHealthy,
+  BRIDGE_PAUSED_LABEL,
+  BRIDGE_PAUSED_TOOLTIP,
+} from '@/shared/config/featured-pairs';
 
 const getTextSign = (change: number): ReactNode => {
   if (change > 0) {
@@ -62,10 +67,15 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
   const liquidityMetadata = getMetadata(summary.liquidity.assetId);
   const volumeMetadata = getMetadata(summary.volume.assetId);
 
+  const paused = !isPairHealthy(startMetadata.symbol, endMetadata.symbol);
+
   return (
     <Link
       href={getTradePairPath(startMetadata.symbol, endMetadata.symbol)}
-      className='col-span-6 grid cursor-pointer grid-cols-subgrid rounded-sm p-3 transition-colors hover:bg-action-hover-overlay'
+      className={cn(
+        'col-span-6 grid cursor-pointer grid-cols-subgrid rounded-sm p-3 transition-colors hover:bg-action-hover-overlay',
+        paused && 'opacity-45 hover:opacity-70',
+      )}
     >
       <div className='relative flex h-10 items-center gap-2 text-text-primary'>
         <Density compact>
@@ -84,6 +94,15 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
         <Text body>
           {startMetadata.symbol}/{endMetadata.symbol}
         </Text>
+
+        {paused && (
+          <span
+            title={BRIDGE_PAUSED_TOOLTIP}
+            className='whitespace-nowrap rounded-xs bg-secondary-dark px-1.5 py-0.5 text-textXs text-text-secondary'
+          >
+            {BRIDGE_PAUSED_LABEL}
+          </span>
+        )}
       </div>
 
       <div className='flex h-10 flex-col items-end justify-center'>

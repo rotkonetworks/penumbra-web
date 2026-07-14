@@ -1,7 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
-import { getClientSideEnv } from '@/shared/api/env/getClientSideEnv';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
 
 const LAST_PAIR_COOKIE = 'veil_last_pair';
 const LAST_PAIR_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -31,28 +29,19 @@ export const routingMiddleware = async (request: NextRequest) => {
     return NextResponse.next();
   }
 
-  // /trade — redirect to the last viewed pair, or default.
+  // /trade — redirect to the last viewed pair, or the default market.
   if (pathname === '/trade') {
     const lastPair = request.cookies.get(LAST_PAIR_COOKIE)?.value;
     if (lastPair && /^[^/]+\/[^/]+$/.test(lastPair)) {
       return NextResponse.redirect(new URL(`/trade/${lastPair}`, request.url));
     }
 
-    const { PENUMBRA_CHAIN_ID } = getClientSideEnv();
-    const chainRegistryClient = new ChainRegistryClient();
-    const registry = await chainRegistryClient.remote.get(PENUMBRA_CHAIN_ID);
-    const allAssets = registry
-      .getAllAssets()
-      .filter(m => !assetPatterns.delegationToken.matches(m.display))
-      .toSorted((a, b) => Number(b.priorityScore - a.priorityScore));
-
-    const baseAsset = allAssets[0]?.symbol;
-    const quoteAsset = allAssets[1]?.symbol;
-    if (!baseAsset || !quoteAsset) {
-      return NextResponse.redirect(new URL('not-found', request.url));
-    }
-
-    return NextResponse.redirect(new URL(`/trade/${baseAsset}/${quoteAsset}`, request.url));
+    // Pin the default to our highest-volume, always-settleable market (UM/USDC)
+    // rather than the registry's top-2-by-priorityScore, so fresh visitors land
+    // on a working pair while bridged-asset channels are being redeployed.
+    return NextResponse.redirect(
+      new URL(`/trade/${DEFAULT_PAIR.base}/${DEFAULT_PAIR.quote}`, request.url),
+    );
   }
 
   return NextResponse.next();
