@@ -54,10 +54,14 @@ const createGraphqlClient = (): Client => {
             signal: AbortSignal.timeout(10000),
         },
         preferGetMethod: false,
-        // 'cache-first' lets identical queries within a render dedupe.
-        // For data we expect to be live, individual loaders override with
-        // 'network-only' explicitly.
-        requestPolicy: 'cache-first',
+        // 'network-only' every request: this client is module-level (cached
+        // across the whole Node process), so 'cache-first' + long-lived
+        // singleton == every SSR reuses the first response indefinitely —
+        // which is how blocks/validators/etc. drifted hours behind the
+        // chain tip. urql still deduplicates in-flight identical queries
+        // within a single render via its cache exchange, so we keep the
+        // per-render dedup while forcing every render to refetch.
+        requestPolicy: 'network-only',
         url: `https://${host}/graphql`,
     })
 
