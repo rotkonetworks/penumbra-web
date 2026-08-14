@@ -80,6 +80,16 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
         });
         return data;
       })
+      .catch(err => {
+        // A rejected background refresh must clear `refreshing` on the
+        // existing entry — otherwise the flag is wedged as `true` forever
+        // and subsequent requests skip refresh entirely, pinning the
+        // stale entry indefinitely. Log so the failure is visible.
+        const c = cache.get(cacheKey);
+        if (c) c.refreshing = false;
+        console.error('[book] background refresh failed', { cacheKey, err });
+        throw err;
+      })
       .finally(() => {
         inflight.delete(cacheKey);
       });
@@ -90,16 +100,31 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   // immediately and refresh in background. User never waits for pd.
   if (cached) {
     const age = now - (cached.expiresAt - CACHE_TTL_MS);
-    if (age > STALE_THRESHOLD_MS && !cached.refreshing) {
+    // If the entry is grossly stale (> 10× TTL) we've almost certainly
+    // been wedged by a failed refresh; force a fresh compute rather than
+    // keep serving ancient data. Reset the flag to allow a retry.
+    const grosslyStale = age > CACHE_TTL_MS * 10;
+    if (grosslyStale) {
+      cached.refreshing = false;
+    } else if (age > STALE_THRESHOLD_MS && !cached.refreshing) {
       startBackgroundRefresh();
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+          'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
+          'X-Cache-Age-Ms': String(age),
+        },
+      });
+    } else {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+          'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
+          'X-Cache-Age-Ms': String(age),
+        },
+      });
     }
-    return NextResponse.json(cached.data, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
-        'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
-        'X-Cache-Age-Ms': String(age),
-      },
-    });
+    // Fall through to the synchronous compute path below for grosslyStale.
   }
 
   // No cached entry — must compute synchronously. Single-flight to avoid
