@@ -54,7 +54,7 @@ export const TradesTable = ({ error, data, isLoading }: TradesTableProps) => {
           <TableCell heading>Route</TableCell>
         </div>
 
-        {error && <ErrorState error={error} />}
+        {error && !data?.length && <ErrorState error={error} />}
 
         {rows.map((trade, index) => (
           <div
